@@ -4,7 +4,7 @@ This is the honest pre-release status. Architecture, schema, feature maps, or te
 
 ## External activation not performed
 
-- No public production launch, custom domain, or external-host deployment is claimed. An owner-only Sites preview may host the safe-default build.
+- No public production launch, custom domain, or external-host deployment is claimed. The safe-default build is available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site).
 - Production Hypixel and OpenAI credentials are not installed or verified. Any previously exposed credential must be replaced, not reused.
 - Production D1, migrations, backup/restore, scheduler, domain, and observability are not activated.
 - Sites/ChatGPT auth and the administrator allowlist require deployment configuration.

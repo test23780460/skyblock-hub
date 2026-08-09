@@ -6,7 +6,7 @@ SkyPilot is not affiliated with or endorsed by Hypixel Inc., Mojang, or Microsof
 
 ## Current status
 
-This repository is a working, tested foundation—not a completed public production release. A private, owner-only Sites preview may be published from the validated source, but that does not activate live integrations or constitute a public launch.
+This repository is a working, tested foundation—not a completed public production release. The validated safe-default build is published as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site), but that does not activate live integrations or constitute a public launch.
 
 Implemented today:
 

@@ -1,6 +1,6 @@
 # ChatGPT/Codex Sites Deployment
 
-Sites is SkyPilot’s preferred initial host. An owner-only preview can validate the packaged build without being treated as a public production launch or enabling live integrations.
+Sites is SkyPilot’s preferred initial host. The validated safe-default build is deployed at the [owner-only SkyPilot preview](https://skypilot-skyblock.tratv.chatgpt.site). This is not a public production launch and does not enable live integrations.
 
 ## Current readiness
 

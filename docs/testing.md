@@ -29,7 +29,7 @@ On 2026-08-09, this workspace completed:
 - production dependency audit: zero known vulnerabilities;
 - interactive browser QA: clean desktop (1440x1000), mobile (390x844), and narrow mobile (320x720) layouts, native navigation, labeled demo loading, budget replanning, and zero final client-log errors.
 
-This is local evidence, not proof that GitHub Actions or a public deployment has run successfully. The repository CI workflow repeats install, secret-pattern check, migration-history validation, lint, typecheck, tests/build, and a Docker build on GitHub. Docker is installed locally, but its daemon was not running during this pass, so the image build remains CI-verified work rather than a local success claim.
+GitHub Actions independently passed the full workflow for commit `77861b7` in [SkyPilot CI run 31294213800](https://github.com/test23780460/skyblock-hub/actions/runs/31294213800). The same saved source version passed owner-authenticated production smoke checks for the homepage, health route, sitemap, absolute metadata, and labeled demo at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site). No public launch is claimed. Docker is installed locally, but its daemon was not running during this pass, so the container success comes from CI rather than a local run.
 
 ## Important gaps
 
