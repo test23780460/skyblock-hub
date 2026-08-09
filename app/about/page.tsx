@@ -1,0 +1,8 @@
+import type { Metadata } from "next";
+import Link from "@/components/AppLink";
+
+export const metadata: Metadata = { title: "About", description: "SkyPilot is an independent, all-in-one SkyBlock planning platform." };
+
+export default function AboutPage() {
+  return <div className="page-shell prose-page"><header className="about-hero panel"><small>INDEPENDENT SKYBLOCK INTELLIGENCE</small><h1>SkyPilot turns profile data into a flight plan.</h1><p>It connects progression, gear, Magical Power, markets, skills, goals, and transparent calculators so the answer is more useful than another isolated stat page.</p><div className="toolbar"><Link className="button-primary" href="/">Analyze a profile</Link><Link className="button-secondary" href="/more">Explore all tools</Link></div></header><section className="three-column guidance-grid"><article className="guidance-card panel"><span>01</span><h2>Action over noise</h2><p>Recommendations explain what to do, why it matters, estimated cost and benefit, prerequisites, and priority.</p></article><article className="guidance-card panel"><span>02</span><h2>Math before AI</h2><p>Deterministic engines own calculations. AI can explain available facts but cannot rewrite them or invent missing values.</p></article><article className="guidance-card panel"><span>03</span><h2>Independent and fair</h2><p>SkyPilot supports analysis and planning only. It does not automate gameplay or provide prohibited unfair advantages.</p></article></section><div className="notice independence-note"><strong>NOTICE</strong><span>SkyPilot is an independent project and is not affiliated with or endorsed by Hypixel Inc., Mojang, or Microsoft.</span></div></div>;
+}

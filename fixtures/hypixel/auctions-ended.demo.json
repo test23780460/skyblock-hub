@@ -1,0 +1,17 @@
+{
+  "fixtureNotice": "DEMO ONLY - synthetic Hypixel ended-auction response, never live market data",
+  "success": true,
+  "lastUpdated": 1786248000000,
+  "auctions": [
+    {
+      "auction_id": "00000000000000000000000000000003",
+      "seller": "DEMO_IDENTIFIER_DISCARDED_BY_NORMALIZER",
+      "buyer": "DEMO_IDENTIFIER_DISCARDED_BY_NORMALIZER",
+      "timestamp": 1786247990000,
+      "price": 525000,
+      "bin": true,
+      "item_bytes": "DEMO_VALUE_NOT_REAL_NBT"
+    }
+  ]
+}
+

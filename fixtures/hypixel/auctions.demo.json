@@ -1,0 +1,24 @@
+{
+  "fixtureNotice": "DEMO ONLY - synthetic Hypixel active-auction response, never live market data",
+  "success": true,
+  "page": 0,
+  "totalPages": 1,
+  "totalAuctions": 1,
+  "lastUpdated": 1786248000000,
+  "auctions": [
+    {
+      "uuid": "00000000000000000000000000000003",
+      "item_name": "Fixture Sword",
+      "category": "weapon",
+      "tier": "RARE",
+      "starting_bid": 500000,
+      "highest_bid_amount": 500000,
+      "bin": true,
+      "start": 1786244400000,
+      "end": 1786330800000,
+      "bids": [],
+      "item_bytes": "DEMO_VALUE_NOT_REAL_NBT"
+    }
+  ]
+}
+

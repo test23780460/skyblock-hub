@@ -1,0 +1,55 @@
+{
+  "fixtureNotice": "DEMO ONLY - synthetic Hypixel SkyBlock profile response, never live data",
+  "success": true,
+  "profiles": [
+    {
+      "profile_id": "00000000000000000000000000000002",
+      "cute_name": "Pineapple",
+      "selected": true,
+      "game_mode": "normal",
+      "banking": {
+        "balance": 4200000
+      },
+      "members": {
+        "00000000000000000000000000000001": {
+          "profile": {
+            "last_save": 1786248000000
+          },
+          "currencies": {
+            "coin_purse": 1250000
+          },
+          "leveling": {
+            "experience": 12345
+          },
+          "player_data": {
+            "experience": {
+              "SKILL_FARMING": 1800000,
+              "SKILL_MINING": 2400000,
+              "SKILL_COMBAT": 2100000,
+              "SKILL_FORAGING": 450000,
+              "SKILL_FISHING": 900000,
+              "SKILL_ENCHANTING": 2600000,
+              "SKILL_ALCHEMY": 700000
+            }
+          },
+          "accessory_bag_storage": {
+            "highest_magical_power": 287
+          },
+          "dungeons": {
+            "dungeon_types": {
+              "catacombs": {
+                "experience": 650000
+              }
+            }
+          },
+          "slayer_bosses": {
+            "zombie": { "xp": 12500 },
+            "spider": { "xp": 6400 },
+            "wolf": { "xp": 8100 }
+          }
+        }
+      }
+    }
+  ]
+}
+

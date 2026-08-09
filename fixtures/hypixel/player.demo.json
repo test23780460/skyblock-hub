@@ -1,0 +1,9 @@
+{
+  "fixtureNotice": "DEMO ONLY - synthetic Hypixel player response, never live data",
+  "success": true,
+  "player": {
+    "uuid": "00000000000000000000000000000001",
+    "displayname": "PilotFixture"
+  }
+}
+

@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "declaration": false,
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": "../../node_modules/.cache/skypilot-service-tests",
+    "rootDir": "../..",
+    "target": "ES2022"
+  },
+  "include": [
+    "../../lib/engines/**/*.ts",
+    "../../lib/game-data/**/*.ts",
+    "../../lib/services/**/*.ts",
+    "../../lib/models.ts"
+  ]
+}

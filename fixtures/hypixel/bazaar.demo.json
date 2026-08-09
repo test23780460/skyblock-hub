@@ -1,0 +1,24 @@
+{
+  "fixtureNotice": "DEMO ONLY - synthetic Hypixel Bazaar response, never live market data",
+  "success": true,
+  "lastUpdated": 1786248000000,
+  "products": {
+    "ENCHANTED_CARROT": {
+      "product_id": "ENCHANTED_CARROT",
+      "buy_summary": [],
+      "sell_summary": [],
+      "quick_status": {
+        "productId": "ENCHANTED_CARROT",
+        "buyPrice": 412.5,
+        "sellPrice": 418.25,
+        "buyVolume": 125000,
+        "sellVolume": 98000,
+        "buyMovingWeek": 5500000,
+        "sellMovingWeek": 5100000,
+        "buyOrders": 84,
+        "sellOrders": 67
+      }
+    }
+  }
+}
+
