@@ -15,6 +15,11 @@ SkyPilot separates user-facing routes, deterministic SkyBlock logic, external pr
 | Background jobs | `worker/jobs/` | Scheduler-independent elected public-economy cycle and normalized feed jobs. |
 | Runtime edge | `worker/index.ts`, `vite.config.ts` | vinext/Cloudflare request handling, bindings, and image transformation. |
 
+The generated Worker enables Cloudflare's `global_fetch_strictly_public`
+compatibility flag because Hypixel's public API is itself Cloudflare-fronted.
+This keeps outbound provider requests on the public route instead of treating
+them as implicit same-zone Worker calls.
+
 ## Data paths
 
 ### Player lookup

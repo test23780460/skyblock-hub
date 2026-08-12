@@ -18,6 +18,14 @@ async function fetchRoute(path) {
   );
 }
 
+test("production Worker routes Cloudflare-fronted providers through public fetch", async () => {
+  const config = JSON.parse(
+    await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
+  );
+  assert.ok(config.compatibility_flags.includes("nodejs_compat"));
+  assert.ok(config.compatibility_flags.includes("global_fetch_strictly_public"));
+});
+
 test("server-renders the finished SkyPilot homepage", async () => {
   const response = await fetchRoute("/");
   assert.equal(response.status, 200);
