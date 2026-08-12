@@ -12,7 +12,7 @@ SkyPilot separates user-facing routes, deterministic SkyBlock logic, external pr
 | Upstream providers | `lib/providers/` | Minecraft/Hypixel HTTP, validation, normalization, caching, backoff, and safe errors. |
 | Persistence contracts | `lib/repositories/contracts.ts` | Provider-neutral records and interfaces used by business services. |
 | D1 adapter | `db/`, `lib/repositories/drizzle/` | D1-compatible Drizzle schema, connection composition, and repository implementation. |
-| Background jobs | `worker/jobs/` | Scheduler-independent Bazaar and Auction refresh functions with pluggable sinks. |
+| Background jobs | `worker/jobs/` | Scheduler-independent elected public-economy cycle and normalized feed jobs. |
 | Runtime edge | `worker/index.ts`, `vite.config.ts` | vinext/Cloudflare request handling, bindings, and image transformation. |
 
 ## Data paths
@@ -30,20 +30,23 @@ Player requests use a shared cache inside one runtime: one-hour fresh TTL and up
 ### Public economy
 
 ```text
-Public Hypixel feed -> bounded normalizer -> short shared cache
-  -> current web view and/or scheduler-independent worker -> optional sink
-  -> snapshots/aggregates/sales/valuation tables
+Scheduled trigger or allowlisted admin request
+  -> durable D1 lease + fencing token + global backoff
+  -> public Hypixel feeds -> bounded normalizers
+  -> complete Bazaar/active-Auction snapshot + deduplicated ended sales
+  -> idempotent Bazaar hour/day aggregation + bounded retention
+  -> product API reads D1 only -> bounded browser view
 ```
 
-The read routes work directly against normalized public feeds today. Worker functions exist, but production scheduling and a persistent sink are not yet composed.
+`worker/jobs/economy.ts` coordinates ended sales, Bazaar, and the complete active-Auction page set. The Bazaar job also aggregates each newer source timestamp into OHLC/average-volume hour/day buckets and prunes the configured 90-day/three-year windows. Mixed/stale/older cycles are not published, and stale workers cannot overwrite a newer lease. Public web routes never call Hypixel directly. The Cloudflare scheduled handler is implemented, but production migration and schedule registration remain external activation work.
 
 ### AI
 
-The AI route receives a bounded question, detail mode, and optional structured context. Its instructions state that deterministic SkyPilot outputs are authoritative. It uses the OpenAI Responses API with `store: false`, a timeout, bounded output, and graceful unavailable states. The current UI attaches labeled demo context only; live selected-profile attachment is incomplete.
+The AI route receives a bounded question, detail mode, and selectors/scenario inputs—not client-supplied profile facts or prices. On the server it may resolve a labeled demo or request-driven live profile, progression/recommendation roadmap, fresh durable Bazaar rows, and one deterministic calculator result. The OpenAI Responses request uses `store: false`, a strict schema, bounded output, and a timeout; a post-validator rejects unknown evidence and unsupported/conflicting numeric claims. Metrics persist aggregate time buckets only. Broader item/accessory/money-making knowledge and distributed abuse limiting remain incomplete.
 
 ## Persistence
 
-The schema has 30 normalized tables for canonical users and auth identities, Minecraft accounts/profiles, goals and recommendation state, builds/favorites/preferences, items and economy history, cache metadata, feature overrides, analytics/audits, jobs/runs, and API/AI/error metrics.
+The schema has 36 normalized tables for canonical users and auth identities, Minecraft accounts/profiles, goals and recommendation state, builds/favorites/preferences, items and economy history, durable public-economy feeds/worker state/history buckets, cache metadata, feature overrides, analytics/audits, jobs/runs, and aggregate API/AI/error metrics.
 
 Application-generated text IDs, integer epoch-millisecond timestamps, explicit foreign keys, uniqueness, indexes, and checks keep the SQLite/D1 model migration-friendly. JSON is limited to evolving game/provider fragments and opaque settings/evidence.
 
@@ -57,7 +60,6 @@ Deterministic engines and repository contracts are host-neutral. The current exe
 
 - cache, single-flight, Hypixel rate state, and AI request limiting are per-runtime memory;
 - the feature-flag definitions/repository exist, but route/UI enforcement is incomplete;
-- scheduled job registration, persistent economy sinks, aggregate retention, and valuation workers are not activated;
+- production scheduled-trigger registration, Auction/item aggregation, and valuation/compaction workers are not activated;
 - the PostgreSQL adapter and full external worker/runtime composition are documented but not implemented;
-- authenticated writes need deployment-specific CSRF/origin hardening and E2E permission tests.
-
+- authenticated browser writes require an explicit exact Origin and trusted Sites identity boundary; E2E permission tests and external-host CSRF/proxy composition remain incomplete.

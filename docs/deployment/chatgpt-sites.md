@@ -6,16 +6,17 @@ Sites is SkyPilot’s preferred initial host. The validated safe-default build i
 
 - vinext production build passes;
 - `.openai/hosting.json` declares the logical D1 binding `DB` and no R2 binding;
-- a generated Drizzle SQLite migration and metadata are present in the repository workspace;
+- four generated Drizzle SQLite migrations and metadata are present and pass clean-database smoke;
 - the Cloudflare worker entry expects `ASSETS`, `DB`, and image bindings;
+- the worker entry includes a scheduled public-economy handler backed by a durable D1 lease/snapshot store;
 - optional Sites/ChatGPT identity helpers and canonical-user mapping exist;
 - production secrets, D1 data, scheduler, admin allowlist, domain, and public access are not activated.
 
 ## Preflight
 
 1. Revoke and replace any credential previously exposed outside a secret manager.
-2. Run `npm run lint`, `npm run typecheck`, and `npm test` on the exact source to publish.
-3. Verify the generated migration matches `db/schema.ts` with Drizzle’s migration check.
+2. Run `npm run lint`, `npm run typecheck`, `npm run db:check`, `npm run db:smoke`, and `npm test` on the exact source to publish.
+3. Verify all four generated migrations match `db/schema.ts`, inspect the forward SQL, and run the migration smoke.
 4. Review [Known limitations](../limitations.md), [Security](../../SECURITY.md), and the current [Hypixel policy](../policies/hypixel-api.md).
 5. Decide whether this version is private. Private is the safe default; do not make it shared/public without explicit owner approval.
 
@@ -25,14 +26,14 @@ Sites is SkyPilot’s preferred initial host. The validated safe-default build i
 
 Required/optional runtime configuration:
 
-- D1 binding `DB` and the repository migration for goal/account persistence;
+- D1 binding `DB` and all four repository migrations for saved account/goals/build state, aggregate AI metrics, and durable public-economy state/history;
 - replacement `HYPIXEL_API_KEY` for player lookup;
 - replacement `OPENAI_API_KEY` and an accessible `OPENAI_MODEL` for optional AI;
 - real `SITE_URL` and optional `SITE_NAME`;
 - verified `ADMIN_USER_IDS` for administrators;
 - launch-deferred flags kept off.
 
-Public Bazaar/Auction reads do not use the authenticated Hypixel key.
+Public Bazaar/Auction web reads use D1 snapshots and do not use the authenticated Hypixel key. Configure exactly one intended schedule before enabling public economy.
 
 ## Sites publish flow
 
@@ -59,14 +60,14 @@ Verify the deployed access policy and that untrusted clients cannot spoof the tr
 
 - homepage, navigation, labeled demo, privacy/about/status pages;
 - `/api/health` dependency states;
-- Bazaar and one bounded Auction page;
+- a completed economy worker cycle followed by Bazaar and snapshot-wide bounded Auction search;
 - live player lookup only after the replacement Hypixel key is installed;
 - AI unavailable state or one bounded request after activation;
-- anonymous goal rejection, signed-in goal persistence, and database migration state;
+- anonymous goal rejection, signed-in goal lifecycle, account deletion on a test identity, and database migration state;
 - non-admin rejection and allowlisted admin access/actions;
 - metadata, sitemap, robots exclusions, social image, responsive layouts, and error/loading states;
 - no secret in browser assets, responses, logs, source maps, or hosting metadata.
 
 ## Operational limitations
 
-Sites deployment alone does not activate a durable economy scheduler/sink or distributed cache/rate budget. If the web host cannot provide those safely, deploy the worker/supporting services separately and have the Sites frontend consume product-specific data. Do not remove the feature or poll player profiles as a substitute.
+Sites source includes the durable D1 economy sink and scheduled handler, but saving a web version does not apply migrations or register/verify the production trigger. It also does not provide distributed player cache/rate budgets. If the host cannot schedule the worker safely, deploy a compatible worker/store separately and keep the Sites frontend on product-specific snapshot APIs. Do not poll player profiles as a substitute.

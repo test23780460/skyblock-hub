@@ -13,6 +13,8 @@ import {
   rarities,
   skills,
   slayers,
+  standardSkillLevelFromXp,
+  totalStandardSkillXpForLevel,
 } from "../../node_modules/.cache/skypilot-service-tests/lib/game-data/index.js";
 
 test("central game catalogs use unique stable identifiers", () => {
@@ -45,4 +47,11 @@ test("feature metadata names its data boundary and optional engine", () => {
   assert.ok(features.every((feature) => acceptedSources.has(feature.dataSource)));
   assert.equal(findFeature("bazaar")?.dataSource, "economy");
   assert.equal(findFeature("calculators")?.dataSource, "manual");
+});
+
+test("the centralized standard skill curve round-trips fractional levels", () => {
+  assert.equal(totalStandardSkillXpForLevel(1), 50);
+  assert.equal(totalStandardSkillXpForLevel(1.5), 112.5);
+  assert.deepEqual(standardSkillLevelFromXp(112.5), { level: 1.5, progress: 50 });
+  assert.throws(() => totalStandardSkillXpForLevel(61, 60), /cannot exceed/);
 });

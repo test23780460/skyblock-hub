@@ -26,7 +26,7 @@ This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic
 
 - Replace Sites identity headers with a verified provider adapter.
 - Map provider subjects to existing canonical `users.id`; do not move provider IDs into business tables.
-- Implement secure cookie/session storage, callback validation, CSRF/origin protection, account linking/deletion, and admin allowlist/roles.
+- Implement secure cookie/session storage, callback validation, CSRF/origin protection, and admin allowlist/roles while preserving SkyPilot's canonical identity and tested account-deletion cascade/set-null semantics.
 
 ## 5. Cache, queues, workers, and schedules
 
@@ -46,7 +46,7 @@ This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic
 ## 7. Validate and cut over
 
 1. Run lint, typecheck, full tests/build, database checks, and critical E2E against the target.
-2. Smoke-test anonymous profile/economy routes, authenticated goals, admin authorization, and optional AI failure/success.
+2. Run the equivalent of `npm run db:smoke`, then smoke-test anonymous profile/economy routes, full authenticated goal lifecycle, application-account deletion, admin authorization, first durable economy publish/read, and optional AI failure/success.
 3. Verify shared rate/cache behavior under multiple replicas.
 4. Re-run Hypixel policy, security, performance, accessibility, and visual audits.
 5. Put the old deployment in read-only/maintenance mode for the final delta if necessary.

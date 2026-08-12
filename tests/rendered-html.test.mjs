@@ -47,6 +47,95 @@ test("renders major navigation and profile loading states", async () => {
   assert.match(await bazaar.text(), /Bazaar explorer/i);
 });
 
+test("calculator lab server-renders six deterministic tools", async () => {
+  const response = await fetchRoute("/calculators");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Six working, deterministic planners/i);
+  assert.match(html, /Farming XP target/i);
+  assert.match(html, /SkyBlock calculators/i);
+  assert.match(html, /Calculated locally/i);
+});
+
+test("accessory page renders the family-aware optimizer", async () => {
+  const response = await fetchRoute("/accessories");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Accessory optimizer/i);
+  assert.match(html, /Editable reference catalog/i);
+  assert.match(html, /Exact budget plan/i);
+  assert.match(html, /not live quotes/i);
+});
+
+test("garden page renders the crop-specific Fortune optimizer", async () => {
+  const response = await fetchRoute("/garden");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Garden optimizer/i);
+  assert.match(html, /Fortune breakdown/i);
+  assert.match(html, /Coins per Fortune/i);
+  assert.match(html, /not live data/i);
+});
+
+test("money-making page renders the personalized deterministic ranker", async () => {
+  const response = await fetchRoute("/money-making");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Money-making flight plan/i);
+  assert.match(html, /Editable method scenarios/i);
+  assert.match(html, /Deterministic ranking/i);
+  assert.match(html, /not live quotes or guarantees/i);
+});
+
+test("economy overview renders working craft and NPC comparison labs", async () => {
+  const response = await fetchRoute("/economy");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Economy command center/i);
+  assert.match(html, /Craft flip evaluator/i);
+  assert.match(html, /NPC.*Bazaar comparison/i);
+  assert.match(html, /editable example assumption/i);
+});
+
+test("skills page renders all seven core level-to-time planners", async () => {
+  const response = await fetchRoute("/skills");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Core skill flight plan/i);
+  assert.match(html, /Core skill target summaries/i);
+  assert.match(html, /Target total XP/i);
+  for (const skill of ["Farming", "Mining", "Foraging", "Fishing", "Combat", "Enchanting", "Alchemy"]) {
+    assert.match(html, new RegExp(skill, "i"));
+  }
+});
+
+test("AI page renders selector-only grounding and deterministic authority rules", async () => {
+  const response = await fetchRoute("/ai?demo=1");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /SkyPilot resolves facts on the server and rejects model output that conflicts with them/i);
+  assert.match(html, /Grounding context/i);
+  assert.match(html, /Accepts selectors, never client-supplied player facts or prices/i);
+  assert.match(html, /Stores aggregate usage metrics, never prompts or answers/i);
+});
+
+test("Dungeon, Slayer, and minion destinations open their working focused planners", async () => {
+  const [dungeons, slayers, minions] = await Promise.all([
+    fetchRoute("/dungeons"),
+    fetchRoute("/slayers"),
+    fetchRoute("/minions"),
+  ]);
+  const dungeonHtml = await dungeons.text();
+  assert.match(dungeonHtml, /Dungeon run planner/i);
+  assert.match(dungeonHtml, /Floor readiness check/i);
+  assert.match(dungeonHtml, /UNOFFICIAL SCORE/i);
+  assert.match(await slayers.text(), /Slayer roadmap/i);
+  const minionHtml = await minions.text();
+  assert.match(minionHtml, /Minion production planner/i);
+  assert.match(minionHtml, /Cheapest route to the next minion slot/i);
+  assert.match(minionHtml, /Exact plan/i);
+});
+
 test("every public product destination server-renders", async () => {
   const routes = [
     "/",
@@ -104,6 +193,17 @@ test("safe-default player lookup gate fails clearly without demo fallback", asyn
   const payload = await response.json();
   assert.equal(payload.error.code, "feature_disabled");
   assert.doesNotMatch(JSON.stringify(payload), /PilotExample|demo-watermelon/);
+});
+
+test("disabled persistence and economy APIs fail clearly without loading Cloudflare bindings", async () => {
+  const [goals, economy] = await Promise.all([
+    fetchRoute("/api/goals"),
+    fetchRoute("/api/economy/bazaar"),
+  ]);
+  assert.equal(goals.status, 503);
+  assert.equal((await goals.json()).error.code, "feature_disabled");
+  assert.equal(economy.status, 503);
+  assert.equal((await economy.json()).error.code, "feature_disabled");
 });
 
 test("health remains a successful liveness check with integrations disabled", async () => {

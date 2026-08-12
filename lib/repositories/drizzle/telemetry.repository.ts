@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
 import {
   adminAuditLogs,
@@ -128,6 +128,54 @@ export class DrizzleTelemetryRepository implements TelemetryRepository {
       });
   }
 
+  async getAiMetricSummary(
+    input: Parameters<TelemetryRepository["getAiMetricSummary"]>[0],
+  ): Promise<Awaited<ReturnType<TelemetryRepository["getAiMetricSummary"]>>> {
+    const filter = and(
+      eq(aiMetrics.provider, input.provider),
+      eq(aiMetrics.resolution, input.resolution),
+      gte(aiMetrics.windowStartedAt, input.since),
+    );
+    const [totals] = await this.db
+      .select({
+        requestCount: sql<number>`coalesce(sum(${aiMetrics.requestCount}), 0)`,
+        failureCount: sql<number>`coalesce(sum(${aiMetrics.failureCount}), 0)`,
+        inputTokens: sql<number>`coalesce(sum(${aiMetrics.inputTokens}), 0)`,
+        outputTokens: sql<number>`coalesce(sum(${aiMetrics.outputTokens}), 0)`,
+        estimatedCostUsd: sql<number>`coalesce(sum(${aiMetrics.estimatedCostUsd}), 0)`,
+        latencyTotalMs: sql<number>`coalesce(sum(${aiMetrics.latencyTotalMs}), 0)`,
+        latencyMaxMs: sql<number>`coalesce(max(${aiMetrics.latencyMaxMs}), 0)`,
+      })
+      .from(aiMetrics)
+      .where(filter);
+    const categories = await this.db
+      .select({
+        category: aiMetrics.category,
+        requestCount: sql<number>`coalesce(sum(${aiMetrics.requestCount}), 0)`,
+        failureCount: sql<number>`coalesce(sum(${aiMetrics.failureCount}), 0)`,
+      })
+      .from(aiMetrics)
+      .where(filter)
+      .groupBy(aiMetrics.category)
+      .orderBy(desc(sql`sum(${aiMetrics.requestCount})`), aiMetrics.category)
+      .limit(20);
+
+    return {
+      requestCount: finiteNumber(totals?.requestCount),
+      failureCount: finiteNumber(totals?.failureCount),
+      inputTokens: finiteNumber(totals?.inputTokens),
+      outputTokens: finiteNumber(totals?.outputTokens),
+      estimatedCostUsd: finiteNumber(totals?.estimatedCostUsd),
+      latencyTotalMs: finiteNumber(totals?.latencyTotalMs),
+      latencyMaxMs: finiteNumber(totals?.latencyMaxMs),
+      categories: categories.map((row) => ({
+        category: row.category.slice(0, 80),
+        requestCount: finiteNumber(row.requestCount),
+        failureCount: finiteNumber(row.failureCount),
+      })),
+    };
+  }
+
   async recordError(input: Parameters<TelemetryRepository["recordError"]>[0]): Promise<void> {
     await this.db
       .insert(applicationErrors)
@@ -157,4 +205,9 @@ export class DrizzleTelemetryRepository implements TelemetryRepository {
         },
       });
   }
+}
+
+function finiteNumber(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }

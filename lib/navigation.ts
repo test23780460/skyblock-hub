@@ -56,6 +56,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Tools",
     items: [
       { label: "Calculators", href: "/calculators", icon: "#", description: "XP, profit, and upgrade math" },
+      { label: "Builds", href: "/builds", icon: "+", description: "Save and share loadout plans" },
       { label: "AI Assistant", href: "/ai", icon: "✣", description: "Profile-aware explanations", badge: "AI" },
       { label: "Account", href: "/account", icon: "○", description: "Saved profiles and preferences" },
       { label: "Admin", href: "/admin", icon: "⚙", description: "Operations and health" },

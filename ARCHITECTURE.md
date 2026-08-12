@@ -43,7 +43,7 @@ The portable contracts live in [`lib/repositories/contracts.ts`](lib/repositorie
 - job runs;
 - privacy-conscious telemetry and audit records.
 
-The D1 implementation lives under [`lib/repositories/drizzle`](lib/repositories/drizzle). `createDrizzleRepositoryProvider` is the composition point that binds a Drizzle database to the portable contracts. Application services should accept the aggregate provider or the smallest repository interface they require.
+The D1 implementation lives under [`lib/repositories/drizzle`](lib/repositories/drizzle). `createDrizzleRepositoryProvider` binds product repositories to Drizzle. The high-volume public feed path uses the narrower `PublicEconomySnapshotStore` contract in `lib/repositories/economy-snapshots.ts` and its fenced D1 adapter. Application services should accept the aggregate provider or the smallest repository/store interface they require.
 
 New persistence backends should implement the same contracts in a sibling adapter directory. Contract changes must describe business needs, not SQLite syntax.
 
@@ -54,7 +54,7 @@ The schema is split by domain under [`db/schema`](db/schema):
 - `identity.ts`: canonical users, external identities, roles, and preferences;
 - `player.ts`: Minecraft accounts, user links, SkyBlock profile identities, and saved profiles;
 - `product.ts`: goals/steps, recommendation state, saved builds, and favorites;
-- `economy.ts`: items, Bazaar products/snapshots/aggregates, auctions/sales, and valuations;
+- `economy.ts`: items, general Bazaar/Auction history/valuations, plus durable public worker/feed state, current Bazaar/active-Auction versions, and retained ended sales;
 - `platform.ts`: cache metadata, flags/overrides, analytics, admin audit, jobs/runs, API/AI metrics, and application errors.
 
 Stable identifiers and relationships are columns with foreign keys. JSON is limited to data whose shape legitimately evolves or is intentionally opaque at this layer, including item fragments, build definitions, recommendation evidence, goal targets, feature configuration, provider metadata, job payloads/results, and redacted telemetry context.
@@ -81,7 +81,7 @@ Analytics stores optional canonical user IDs or one-way anonymous hashes, never 
 
 `minecraft_accounts` and `skyblock_profiles` identify data fetched because a visitor requested it. Their freshness fields support request-driven caching; they are not permission to poll players or build automated session history.
 
-Bazaar, auctions, ended sales, items, and permitted public resources use centralized ingestion. Raw Bazaar snapshots roll into hour/day aggregates so retention can discard redundant raw history while preserving useful long-term trends. Player and public-economy pipelines must remain operationally and logically separate.
+Bazaar, active Auctions, and ended sales use centralized ingestion today. The elected worker publishes the latest complete Bazaar/active versions and bounded deduplicated ended sales, then idempotently folds newer Bazaar summaries into 90-day hourly and three-year daily OHLC/average-volume buckets; web routes read only those D1 views. Auction/item aggregation, broader long-term compaction, valuation jobs, items, and other permitted resources remain planned. Player and public-economy pipelines stay operationally and logically separate.
 
 ## Cache architecture
 
@@ -101,7 +101,7 @@ D1 does not provide every PostgreSQL transaction/locking primitive. Cross-record
 
 ## Source of truth and AI
 
-Official Hypixel APIs/documentation, permitted collected economy data, and deterministic calculators are authoritative. AI receives structured outputs from those services and may explain or prioritize them; it must not overwrite deterministic facts. AI unavailability cannot break profile, economy, or calculator features.
+Official Hypixel APIs/documentation, permitted collected economy data, and deterministic calculators are authoritative. The AI route resolves bounded profile, progression, current Bazaar, and calculator context from server selectors; clients cannot submit their own facts or prices. Strict structured-output validation rejects unknown evidence and unsupported or conflicting numeric claims. AI may explain or prioritize authoritative results but cannot overwrite them, and AI unavailability cannot break profile, economy, or calculator features.
 
 ## Deployment portability
 
@@ -117,4 +117,3 @@ Portability checks before release:
 6. The complete web and worker stack can run outside Sites without rewriting SkyBlock logic.
 
 See [`docs/database/README.md`](docs/database/README.md), [`docs/database/migrations.md`](docs/database/migrations.md), and [`docs/database/portability.md`](docs/database/portability.md) for operational detail.
-

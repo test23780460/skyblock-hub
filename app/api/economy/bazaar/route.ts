@@ -1,58 +1,47 @@
-import { providerErrorResponse } from "../../../../lib/providers/errors";
-import { hypixelProvider } from "../../../../lib/providers/hypixel";
 import { featureUnavailableResponse } from "../../../../lib/feature-access";
+import type { PublicEconomySnapshotStore } from "../../../../lib/repositories/economy-snapshots";
+import {
+  economyNotReadyResponse,
+  economyResponse,
+  economyStorageErrorResponse,
+  publicEconomyStore,
+  safeLimit,
+  safeSearch,
+  snapshotCacheStatus,
+} from "../_shared";
 
 export async function GET(request: Request): Promise<Response> {
   const unavailable = featureUnavailableResponse("publicEconomy");
   if (unavailable) return unavailable;
   try {
-    const url = new URL(request.url);
-    const query = safeSearch(url.searchParams.get("q"));
-    const limit = safeLimit(url.searchParams.get("limit"), 100, 250);
-    const result = await hypixelProvider.getBazaar();
-    const products = result.data.products
-      .filter((product) =>
-        query ? product.productId.toLowerCase().includes(query) : true,
-      )
-      .slice(0, limit);
-
-    return economyResponse({
-      source: "hypixel",
-      cacheStatus: result.cacheStatus,
-      fetchedAt: new Date(result.storedAt).toISOString(),
-      lastUpdated: new Date(result.data.lastUpdated).toISOString(),
-      products,
-      meta: {
-        returned: products.length,
-        available: result.data.products.length,
-        skippedMalformed: result.data.skippedProducts,
-      },
-      notice:
-        "Prices are Hypixel's computed Bazaar summary values, not guaranteed executable trades or profit.",
-    });
+    return await bazaarSnapshotResponse(request, await publicEconomyStore());
   } catch (error) {
-    return providerErrorResponse(error);
+    return economyStorageErrorResponse(error);
   }
 }
 
-function safeSearch(value: string | null): string {
-  return value?.trim().toLowerCase().slice(0, 64) ?? "";
-}
+export async function bazaarSnapshotResponse(
+  request: Request,
+  store: Pick<PublicEconomySnapshotStore, "readBazaarSnapshot">,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const query = safeSearch(url.searchParams.get("q"));
+  const limit = safeLimit(url.searchParams.get("limit"), 100, 250);
+  const result = await store.readBazaarSnapshot({ query, limit });
+  if (!result) return economyNotReadyResponse("Bazaar");
 
-function safeLimit(value: string | null, fallback: number, maximum: number): number {
-  if (!value) return fallback;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0
-    ? Math.min(parsed, maximum)
-    : fallback;
-}
-
-function economyResponse(data: unknown): Response {
-  return new Response(JSON.stringify({ data }), {
-    status: 200,
-    headers: {
-      "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
-      "Content-Type": "application/json; charset=utf-8",
+  return economyResponse({
+    source: "hypixel-public-snapshot",
+    cacheStatus: snapshotCacheStatus(result.state),
+    fetchedAt: result.state.publishedAt.toISOString(),
+    lastUpdated: result.state.sourceUpdatedAt.toISOString(),
+    products: result.products,
+    meta: {
+      returned: result.products.length,
+      available: result.state.recordCount,
+      skippedMalformed: result.state.skippedMalformed,
     },
+    notice:
+      "Prices are Hypixel's computed Bazaar summary values, not guaranteed executable trades or profit.",
   });
 }

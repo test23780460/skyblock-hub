@@ -1,0 +1,253 @@
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.panelBody {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: .04em;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255,255,255,.025);
+  color: var(--text);
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 9px;
+  line-height: 1.5;
+  outline: 0;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: rgba(101,232,255,.55);
+  box-shadow: 0 0 0 2px rgba(101,232,255,.1);
+}
+
+.field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 39px;
+  color: var(--text);
+  font-size: 9px;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--cyan);
+}
+
+.list {
+  display: grid;
+  gap: 9px;
+}
+
+.card {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.018);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardHead h3,
+.cardHead p,
+.card p {
+  margin: 0;
+}
+
+.cardHead h3 {
+  font-size: 12px;
+}
+
+.card p,
+.muted {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(101,232,255,.28);
+  border-radius: 999px;
+  color: var(--cyan);
+  padding: 4px 7px;
+  font-size: 6px;
+  letter-spacing: .1em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions button,
+.textButton {
+  border: 0;
+  background: none;
+  color: var(--cyan);
+  cursor: pointer;
+  padding: 3px 0;
+  font: inherit;
+  font-size: 8px;
+}
+
+.actions button:hover,
+.actions button:focus-visible,
+.textButton:hover,
+.textButton:focus-visible {
+  text-decoration: underline;
+}
+
+.actions button:disabled,
+.textButton:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.danger {
+  color: var(--rose) !important;
+}
+
+.status {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.error {
+  color: var(--rose);
+}
+
+.privacy {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.privacy label {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.privacy label:has(input:checked) {
+  border-color: rgba(101,232,255,.48);
+  background: rgba(101,232,255,.055);
+}
+
+.privacy strong {
+  font-size: 9px;
+}
+
+.privacy span {
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.summary div {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.summary small,
+.summary strong {
+  display: block;
+}
+
+.summary small {
+  color: var(--muted);
+  font-size: 6px;
+}
+
+.summary strong {
+  margin-top: 5px;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.compact .card {
+  padding: 9px 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .actions button,
+  .textButton {
+    scroll-behavior: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .grid,
+  .formGrid,
+  .privacy,
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .wide {
+    grid-column: auto;
+  }
+}

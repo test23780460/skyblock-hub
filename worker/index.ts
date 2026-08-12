@@ -1,6 +1,8 @@
 /** Cloudflare Worker entry point for the SkyPilot vinext application. */
+import { featureFlags } from "../lib/config";
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { runPublicEconomyCycle } from "./jobs";
 import { withBrowserSecurityHeaders } from "./security-headers";
 
 interface Env {
@@ -45,6 +47,33 @@ const worker = {
     const response = await handler.fetch(request, env, ctx);
     return withBrowserSecurityHeaders(response, url);
   },
+
+  scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): void {
+    // Public economy remains an explicit deployment opt-in. Disabled cron
+    // ticks make no upstream calls and do not mutate durable state.
+    if (!featureFlags.publicEconomy) return;
+    ctx.waitUntil(runScheduledPublicEconomy(env.DB));
+  },
 };
+
+export async function runScheduledPublicEconomy(
+  binding: D1Database,
+): Promise<void> {
+  // Keep D1 composition out of the fetch/render module graph. Node-based build
+  // and route inspection do not provide the `cloudflare:workers` runtime module.
+  const [{ createDb }, { DrizzlePublicEconomySnapshotStore }] =
+    await Promise.all([
+      import("../db"),
+      import(
+        "../lib/repositories/drizzle/public-economy-snapshot.repository"
+      ),
+    ]);
+  const store = new DrizzlePublicEconomySnapshotStore(createDb(binding));
+  await runPublicEconomyCycle({ store });
+}
 
 export default worker;

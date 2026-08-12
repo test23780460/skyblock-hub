@@ -43,6 +43,9 @@ export const userMinecraftAccounts = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.minecraftAccountId] }),
     index("user_minecraft_accounts_account_idx").on(table.minecraftAccountId),
+    uniqueIndex("user_minecraft_accounts_primary_uidx")
+      .on(table.userId)
+      .where(sql`${table.isPrimary} = 1`),
   ],
 );
 

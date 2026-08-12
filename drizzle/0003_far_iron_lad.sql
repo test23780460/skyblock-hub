@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `user_minecraft_accounts_primary_uidx` ON `user_minecraft_accounts` (`user_id`) WHERE "user_minecraft_accounts"."is_primary" = 1;--> statement-breakpoint
+CREATE INDEX `saved_builds_visibility_updated_idx` ON `saved_builds` (`visibility`,`updated_at`);

@@ -8,7 +8,7 @@ const sections = [
   ["Optional accounts", "Enabled public tools work anonymously. When account sync is enabled, signed-in data uses a canonical SkyPilot user ID so authentication providers can be replaced without rewriting ownership records."],
   ["Economy data", "Bazaar and auction information comes from public resource feeds handled separately from player lookups. Longer-term records are transformed aggregates or minimal sale observations—not raw API dumps."],
   ["AI and logs", "AI is optional. SkyPilot avoids unnecessary prompt storage, sends only bounded structured context, and never logs API keys, raw inventory payloads, full profiles, or authentication headers."],
-  ["Analytics and control", "If product analytics are activated, they should be limited to useful events such as page and tool use. Account sync is disabled unless a deployment enables it, and an in-product account-deletion workflow is not currently offered."],
+  ["Analytics and control", "If product analytics are activated, they should be limited to useful events such as page and tool use. When account sync is enabled, a signed-in user can permanently delete their canonical SkyPilot account and account-owned data in-product. Shared or operational records may remain only when ownership is removed or the record is governed by a separate retention policy."],
 ];
 
 export default function PrivacyPage() {

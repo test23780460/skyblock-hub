@@ -10,7 +10,8 @@ After changing `db/schema/**`:
 
 ```powershell
 npm.cmd run db:generate
-.\node_modules\.bin\drizzle-kit.cmd check --config=drizzle.config.ts
+npm.cmd run db:check
+npm.cmd run db:smoke
 ```
 
 Review generated SQL for:
@@ -23,7 +24,9 @@ Review generated SQL for:
 - defaults that work in D1 SQLite;
 - data backfills required before a new `NOT NULL` constraint.
 
-Apply migrations to an isolated local/test database before production. Verify a clean database can apply the full chain, and verify an exported production-shaped fixture can upgrade without data loss.
+`db:smoke` applies every versioned SQL file transactionally to isolated in-memory SQLite, compares the resulting table set with the latest Drizzle snapshot, runs `PRAGMA foreign_key_check`, and requires the durable economy tables. The current four-migration chain creates 36 tables with zero foreign-key findings.
+
+Apply migrations to an isolated local/test database before production. Verify a clean database can apply the full chain, and verify an exported production-shaped fixture can upgrade without data loss. The current smoke is a clean-database check; it is not a production-shaped upgrade, backup, or restore drill.
 
 ## Expand-contract changes
 
@@ -43,4 +46,3 @@ D1 and PostgreSQL have different rollback capabilities. Treat restore from a ver
 ## Seed data
 
 Stable feature definitions and job definitions may be seeded idempotently. Test/demo SkyBlock records must be clearly marked and must never be silently inserted into production. Secrets are never seed data.
-

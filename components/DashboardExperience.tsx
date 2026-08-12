@@ -6,6 +6,7 @@ import { normalizeApiFailure } from "@/lib/api-failure";
 import { demoPlayerAnalysis } from "@/lib/demo";
 import type { ApiFailure, PlayerAnalysis, ProfileStat, Recommendation } from "@/lib/models";
 import { analyzeProfileRecommendations } from "@/lib/services";
+import { ProfileItemCoverage } from "@/components/ProfileItemCoverage";
 
 const analysisSteps = [
   "Resolving Minecraft identity",
@@ -39,13 +40,29 @@ function priorityLabel(priority: Recommendation["priority"]): string {
   return priority.replace("-", " ").toUpperCase();
 }
 
-export function DashboardExperience({ username, demo }: { username: string; demo: boolean }) {
+export function DashboardExperience({
+  username,
+  demo,
+  accountSavingEnabled,
+  signedIn,
+  signInHref,
+}: {
+  username: string;
+  demo: boolean;
+  accountSavingEnabled: boolean;
+  signedIn: boolean;
+  signInHref: string;
+}) {
   const [analysis, setAnalysis] = useState<PlayerAnalysis | null>(null);
   const [failure, setFailure] = useState<ApiFailure["error"] | null>(null);
   const [step, setStep] = useState(0);
   const [selectedId, setSelectedId] = useState("");
   const [budget, setBudget] = useState(50_000_000);
   const [actions, setActions] = useState<Record<string, RecommendationState>>({});
+  const [savedProfileIds, setSavedProfileIds] = useState<Record<string, true>>({});
+  const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
+  const [savedStateMessage, setSavedStateMessage] = useState("");
+  const [savedStateError, setSavedStateError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -91,6 +108,26 @@ export function DashboardExperience({ username, demo }: { username: string; demo
     };
   }, [username, demo]);
 
+  useEffect(() => {
+    if (!signedIn || !accountSavingEnabled) return;
+    let active = true;
+    void fetch("/api/preferences", { headers: { accept: "application/json" } })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<{ data?: { preferences?: { defaultBudgetCoins?: unknown } } }>;
+      })
+      .then((payload) => {
+        const savedBudget = payload?.data?.preferences?.defaultBudgetCoins;
+        if (active && typeof savedBudget === "number" && Number.isSafeInteger(savedBudget) && savedBudget >= 0 && savedBudget <= 100_000_000_000) {
+          setBudget(savedBudget);
+        }
+      })
+      .catch(() => {
+        // Preferences are optional; a failed read leaves the documented local default.
+      });
+    return () => { active = false; };
+  }, [accountSavingEnabled, signedIn]);
+
   const profile = useMemo(() => analysis?.profiles.find((item) => item.id === selectedId) || analysis?.profiles[0], [analysis, selectedId]);
   const recommendationAnalysis = useMemo(
     () => profile ? analyzeProfileRecommendations({
@@ -110,6 +147,46 @@ export function DashboardExperience({ username, demo }: { username: string; demo
   const unpricedRecommendationCount = recommendationAnalysis?.deferredRecommendations.filter(
     (item) => item.reason === "missing-cost" && !actions[item.recommendation.id],
   ).length || 0;
+
+  async function saveCurrentProfile() {
+    if (!analysis || !profile || analysis.source !== "hypixel" || !signedIn) return;
+    setSavedStateMessage("");
+    setSavedStateError("");
+    try {
+      await requestSavedState("/api/saved-profiles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: analysis.player.username,
+          profileId: profile.id,
+          alias: profile.name,
+          isPinned: false,
+          isPrimary: false,
+        }),
+      });
+      setSavedProfileIds((current) => ({ ...current, [profile.id]: true }));
+      setSavedStateMessage(`${profile.name} is saved to your SkyPilot account.`);
+    } catch (caught) {
+      setSavedStateError(caught instanceof Error ? caught.message : "The profile could not be saved.");
+    }
+  }
+
+  async function favoriteRecommendation(item: Recommendation) {
+    if (!signedIn || analysis?.source !== "hypixel") return;
+    setSavedStateMessage("");
+    setSavedStateError("");
+    try {
+      await requestSavedState("/api/favorites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resourceType: "recommendation", resourceId: item.id, label: item.title }),
+      });
+      setFavoriteIds((current) => ({ ...current, [item.id]: true }));
+      setSavedStateMessage(`${item.title} added to account favorites.`);
+    } catch (caught) {
+      setSavedStateError(caught instanceof Error ? caught.message : "The recommendation could not be favorited.");
+    }
+  }
 
   if (!username && !demo) {
     return (
@@ -174,8 +251,11 @@ export function DashboardExperience({ username, demo }: { username: string; demo
             {analysis.profiles.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.gameMode}</option>)}
           </select>
           <Link className="button-secondary" href={"/dashboard?player=" + encodeURIComponent(analysis.player.username)}>Recalculate</Link>
+          {analysis.source === "hypixel" && signedIn ? <button className="button-secondary" type="button" disabled={Boolean(savedProfileIds[profile.id])} onClick={() => void saveCurrentProfile()}>{savedProfileIds[profile.id] ? "Profile saved" : "Save profile"}</button> : analysis.source === "hypixel" && accountSavingEnabled ? <Link className="button-secondary" href={signInHref}>Sign in to save</Link> : null}
         </div>
       </header>
+
+      {savedStateError ? <div className="notice" role="alert"><strong>!</strong><span>{savedStateError}</span></div> : savedStateMessage ? <div className="notice" role="status"><strong>✓</strong><span>{savedStateMessage}</span></div> : null}
 
       <section className="stat-grid" aria-label="Profile summary">
         {headlineStats.map((stat) => <article className="stat-card" key={stat.key}><small>{stat.label}</small><strong>{formatStat(stat)}</strong><span>{stat.note || (stat.value === null ? "Data not exposed" : "Current snapshot")}</span></article>)}
@@ -207,6 +287,7 @@ export function DashboardExperience({ username, demo }: { username: string; demo
                     <button type="button" onClick={() => setActions((current) => ({ ...current, [item.id]: "complete" }))}>Mark complete</button>
                     <button type="button" onClick={() => setActions((current) => ({ ...current, [item.id]: "later" }))}>Remind later</button>
                     <button type="button" onClick={() => setActions((current) => ({ ...current, [item.id]: "ignored" }))}>Ignore</button>
+                    {analysis.source === "hypixel" && signedIn ? <button type="button" disabled={Boolean(favoriteIds[item.id])} onClick={() => void favoriteRecommendation(item)}>{favoriteIds[item.id] ? "Favorited" : "Favorite"}</button> : null}
                   </div>
                 </div>
               </article>
@@ -236,10 +317,23 @@ export function DashboardExperience({ username, demo }: { username: string; demo
         </div>
       </section>
 
+      <ProfileItemCoverage
+        itemData={profile.itemData}
+        accessoryCount={profile.accessories?.length ?? 0}
+      />
+
       <section className="profile-notices">
         {analysis.notices.map((notice) => <div className="notice" key={notice}><strong>i</strong><span>{notice}</span></div>)}
         {profile.unavailable.map((notice) => <div className="notice subdued" key={notice}><strong>—</strong><span>{notice}</span></div>)}
       </section>
     </div>
   );
+}
+
+async function requestSavedState(input: string, init: RequestInit): Promise<void> {
+  const response = await fetch(input, { ...init, headers: { accept: "application/json", ...init.headers } });
+  const payload = await response.json() as { error?: { message?: string; action?: string } };
+  if (!response.ok) {
+    throw new Error([payload.error?.message, payload.error?.action].filter(Boolean).join(" ") || "The saved-state request failed.");
+  }
 }

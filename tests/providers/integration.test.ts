@@ -197,7 +197,9 @@ test("player analysis is normalized and never exposes upstream member data", asy
   assert.equal(cachedJson.includes("MustBeDiscarded"), false);
   assert.equal(cachedJson.includes("unrelated_field"), false);
   assert.equal(cachedJson.includes("00000000000000000000000000000009"), false);
-  assert.equal(cachedJson.includes('"data":"present"'), true);
+  assert.equal(cachedJson.includes('"data":"present"'), false);
+  assert.equal(cachedJson.includes('"version":"skyblock-items-v1"'), true);
+  assert.equal(cachedJson.includes('"state":"malformed"'), true);
 });
 
 test("rate-limit state blocks until the observed reset", () => {
@@ -271,6 +273,11 @@ test("browser mutation guard compares the exact request origin", async () => {
     headers: { "sec-fetch-site": "cross-site" },
   }));
   assert.equal(crossSite?.status, 403);
+
+  const missingOrigin = sameOriginMutationFailure(new Request("https://skypilot.example/api/goals", {
+    method: "POST",
+  }));
+  assert.equal(missingOrigin?.status, 403);
 });
 
 test("bounded JSON reader rejects declared and streamed oversized bodies", async () => {

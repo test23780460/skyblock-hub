@@ -6,30 +6,31 @@
 | --- | --- |
 | `npm run lint` | ESLint across the repository. |
 | `npm run typecheck` | Strict project TypeScript check. |
-| `npm run test:engines` | Deterministic calculators, progression, Bazaar, valuation, net worth, recommendations, and accessories. |
-| `npm run test:services` | Game-data catalog and profile-to-engine service adapters. |
-| `npm run test:providers` | Hypixel header/cache behavior, public-key omission, input/failure handling, normalization, and rate backoff. |
+| `npm run test:engines` | Deterministic progression, valuation, accessories, Bazaar history, craft/NPC, money-making, skill, minion-slot, dungeon-readiness, and activity/Garden calculators. |
+| `npm run test:services` | Game-data/skill-XP catalogs plus profile, Bazaar-history, money-making, and calculator service adapters. |
+| `npm run test:providers` | Hypixel/item-NBT behavior, mutation origins, saved state, goals, account deletion, AI grounding/metrics, economy history, and worker lease/backoff/admin checks. |
 | `npm test` | Production build, all unit/service/provider suites, and rendered-HTML tests. |
 | `npm run db:generate` | Schema-to-migration generation; not a test by itself. |
 | `npm run db:check` | Validate Drizzle migration history against its metadata. |
+| `npm run db:smoke` | Apply the complete migration chain to isolated SQLite and compare tables/FKs with the latest snapshot. |
 | `npm run security:secrets` | Scan project content using the repository's secret-pattern policy. |
 
 ## Current local evidence
 
-On 2026-08-09, this workspace completed:
+On 2026-08-11, this workspace completed:
 
 - `npm run lint`: pass;
 - `npm run typecheck`: pass;
 - `npm test`: pass;
 - production vinext build: pass;
-- 17 engine tests, 11 service tests, 11 provider/security tests, and 7 rendered-HTML tests: **46 passing, 0 failing**;
+- 40 engine tests, 16 service tests, 50 provider/security tests, and 20 rendered-HTML tests: **126 passing, 0 failing**;
 - Drizzle migration history check: pass;
-- generated migration applied to an in-memory SQLite database: 30 tables and zero foreign-key-check findings;
-- repository secret-pattern scan: pass across 188 candidate files;
-- production dependency audit: zero known vulnerabilities;
-- interactive browser QA: clean desktop (1440x1000), mobile (390x844), and narrow mobile (320x720) layouts, native navigation, labeled demo loading, budget replanning, and zero final client-log errors.
+- `npm run db:smoke`: four migrations, 36 tables, and zero foreign-key-check findings;
+- repository secret-pattern scan: pass across 259 project files;
+- the earlier production dependency audit reported zero known vulnerabilities; the current retry could not reach the advisory endpoint in the sandbox, and the lockfile/dependencies are unchanged;
+- no fresh hydrated-browser, cross-viewport, accessibility, or visual-regression pass was run against this current source delta.
 
-GitHub Actions independently passed the full workflow for commit `77861b7` in [SkyPilot CI run 31294213800](https://github.com/test23780460/skyblock-hub/actions/runs/31294213800). The same saved source version passed owner-authenticated production smoke checks for the homepage, health route, sitemap, absolute metadata, and labeled demo at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site). No public launch is claimed. Docker is installed locally, but its daemon was not running during this pass, so the container success comes from CI rather than a local run.
+A prior source revision passed GitHub Actions, but the current workspace delta has no matching commit or remote CI run yet. Earlier owner-authenticated smoke checks covered the homepage, health route, sitemap, absolute metadata, and labeled demo at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); they do not cover the current saved-state, history, AI, item, or planning changes. No public launch is claimed. Docker is installed locally, but its daemon was not running during this pass, so the current container path has not been re-smoked locally.
 
 ## Important gaps
 

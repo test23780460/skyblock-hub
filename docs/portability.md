@@ -8,14 +8,14 @@ SkyPilot’s deterministic engines, upstream-provider logic, repository contract
 - normalized Minecraft/Hypixel provider interfaces and safe response models;
 - provider-neutral persistence contracts;
 - application-generated IDs and normalized schema design;
-- scheduler-independent Bazaar/Auction job functions and sink interface;
+- scheduler-independent elected economy cycle, feed jobs, and snapshot-store/lease interfaces;
 - Docker web image and standard npm validation commands.
 
 ## Provider-specific today
 
 - vinext Cloudflare Worker entry and image service;
 - `.openai/hosting.json` binding conventions;
-- D1 Drizzle connection and SQLite migration;
+- D1 Drizzle connection, SQLite migrations, and durable economy snapshot-store adapter;
 - Sites dispatch identity headers and reserved auth routes;
 - in-memory cache/rate/AI throttling bound to each runtime;
 - Vite Cloudflare plugin/local binding setup.
@@ -28,7 +28,7 @@ An external deployment needs:
 2. verified authentication mapped to canonical SkyPilot users;
 3. a PostgreSQL or other repository adapter plus migrations/export-import tooling;
 4. distributed cache, single-flight, rate-budget, queue, and scheduler providers for multi-replica use;
-5. a durable economy sink and worker deployment;
+5. an economy snapshot-store adapter plus worker/scheduler deployment (or a runtime compatible with the current D1 adapter);
 6. secret, analytics, logging/error, backup, and storage providers;
 7. deployment-specific CSRF/origin, cookie, proxy-header, and abuse controls.
 
@@ -48,4 +48,3 @@ The product is not fully portable until a second host can:
 - remove Sites/D1 configuration without changing SkyBlock domain logic.
 
 See [External hosting](deployment/external-hosting.md), [migration](deployment/migration.md), and [database portability](database/portability.md).
-

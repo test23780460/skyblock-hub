@@ -20,8 +20,74 @@ export type GearSnapshot = {
   slot: string;
   name: string;
   rarity: string;
-  status: "strong" | "upgrade" | "missing" | "unavailable";
+  status: "detected" | "strong" | "upgrade" | "missing" | "unavailable";
   note: string;
+};
+
+export type ProfileItemRarity =
+  | "COMMON"
+  | "UNCOMMON"
+  | "RARE"
+  | "EPIC"
+  | "LEGENDARY"
+  | "MYTHIC"
+  | "DIVINE"
+  | "SUPREME"
+  | "SPECIAL"
+  | "VERY SPECIAL"
+  | "UNKNOWN";
+
+export type ProfileItemCategory =
+  | "helmet"
+  | "chestplate"
+  | "leggings"
+  | "boots"
+  | "weapon"
+  | "tool"
+  | "equipment"
+  | "accessory"
+  | "item";
+
+export type ProfileItemSummary = {
+  slot: number | null;
+  id: string | null;
+  name: string;
+  count: number;
+  rarity: ProfileItemRarity;
+  category: ProfileItemCategory;
+  stars: number;
+  recombobulated: boolean;
+};
+
+export type ProfileItemContainerState =
+  | "parsed"
+  | "hidden"
+  | "malformed"
+  | "oversized"
+  | "unsupported";
+
+export type ProfileItemContainerSummary = {
+  key: "inventory" | "armor" | "equipment" | "accessories" | "wardrobe";
+  label: string;
+  state: ProfileItemContainerState;
+  itemCount: number;
+  skippedItemCount: number;
+  items: ProfileItemSummary[];
+  truncated: boolean;
+  note: string;
+};
+
+export type ProfileItemData = {
+  version: "skyblock-items-v1";
+  containers: ProfileItemContainerSummary[];
+};
+
+export type ProfileAccessorySummary = {
+  id: string;
+  name: string;
+  rarity: ProfileItemRarity;
+  familyId: string;
+  count: number;
 };
 
 export type RecommendationPriority = "critical" | "very-high" | "high" | "medium" | "long-term";
@@ -48,6 +114,8 @@ export type SkyBlockProfile = {
   stats: ProfileStat[];
   skills: SkillSnapshot[];
   gear: GearSnapshot[];
+  itemData?: ProfileItemData;
+  accessories?: ProfileAccessorySummary[];
   recommendations: Recommendation[];
   strengths: string[];
   weaknesses: string[];
