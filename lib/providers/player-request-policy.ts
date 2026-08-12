@@ -61,19 +61,19 @@ export function playerRequestLimitFailure(request: Request): Response | null {
 }
 
 export async function getPlayerAnalysisWithNegativeCache(
-  username: string,
+  playerInput: string,
   profileId: string | null = null,
 ): Promise<Awaited<ReturnType<typeof getPlayerAnalysis>>> {
   const cacheKey = [
     "player-negative",
-    username.trim().toLowerCase().slice(0, 64),
+    playerInput.trim().toLowerCase().slice(0, 64),
     profileId?.trim().toLowerCase().slice(0, 64) || "selected",
   ].join(":");
   const cached = await negativeCache.get<NegativeResult>(cacheKey);
   if (cached) throw fromNegative(cached.value);
 
   try {
-    return await getPlayerAnalysis(username, profileId);
+    return await getPlayerAnalysis(playerInput, profileId);
   } catch (error) {
     const classified = asProviderError(error);
     if (isNegativeCacheable(classified.code)) {

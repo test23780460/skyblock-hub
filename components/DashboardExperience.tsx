@@ -157,7 +157,7 @@ export function DashboardExperience({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          username: analysis.player.username,
+          username: username || analysis.player.username,
           profileId: profile.id,
           alias: profile.name,
           isPinned: false,
@@ -194,10 +194,10 @@ export function DashboardExperience({
         <div className="empty-state panel">
           <span className="empty-icon" aria-hidden="true">⌕</span>
           <h1>Analyze a SkyBlock profile</h1>
-          <p>Enter a Minecraft username to fetch available profiles on demand. No account is required, and SkyPilot will not monitor the player in the background.</p>
+          <p>Enter a Minecraft username or Java UUID to fetch available profiles on demand. A UUID also works when Minecraft username resolution is unavailable. No account is required, and SkyPilot will not monitor the player in the background.</p>
           <form className="inline-player-form" action="/dashboard" method="get">
-            <label className="sr-only" htmlFor="dashboard-player">Minecraft username</label>
-            <input className="control" id="dashboard-player" name="player" placeholder="Minecraft username" maxLength={16} pattern="[A-Za-z0-9_]{1,16}" required />
+            <label className="sr-only" htmlFor="dashboard-player">Minecraft username or Java UUID</label>
+            <input className="control" id="dashboard-player" name="player" placeholder="Username or UUID" maxLength={36} pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" required />
             <button className="button-primary" type="submit">Analyze profile</button>
           </form>
           <Link className="subtle-link" href="/dashboard?demo=1">Or explore a labeled demo</Link>
@@ -250,7 +250,7 @@ export function DashboardExperience({
           <select id="profile-select" value={profile.id} onChange={(event) => setSelectedId(event.target.value)}>
             {analysis.profiles.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.gameMode}</option>)}
           </select>
-          <Link className="button-secondary" href={"/dashboard?player=" + encodeURIComponent(analysis.player.username)}>Recalculate</Link>
+          <Link className="button-secondary" href={"/dashboard?player=" + encodeURIComponent(username || analysis.player.username)}>Recalculate</Link>
           {analysis.source === "hypixel" && signedIn ? <button className="button-secondary" type="button" disabled={Boolean(savedProfileIds[profile.id])} onClick={() => void saveCurrentProfile()}>{savedProfileIds[profile.id] ? "Profile saved" : "Save profile"}</button> : analysis.source === "hypixel" && accountSavingEnabled ? <Link className="button-secondary" href={signInHref}>Sign in to save</Link> : null}
         </div>
       </header>

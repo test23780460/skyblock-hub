@@ -8,11 +8,11 @@ All APIs are product-specific; SkyPilot does not expose a raw or unrestricted Hy
 
 Reports local configuration, cache counters, and Hypixel backoff state without probing upstream services. It is a web-process liveness endpoint; inspect its JSON dependency fields rather than treating an intentionally disabled optional integration as a universal outage.
 
-### `GET /api/player?username=<name>&profile=<profile-id>`
+### `GET /api/player?username=<name-or-uuid>&profile=<profile-id>`
 
-### `GET /api/player/<username>?profile=<profile-id>`
+### `GET /api/player/<name-or-uuid>?profile=<profile-id>`
 
-Validates a Java Minecraft username, resolves its UUID through Minecraft Services, fetches the Hypixel player and available SkyBlock profiles, normalizes only the requested member's supported fields, and returns deterministic analysis. `profile` is optional.
+Accepts either a Java Minecraft username or a dashed/undashed Java UUID. Username requests first resolve the UUID through Minecraft Services; if both official name endpoints fail at the transport layer, SkyPilot makes one authenticated Hypixel player lookup by name and verifies the returned name before using its UUID. Authoritative not-found, access-denied, and rate-limit responses are never bypassed. UUID requests skip name resolution and validate the identifier against the authenticated Hypixel player response. Both paths fetch available SkyBlock profiles, normalize only the requested member's supported fields, and return deterministic analysis. `profile` is optional.
 
 Requires `ENABLE_PLAYER_LOOKUP=true` and `HYPIXEL_API_KEY`. Responses are `no-store`; the server provider still shares its bounded request cache. Common failures include invalid input, player/profile not found, no profiles, missing credentials, rate limit, timeout, and upstream invalid/unavailable response.
 

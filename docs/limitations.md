@@ -12,6 +12,7 @@ This is the honest pre-release status. Architecture, schema, feature maps, or te
 ## Player analysis
 
 - Live lookup supports normalized identity, profile choice, several core stats/skills, bounded item-container summaries, detected gear/accessory identities, limited progression analysis, and deterministic recommendation services.
+- Minecraft username resolution is an independently activated upstream integration. SkyPilot uses a bounded authenticated Hypixel name fallback only after transport failure, and player forms also accept a dashed or undashed Java UUID. Hypixel's published player schema emphasizes UUID input, so the explicit UUID path remains the reliable workaround if name fallback behavior changes.
 - The fixed-budget base64/gzip/NBT boundary safely summarizes five supported containers and classifies hidden/malformed/oversized/unsupported inputs. Raw blobs, NBT trees, lore, and unsupported fields are discarded before shared caching.
 - Full modifier-aware gear analysis, pets, additional storage, Museum, Bestiary, Rift, Minion, Garden, and deep Dungeon analysis are not wired to live responses.
 - Estimated net worth and item valuation engines exist and are tested, but complete asset coverage and current/historical price evidence are not joined, so net worth remains unavailable rather than fabricated.

@@ -47,9 +47,9 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         <header className="topbar">
           <Link className="mobile-brand" href="/">{siteConfig.name}</Link>
           <form className="quick-search" action="/dashboard" method="get" role="search">
-            <label className="sr-only" htmlFor="global-player-search">Minecraft username</label>
+            <label className="sr-only" htmlFor="global-player-search">Minecraft username or Java UUID</label>
             <span aria-hidden="true">⌕</span>
-            <input id="global-player-search" name="player" placeholder="Search any player" autoComplete="off" maxLength={16} pattern="[A-Za-z0-9_]{1,16}" />
+            <input id="global-player-search" name="player" placeholder="Username or UUID" autoComplete="off" maxLength={36} pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" />
             <kbd>↵</kbd>
           </form>
           <div className="topbar-actions">

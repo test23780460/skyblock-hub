@@ -48,6 +48,10 @@ test("saved-state parsers accept the bounded product contracts", () => {
     isPinned: true,
     isPrimary: true,
   }).ok, true);
+  assert.equal(parseSavedProfileCreate({
+    username: "00000000-0000-0000-0000-000000000001",
+    profileId: "00000000-0000-0000-0000-000000000011",
+  }).ok, true);
   assert.equal(parsePreferences({
     defaultPlayer: "PilotFixture",
     defaultBudgetCoins: 50_000_000,

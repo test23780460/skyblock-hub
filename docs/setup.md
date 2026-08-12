@@ -23,7 +23,7 @@ The local Vite configuration declares a D1 binding named `DB` through the Cloudf
 ## Safe local modes
 
 - `/dashboard?demo=1` uses an explicitly labeled fixture.
-- `/dashboard?player=<username>` makes a request-driven live lookup and needs `HYPIXEL_API_KEY`.
+- `/dashboard?player=<username-or-java-uuid>` makes a request-driven live lookup and needs `HYPIXEL_API_KEY`. A UUID bypasses Minecraft username resolution when that separate service is unavailable.
 - `/bazaar` and `/auctions` read durable D1 snapshots and do not call Hypixel from web requests. Bazaar history begins collecting only after elected worker cycles run; public Hypixel feeds do not use the profile key.
 - `/money-making`, `/skills`, `/economy`, `/dungeons`, `/minions`, and `/calculators` expose labeled manual deterministic scenarios without credentials.
 - `/ai?demo=1` asks the server to resolve bounded labeled demo context when AI is enabled. The AI page may instead request a user-triggered live profile and fresh D1 Bazaar selectors when their separate gates are enabled; the browser never supplies those facts or prices.

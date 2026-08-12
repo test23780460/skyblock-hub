@@ -193,9 +193,9 @@ export function MoneyMakingExperience({ username, demo }: { username: string; de
           <p>Compare legitimate method scenarios by capital, setup readiness, difficulty, attention, and cautious-to-optimistic output.</p>
         </div>
         <form className="money-player-search" action="/money-making" method="get">
-          <label htmlFor="money-player">Minecraft username</label>
+          <label htmlFor="money-player">Minecraft username or Java UUID</label>
           <div>
-            <input id="money-player" maxLength={16} name="player" pattern="[A-Za-z0-9_]{1,16}" placeholder="Username" defaultValue={username} />
+            <input id="money-player" maxLength={36} name="player" pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" placeholder="Username or UUID" defaultValue={username} />
             <button className="button-primary" type="submit">Load profile</button>
           </div>
           <Link href="/money-making?demo=1">Explore labeled demo</Link>

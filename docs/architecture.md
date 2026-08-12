@@ -20,8 +20,11 @@ SkyPilot separates user-facing routes, deterministic SkyBlock logic, external pr
 ### Player lookup
 
 ```text
-User request -> product API -> validated Minecraft username
-  -> Minecraft identity lookup -> authenticated Hypixel player/profile calls
+User request -> product API -> validated Minecraft username or Java UUID
+  -> username: Minecraft identity lookup; authenticated Hypixel name fallback
+     only after bounded transport failure
+  -> UUID: skip identity lookup and validate against Hypixel player data
+  -> authenticated Hypixel player/profile calls
   -> bounded normalization -> deterministic analysis -> safe response
 ```
 

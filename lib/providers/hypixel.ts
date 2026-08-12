@@ -149,6 +149,29 @@ export class HypixelProvider {
     );
   }
 
+  async getPlayerByUsername(
+    usernameInput: string,
+  ): Promise<CachedLoadResult<HypixelPlayer>> {
+    const username = normalizeMinecraftUsername(usernameInput);
+    return cachedLoad(
+      this.cache,
+      `hypixel:player-name:${username.toLowerCase()}`,
+      {
+        ttlMs: PLAYER_TTL_MS,
+        staleTtlMs: PLAYER_STALE_TTL_MS,
+        staleIfError: true,
+      },
+      async () => {
+        const payload = await this.authenticatedRequest("player", { name: username });
+        const player = normalizePlayer(payload);
+        if (player.displayName.toLowerCase() !== username.toLowerCase()) {
+          throw invalidResponse("Hypixel");
+        }
+        return player;
+      },
+    );
+  }
+
   async getSkyBlockProfiles(
     uuidInput: string,
   ): Promise<CachedLoadResult<HypixelSkyBlockProfile[]>> {

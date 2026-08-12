@@ -59,10 +59,10 @@ export function parseSavedProfileCreate(value: unknown): ParseResult<{
   if (!isObject(value) || !onlyKeys(value, ["username", "profileId", "alias", "isPinned", "isPrimary"])) {
     return invalid("Provide only the supported saved-profile fields.");
   }
-  const username = text(value.username, 16);
+  const username = text(value.username, 36);
   const profileId = normalizedProfileUuid(value.profileId);
   const alias = optionalText(value.alias, 60);
-  if (!username || !/^[A-Za-z0-9_]{1,16}$/.test(username)) return invalid("Choose a valid Minecraft username.");
+  if (!username || !isMinecraftPlayerInput(username)) return invalid("Choose a valid Minecraft username or Java UUID.");
   if (!profileId) return invalid("Choose a profile returned by a live lookup.");
   if (value.alias !== undefined && value.alias !== null && value.alias !== "" && alias === null) return invalid("Profile aliases must be at most 60 characters.");
   if (value.isPinned !== undefined && typeof value.isPinned !== "boolean") return invalid("Pinned must be true or false.");
@@ -269,6 +269,10 @@ function normalizedProfileUuid(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().replaceAll("-", "").toLowerCase();
   return /^[0-9a-f]{32}$/.test(normalized) ? normalized : null;
+}
+
+function isMinecraftPlayerInput(value: string): boolean {
+  return /^(?:[A-Za-z0-9_]{1,16}|[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value);
 }
 
 function optionalText(value: unknown, maxLength: number): string | null {

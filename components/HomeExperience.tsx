@@ -29,11 +29,11 @@ export function HomeExperience() {
         <div className="hero-glow" aria-hidden="true" />
         <div className="eyebrow"><span /> ALL-IN-ONE SKYBLOCK PROGRESSION</div>
         <h1>Stop guessing.<br /><em>Know your next move.</em></h1>
-        <p className="hero-copy">Search your profile for a precise, connected view of progression, gear, Magical Power, markets, and the upgrades worth doing now.</p>
+        <p className="hero-copy">Search by Minecraft username or Java UUID for a precise, connected view of progression, gear, Magical Power, markets, and the upgrades worth doing now.</p>
         <form className="hero-search" action="/dashboard" method="get" role="search">
-          <label className="sr-only" htmlFor="hero-player-search">Minecraft username</label>
+          <label className="sr-only" htmlFor="hero-player-search">Minecraft username or Java UUID</label>
           <span className="head-cube" aria-hidden="true"><i /></span>
-          <input id="hero-player-search" name="player" placeholder="Enter Minecraft username" autoComplete="off" maxLength={16} pattern="[A-Za-z0-9_]{1,16}" required />
+          <input id="hero-player-search" name="player" placeholder="Enter username or UUID" autoComplete="off" maxLength={36} pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" required />
           <button type="submit">Analyze profile <span aria-hidden="true">→</span></button>
         </form>
         <div className="hero-meta"><span><i className="live-dot" /> No account required</span><span>Player data is fetched on request</span><Link href="/dashboard?demo=1">Explore a labeled demo</Link></div>

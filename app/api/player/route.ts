@@ -17,9 +17,9 @@ export async function GET(request: Request): Promise<Response> {
     if (!username) {
       throw new ProviderError({
         code: "invalid_input",
-        message: "A Minecraft username is required.",
+        message: "A Minecraft username or Java UUID is required.",
         status: 400,
-        action: "Add a username query parameter and try again.",
+        action: "Add a username or UUID query parameter and try again.",
       });
     }
     const profileId = optionalProfileId(url.searchParams.get("profile"));

@@ -26,7 +26,9 @@ test("server-renders the finished SkyPilot homepage", async () => {
   assert.match(html, /<title>SkyPilot — Know Your Next SkyBlock Move<\/title>/i);
   assert.match(html, /Stop guessing/);
   assert.match(html, /Know your next move/);
-  assert.match(html, /Enter Minecraft username/);
+  assert.match(html, /Enter username or UUID/);
+  assert.match(html, /Minecraft username or Java UUID/);
+  assert.match(html, /maxlength="36"/i);
   assert.match(html, /No account required/);
   assert.match(html, /PRODUCT PREVIEW/);
   assert.match(html, /not affiliated with or endorsed by Hypixel/i);
@@ -45,6 +47,22 @@ test("renders major navigation and profile loading states", async () => {
   assert.match(await dashboard.text(), /Building your flight plan/i);
   assert.equal(bazaar.status, 200);
   assert.match(await bazaar.text(), /Bazaar explorer/i);
+});
+
+test("player entry points accept a bounded username or Java UUID", async () => {
+  const [home, dashboard, moneyMaking] = await Promise.all([
+    fetchRoute("/"),
+    fetchRoute("/dashboard"),
+    fetchRoute("/money-making"),
+  ]);
+  for (const response of [home, dashboard, moneyMaking]) {
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Minecraft username or Java UUID/i);
+    assert.match(html, /maxlength="36"/i);
+    assert.match(html, /\[0-9A-Fa-f\]\{32\}/);
+    assert.match(html, /\[0-9A-Fa-f\]\{8\}-\[0-9A-Fa-f\]\{4\}/);
+  }
 });
 
 test("calculator lab server-renders six deterministic tools", async () => {
@@ -85,6 +103,7 @@ test("money-making page renders the personalized deterministic ranker", async ()
   assert.match(html, /Editable method scenarios/i);
   assert.match(html, /Deterministic ranking/i);
   assert.match(html, /not live quotes or guarantees/i);
+  assert.match(html, /Username or UUID/i);
 });
 
 test("economy overview renders working craft and NPC comparison labs", async () => {
