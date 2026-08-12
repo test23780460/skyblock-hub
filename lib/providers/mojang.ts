@@ -13,8 +13,10 @@ import {
 } from "./guards";
 import { requestJson, type FetchImplementation } from "./http";
 
-const LOOKUP_BASE_URL =
+const PRIMARY_LOOKUP_BASE_URL =
   "https://api.minecraftservices.com/minecraft/profile/lookup/name/";
+const LEGACY_LOOKUP_BASE_URL =
+  "https://api.mojang.com/users/profiles/minecraft/";
 const USERNAME_TTL_MS = 24 * 60 * 60 * 1_000;
 const USERNAME_STALE_TTL_MS = 7 * USERNAME_TTL_MS;
 
@@ -55,26 +57,48 @@ export class MojangProvider {
         staleIfError: true,
       },
       async () => {
-        const url = new URL(
-          `${LOOKUP_BASE_URL}${encodeURIComponent(username)}`,
-        );
-        const payload = await requestJson({
-          provider: "Minecraft Services",
-          url,
-          fetchImplementation: this.fetchImplementation,
-          timeoutMs: this.timeoutMs,
-          maxResponseCharacters: 16_384,
-          notFoundError: new ProviderError({
-            code: "player_not_found",
-            message: "No Minecraft Java player was found with that username.",
-            status: 404,
-            action: "Check the spelling and try again.",
-          }),
-        });
+        const payload = await this.requestIdentity(username);
         return normalizeIdentity(payload);
       },
     );
   }
+
+  private async requestIdentity(username: string): Promise<unknown> {
+    try {
+      return await this.requestLookup(PRIMARY_LOOKUP_BASE_URL, username);
+    } catch (error) {
+      if (!isTransportFailure(error)) throw error;
+      return this.requestLookup(LEGACY_LOOKUP_BASE_URL, username);
+    }
+  }
+
+  private requestLookup(baseUrl: string, username: string): Promise<unknown> {
+    const url = new URL(`${baseUrl}${encodeURIComponent(username)}`);
+    return requestJson({
+      provider: "Minecraft Services",
+      url,
+      fetchImplementation: this.fetchImplementation,
+      timeoutMs: this.timeoutMs,
+      maxResponseCharacters: 16_384,
+      notFoundError: playerNotFoundError(),
+    });
+  }
+}
+
+function playerNotFoundError(): ProviderError {
+  return new ProviderError({
+    code: "player_not_found",
+    message: "No Minecraft Java player was found with that username.",
+    status: 404,
+    action: "Check the spelling and try again.",
+  });
+}
+
+function isTransportFailure(error: unknown): boolean {
+  return error instanceof ProviderError &&
+    (error.code === "network_error" ||
+      error.code === "upstream_timeout" ||
+      error.code === "upstream_unavailable");
 }
 
 function normalizeIdentity(payload: unknown): MinecraftIdentity {
@@ -98,4 +122,3 @@ function normalizeIdentity(payload: unknown): MinecraftIdentity {
 }
 
 export const mojangProvider = new MojangProvider();
-

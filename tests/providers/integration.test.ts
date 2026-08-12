@@ -115,6 +115,49 @@ test("missing credentials and invalid usernames fail explicitly", async () => {
   assert.equal(calls, 0);
 });
 
+test("Minecraft identity lookup falls back to the official Mojang endpoint after a transport failure", async () => {
+  const calls: string[] = [];
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.startsWith("https://api.minecraftservices.com/")) {
+        throw new TypeError("simulated worker transport failure");
+      }
+      return jsonResponse({
+        id: "82f8e698500d46c792ee93cd1ca7ad7a",
+        name: "Justiwantdreams",
+      });
+    },
+  });
+
+  const result = await mojang.lookupUsername("Justiwantdreams");
+
+  assert.equal(result.data.uuid, "82f8e698500d46c792ee93cd1ca7ad7a");
+  assert.equal(result.data.username, "Justiwantdreams");
+  assert.equal(calls.length, 2);
+  assert.match(calls[1] || "", /^https:\/\/api\.mojang\.com\/users\/profiles\/minecraft\//);
+});
+
+test("Minecraft identity lookup does not bypass authoritative not-found responses", async () => {
+  const calls: string[] = [];
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) => {
+      calls.push(String(input));
+      return new Response(null, { status: 404 });
+    },
+  });
+
+  await assert.rejects(
+    () => mojang.lookupUsername("MissingPilot"),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "player_not_found",
+  );
+  assert.equal(calls.length, 1);
+});
+
 test("player analysis is normalized and never exposes upstream member data", async () => {
   const cache = new MemoryTtlCache();
   const mojang = new MojangProvider({
