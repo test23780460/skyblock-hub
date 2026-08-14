@@ -178,6 +178,55 @@ test("player gateway client accepts only a signed bounded analysis response", as
   assert.equal(result.profiles.length, demoPlayerAnalysis.profiles.length);
 });
 
+test("default player gateway transport invokes globalThis.fetch as a qualified method", async () => {
+  const originalFetch = globalThis.fetch;
+  const liveAnalysis = {
+    ...demoPlayerAnalysis,
+    source: "hypixel" as const,
+    cacheStatus: "fresh" as const,
+    player: {
+      ...demoPlayerAnalysis.player,
+      uuid: "0123456789abcdef0123456789abcdef",
+    },
+  };
+  let receiverWasGlobal = false;
+  globalThis.fetch = async function receiverSensitiveGatewayFetch(
+    this: typeof globalThis,
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) {
+    receiverWasGlobal = this === globalThis;
+    if (!receiverWasGlobal) throw new TypeError("Illegal invocation");
+    const auth = playerGatewayRequestAuth(new Headers(init?.headers));
+    assert.ok(auth);
+    const responseBody = JSON.stringify({ data: liveAnalysis });
+    const signature = await signPlayerGatewayResponse(
+      SECRET,
+      200,
+      auth.nonce,
+      responseBody,
+    );
+    return new Response(responseBody, {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        ...Object.fromEntries(playerGatewayResponseSignatureHeader(signature)),
+      },
+    });
+  } as typeof fetch;
+
+  try {
+    const result = await getPlayerAnalysisFromGateway("PilotFixture", null, {
+      gatewayUrl: "https://gateway.example",
+      gatewaySecret: SECRET,
+    });
+    assert.equal(receiverWasGlobal, true);
+    assert.equal(result.source, "hypixel");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("player gateway client rejects an unsigned response", async () => {
   await assert.rejects(
     () => getPlayerAnalysisFromGateway("PilotFixture", null, {

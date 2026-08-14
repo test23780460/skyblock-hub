@@ -113,13 +113,16 @@ export async function getPlayerAnalysisFromGateway(
   let response: Response;
   let responseBody: string;
   try {
-    response = await (options.fetchImplementation ?? fetch)(gatewayUrl, {
+    const init: RequestInit = {
       method: "POST",
       headers,
       body,
       redirect: "error",
       signal: controller.signal,
-    });
+    };
+    response = options.fetchImplementation
+      ? await options.fetchImplementation(gatewayUrl, init)
+      : await globalThis.fetch(gatewayUrl, init);
     responseBody = await readBoundedGatewayBody(response);
   } catch (error) {
     if (controller.signal.aborted || isAbortError(error)) {
