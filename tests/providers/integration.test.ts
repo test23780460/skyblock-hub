@@ -232,10 +232,9 @@ test("Minecraft identity lookup does not bypass authoritative not-found response
   assert.equal(calls.length, 1);
 });
 
-test("player analysis never bypasses authoritative Mojang 404, 403, or 429 responses", async () => {
+test("player analysis never bypasses authoritative Mojang 404 or 429 responses", async () => {
   for (const [status, expectedCode] of [
     [404, "player_not_found"],
-    [403, "forbidden"],
     [429, "rate_limited"],
   ] as const) {
     let hypixelCalls = 0;
@@ -259,6 +258,56 @@ test("player analysis never bypasses authoritative Mojang 404, 403, or 429 respo
     );
     assert.equal(hypixelCalls, 0, `Mojang ${status} must remain authoritative`);
   }
+});
+
+test("Mojang 403 falls back to an identity-bound Hypixel username lookup", async () => {
+  const hypixelCalls: URL[] = [];
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async () => new Response(null, { status: 403 }),
+  });
+  const hypixel = new HypixelProvider({
+    apiKey: "fixture-credential",
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) => {
+      const url = new URL(String(input));
+      hypixelCalls.push(url);
+      if (url.pathname.endsWith("/player")) {
+        return jsonResponse({
+          success: true,
+          player: {
+            uuid: "00000000000000000000000000000001",
+            displayname: "PilotFixture",
+          },
+        });
+      }
+      return jsonResponse({
+        success: true,
+        profiles: [{
+          profile_id: "00000000000000000000000000000002",
+          cute_name: "Pineapple",
+          selected: true,
+          members: {
+            "00000000000000000000000000000001": {
+              currencies: { coin_purse: 1_250_000 },
+            },
+          },
+        }],
+      });
+    },
+  });
+
+  const analysis = await getPlayerAnalysis(
+    "PilotFixture",
+    null,
+    { mojang, hypixel },
+  );
+
+  assert.equal(analysis.player.username, "PilotFixture");
+  assert.equal(analysis.player.uuid, "00000000000000000000000000000001");
+  assert.equal(hypixelCalls.length, 2);
+  assert.equal(hypixelCalls[0]?.searchParams.get("name"), "PilotFixture");
+  assert.equal(hypixelCalls[0]?.searchParams.has("uuid"), false);
 });
 
 test("direct UUID player analysis skips Minecraft Services and trusts only the matching Hypixel identity", async () => {

@@ -42,7 +42,7 @@ export async function requestJson(
         ...headersToRecord(options.headers),
       }),
       signal: controller.signal,
-      redirect: "error",
+      redirect: "manual",
     };
     response = options.fetchImplementation
       ? await options.fetchImplementation(options.url, init)

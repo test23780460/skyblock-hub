@@ -450,12 +450,18 @@ function memoryKvNamespace(): KVNamespace {
   } as KVNamespace;
 }
 
-test("default provider transport preserves the Workers global fetch receiver", async () => {
+test("default provider transport qualifies fetch and blocks automatic redirects", async () => {
   const originalFetch = globalThis.fetch;
   let receiverWasGlobal = false;
-  globalThis.fetch = function receiverSensitiveFetch(this: typeof globalThis) {
+  let redirectMode: RequestRedirect | undefined;
+  globalThis.fetch = function receiverSensitiveFetch(
+    this: typeof globalThis,
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) {
     receiverWasGlobal = this === globalThis;
     if (!receiverWasGlobal) throw new TypeError("Illegal invocation");
+    redirectMode = init?.redirect;
     return Promise.resolve(Response.json({ ok: true }));
   } as typeof fetch;
 
@@ -467,6 +473,7 @@ test("default provider transport preserves the Workers global fetch receiver", a
     });
     assert.deepEqual(payload, { ok: true });
     assert.equal(receiverWasGlobal, true);
+    assert.equal(redirectMode, "manual");
   } finally {
     globalThis.fetch = originalFetch;
   }

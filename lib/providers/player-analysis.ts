@@ -86,7 +86,7 @@ async function resolvePlayer(
   try {
     identity = await mojang.lookupUsername(selector.username);
   } catch (error) {
-    if (!isTransportFailure(error)) throw error;
+    if (!isUsernameFallbackEligible(error)) throw error;
     return resolveUsernameThroughHypixel(selector.username, hypixel);
   }
 
@@ -132,6 +132,11 @@ function isTransportFailure(error: unknown): error is ProviderError {
     (error.code === "network_error" ||
       error.code === "upstream_timeout" ||
       error.code === "upstream_unavailable");
+}
+
+function isUsernameFallbackEligible(error: unknown): error is ProviderError {
+  return isTransportFailure(error) ||
+    (error instanceof ProviderError && error.code === "forbidden");
 }
 
 function combineCacheStatus(

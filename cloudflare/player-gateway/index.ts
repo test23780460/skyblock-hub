@@ -144,8 +144,33 @@ export async function handlePlayerGatewayRequest(
       200,
     );
   } catch (error) {
+    if (!(error instanceof ProviderError) || error.status >= 500) {
+      console.error(JSON.stringify({
+        event: "player_gateway_provider_failure",
+        code: error instanceof ProviderError ? error.code : "unclassified",
+        transportCause: transportCauseKind(error),
+      }));
+    }
     return signedError(env.PLAYER_GATEWAY_SECRET, auth.nonce, error);
   }
+}
+
+function transportCauseKind(error: unknown): string {
+  let current = error;
+  for (let depth = 0; depth < 5 && current; depth += 1) {
+    const value = current instanceof Error
+      ? `${current.name} ${current.message}`.toLowerCase()
+      : "";
+    if (value.includes("illegal invocation")) return "illegal_invocation";
+    if (value.includes("network connection lost")) return "connection_lost";
+    if (value.includes("fetch failed")) return "fetch_failed";
+    if (value.includes("enotfound") || value.includes("dns")) return "dns";
+    if (value.includes("certificate") || value.includes("tls")) return "tls";
+    if (value.includes("redirect")) return "redirect_rejected";
+    if (value.includes("abort") || value.includes("timeout")) return "aborted";
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return "unknown";
 }
 
 function layeredProviderCache(namespace: KVNamespace): KvTtlCache {
