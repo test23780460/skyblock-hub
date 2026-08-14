@@ -24,7 +24,6 @@ export async function requestJson(
   options: JsonRequestOptions,
 ): Promise<unknown> {
   assertServerRuntime();
-  const fetchImplementation = options.fetchImplementation ?? fetch;
   const timeoutMs = options.timeoutMs ?? 8_000;
   const maxResponseCharacters = options.maxResponseCharacters ?? 16_000_000;
 
@@ -36,7 +35,7 @@ export async function requestJson(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetchImplementation(options.url, {
+    const init: RequestInit = {
       method: "GET",
       headers: new Headers({
         Accept: "application/json",
@@ -44,7 +43,10 @@ export async function requestJson(
       }),
       signal: controller.signal,
       redirect: "error",
-    });
+    };
+    response = options.fetchImplementation
+      ? await options.fetchImplementation(options.url, init)
+      : await globalThis.fetch(options.url, init);
   } catch (error) {
     clearTimeout(timeout);
     if (controller.signal.aborted || isAbortError(error)) {

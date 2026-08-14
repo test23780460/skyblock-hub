@@ -449,3 +449,25 @@ function memoryKvNamespace(): KVNamespace {
     },
   } as KVNamespace;
 }
+
+test("default provider transport preserves the Workers global fetch receiver", async () => {
+  const originalFetch = globalThis.fetch;
+  let receiverWasGlobal = false;
+  globalThis.fetch = function receiverSensitiveFetch(this: typeof globalThis) {
+    receiverWasGlobal = this === globalThis;
+    if (!receiverWasGlobal) throw new TypeError("Illegal invocation");
+    return Promise.resolve(Response.json({ ok: true }));
+  } as typeof fetch;
+
+  try {
+    const payload = await requestJson({
+      provider: "receiver fixture",
+      url: new URL("https://example.com/provider-fixture"),
+      maxResponseCharacters: 1_024,
+    });
+    assert.deepEqual(payload, { ok: true });
+    assert.equal(receiverWasGlobal, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
