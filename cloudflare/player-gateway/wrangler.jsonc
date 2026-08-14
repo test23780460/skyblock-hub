@@ -1,0 +1,41 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "skypilot-player-gateway",
+  "main": "./index.ts",
+  "compatibility_date": "2026-08-12",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "kv_namespaces": [
+    {
+      "binding": "PLAYER_CACHE",
+      "id": "b3cd0b876fb448f0a3b38457f727317c"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "PLAYER_ACTOR_LIMITER",
+      "namespace_id": "92134011",
+      "simple": {
+        "limit": 12,
+        "period": 60
+      }
+    },
+    {
+      "name": "PLAYER_GLOBAL_LIMITER",
+      "namespace_id": "92134012",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "SKYPILOT_GATEWAY_VERSION": "v1"
+  }
+}

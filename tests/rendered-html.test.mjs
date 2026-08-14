@@ -34,9 +34,13 @@ test("server-renders the finished SkyPilot homepage", async () => {
   assert.match(html, /<title>SkyPilot — Know Your Next SkyBlock Move<\/title>/i);
   assert.match(html, /Stop guessing/);
   assert.match(html, /Know your next move/);
-  assert.match(html, /Enter username or UUID/);
-  assert.match(html, /Minecraft username or Java UUID/);
-  assert.match(html, /maxlength="36"/i);
+  assert.match(html, /(?:Enter username or UUID|Open calculator lab)/);
+  if (/Enter username or UUID/.test(html)) {
+    assert.match(html, /Minecraft username or Java UUID/);
+    assert.match(html, /maxlength="36"/i);
+  } else {
+    assert.match(html, /Live player lookup is currently disabled/i);
+  }
   assert.match(html, /No account required/);
   assert.match(html, /PRODUCT PREVIEW/);
   assert.match(html, /not affiliated with or endorsed by Hypixel/i);
@@ -57,13 +61,38 @@ test("renders major navigation and profile loading states", async () => {
   assert.match(await bazaar.text(), /Bazaar explorer/i);
 });
 
+test("safe-default navigation hides unavailable integrations and operations", async () => {
+  const [home, more] = await Promise.all([fetchRoute("/"), fetchRoute("/more")]);
+  for (const response of [home, more]) assert.equal(response.status, 200);
+  const homeHtml = await home.text();
+  const moreHtml = await more.text();
+
+  assert.doesNotMatch(homeHtml, /href="\/ai(?:[?"#])/i);
+  assert.doesNotMatch(homeHtml, /href="\/(?:bazaar|auctions|admin|account)(?:[?"#])/i);
+  assert.match(homeHtml, /Transparent calculators/i);
+  assert.match(homeHtml, /Economy planning labs/i);
+  assert.match(homeHtml, /href="\/terms"/i);
+
+  assert.doesNotMatch(moreHtml, />AI Assistant</i);
+  assert.doesNotMatch(moreHtml, />Admin</i);
+  assert.doesNotMatch(moreHtml, />Bazaar</i);
+  assert.doesNotMatch(moreHtml, />Auctions</i);
+  assert.match(moreHtml, /Money Making/i);
+  assert.match(moreHtml, /Calculators/i);
+});
+
 test("player entry points accept a bounded username or Java UUID", async () => {
   const [home, dashboard, moneyMaking] = await Promise.all([
     fetchRoute("/"),
     fetchRoute("/dashboard"),
     fetchRoute("/money-making"),
   ]);
-  for (const response of [home, dashboard, moneyMaking]) {
+  const entryPoints = [dashboard, moneyMaking];
+  const homeHtml = await home.text();
+  assert.equal(home.status, 200);
+  if (/Minecraft username or Java UUID/i.test(homeHtml)) entryPoints.push(new Response(homeHtml));
+  else assert.match(homeHtml, /Live player lookup is currently disabled/i);
+  for (const response of entryPoints) {
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /Minecraft username or Java UUID/i);

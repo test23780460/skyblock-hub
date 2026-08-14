@@ -2,9 +2,16 @@ import { sharedProviderCache } from "../../../lib/cache/ttl-cache";
 import { hypixelProvider } from "../../../lib/providers/hypixel";
 import { hypixelRateLimits } from "../../../lib/providers/rate-limit";
 import { featureFlags } from "../../../lib/config";
+import {
+  isPlayerGatewayConfigured,
+  isPlayerGatewayRequired,
+} from "../../../lib/providers/player-gateway";
 
 export async function GET(): Promise<Response> {
-  const configured = hypixelProvider.isConfigured();
+  const gatewayConfigured = isPlayerGatewayConfigured();
+  const gatewayRequired = isPlayerGatewayRequired();
+  const directConfigured = !gatewayRequired && hypixelProvider.isConfigured();
+  const configured = gatewayConfigured || directConfigured;
   const rateLimits = hypixelRateLimits.snapshot();
   const now = Date.now();
   const status = featureFlags.playerLookup && !configured ? "degraded" : "ok";
@@ -18,7 +25,11 @@ export async function GET(): Promise<Response> {
           hypixelAuthenticated: {
             enabled: featureFlags.playerLookup,
             configured,
-            status: featureFlags.playerLookup && configured ? cooldownStatus(rateLimits.authenticated, now) : "disabled",
+            gatewayRequired,
+            transport: gatewayConfigured ? "private_gateway" : directConfigured ? "direct" : "none",
+            status: featureFlags.playerLookup && configured
+              ? gatewayConfigured ? "available" : cooldownStatus(rateLimits.authenticated, now)
+              : "disabled",
             backoff: publicBackoffState(rateLimits.authenticated, now),
           },
           hypixelPublicEconomy: {
@@ -31,7 +42,7 @@ export async function GET(): Promise<Response> {
         },
         cache: sharedProviderCache.stats(),
         notice:
-          "This health route reports local configuration and backoff state without making an upstream probe or exposing credentials.",
+          "This health route reports local configuration without probing the private player service or exposing credentials.",
       },
     }),
     {

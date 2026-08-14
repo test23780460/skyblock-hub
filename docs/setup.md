@@ -6,7 +6,7 @@
 - npm
 - Optional: Docker for the web-only container path
 
-No credential is required to build, test, view the labeled demo, or use deterministic planning surfaces. Live player lookup requires a replacement Hypixel key. AI requires a replacement OpenAI key.
+No credential is required to build, test, view the labeled demo, or use deterministic planning surfaces. Local direct-provider player lookup requires a replacement Hypixel key. Hosted production lookup uses the signed private player gateway described below. AI requires a replacement OpenAI key.
 
 ## Install and run
 
@@ -23,7 +23,7 @@ The local Vite configuration declares a D1 binding named `DB` through the Cloudf
 ## Safe local modes
 
 - `/dashboard?demo=1` uses an explicitly labeled fixture.
-- `/dashboard?player=<username-or-java-uuid>` makes a request-driven live lookup and needs `HYPIXEL_API_KEY`. A UUID bypasses Minecraft username resolution when that separate service is unavailable.
+- `/dashboard?player=<username-or-java-uuid>` makes a request-driven live lookup. Local direct-provider mode needs `HYPIXEL_API_KEY`; hosted production uses `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`. A UUID bypasses Minecraft username resolution when that separate service is unavailable.
 - `/bazaar` and `/auctions` read durable D1 snapshots and do not call Hypixel from web requests. Bazaar history begins collecting only after elected worker cycles run; public Hypixel feeds do not use the profile key.
 - `/money-making`, `/skills`, `/economy`, `/dungeons`, `/minions`, and `/calculators` expose labeled manual deterministic scenarios without credentials.
 - `/ai?demo=1` asks the server to resolve bounded labeled demo context when AI is enabled. The AI page may instead request a user-triggered live profile and fresh D1 Bazaar selectors when their separate gates are enabled; the browser never supplies those facts or prices.
@@ -66,7 +66,7 @@ The current Compose file starts only the web image on port 3000 and optionally r
 
 | Symptom | Meaning/action |
 | --- | --- |
-| Live player analysis returns `missing_credentials` | Install a replacement `HYPIXEL_API_KEY` in server-only configuration. |
+| Live player analysis returns `missing_credentials` | For local direct-provider mode, install a replacement `HYPIXEL_API_KEY`. For hosted production, verify both gateway secrets, `PLAYER_GATEWAY_URL`, and `REQUIRE_PLAYER_GATEWAY=true`; keep the Hypixel key only on the gateway. |
 | AI returns `ai_not_configured` | AI is optional; install a replacement `OPENAI_API_KEY` or use deterministic tools. |
 | Goals return `authentication_required` | The request lacks verified Sites/ChatGPT identity headers. |
 | Saved state or goals return `persistence_not_ready` | Configure the `DB` binding and apply all four migrations. |
@@ -74,3 +74,5 @@ The current Compose file starts only the web image on port 3000 and optionally r
 | Bazaar history says it is collecting | Run later elected worker cycles. History is created from newer source timestamps and no prior prices are fabricated. |
 | Health JSON shows a disabled/degraded dependency | Liveness remains HTTP 200; inspect the dependency state and activate only the intended integration. |
 | Economy worker reports leased/backing off | Do not bypass the D1 lease/circuit. Respect `Retry-After` and continue serving the last complete stale-labeled snapshot when available. |
+
+See [Private player gateway](deployment/player-gateway.md) for the production deployment order and trust boundary.

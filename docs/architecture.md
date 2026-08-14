@@ -10,6 +10,7 @@ SkyPilot separates user-facing routes, deterministic SkyBlock logic, external pr
 | Application services | `lib/services/`, `lib/analysis/` | Convert normalized profiles into calculator/recommendation inputs and response models. |
 | Deterministic domain | `lib/engines/`, `lib/game-data/` | Progression, recommendations, accessories, economy scoring, valuation, net worth, and activity calculations. |
 | Upstream providers | `lib/providers/` | Minecraft/Hypixel HTTP, validation, normalization, caching, backoff, and safe errors. |
+| Player gateway | `cloudflare/player-gateway/` | Signed fixed-route player transport, Worker-only Hypixel key, normalized KV cache, and abuse guards. |
 | Persistence contracts | `lib/repositories/contracts.ts` | Provider-neutral records and interfaces used by business services. |
 | D1 adapter | `db/`, `lib/repositories/drizzle/` | D1-compatible Drizzle schema, connection composition, and repository implementation. |
 | Background jobs | `worker/jobs/` | Scheduler-independent elected public-economy cycle and normalized feed jobs. |
@@ -26,6 +27,7 @@ them as implicit same-zone Worker calls.
 
 ```text
 User request -> product API -> validated Minecraft username or Java UUID
+  -> signed body-bound server request to the private player gateway
   -> username: Minecraft identity lookup; authenticated Hypixel name fallback
      only after bounded transport failure
   -> UUID: skip identity lookup and validate against Hypixel player data
@@ -33,7 +35,7 @@ User request -> product API -> validated Minecraft username or Java UUID
   -> bounded normalization -> deterministic analysis -> safe response
 ```
 
-Player requests use a shared cache inside one runtime: one-hour fresh TTL and up to 24 hours stale-on-error. No timer, saved profile, account, goal, or worker triggers player polling.
+Hosted player requests use a shared normalized Workers KV cache with one-hour fresh TTL and up to 24 hours stale-on-error, plus per-isolate L0 caching/in-flight coalescing. The browser never receives the Hypixel key or gateway signing secret. No timer, saved profile, account, goal, or worker triggers player polling. Local development can still use the direct provider composition when `REQUIRE_PLAYER_GATEWAY=false`.
 
 ### Public economy
 

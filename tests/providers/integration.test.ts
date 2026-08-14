@@ -690,7 +690,7 @@ test("worker security headers preserve responses and add HTTPS-only HSTS", async
   assert.equal(secured.status, 202);
   assert.equal(await secured.text(), "image-or-page");
   assert.equal(secured.headers.get("x-existing"), "preserved");
-  assert.equal(secured.headers.get("content-security-policy"), "base-uri 'self'; frame-ancestors 'none'; object-src 'none'");
+  assert.equal(secured.headers.get("content-security-policy"), "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
   assert.equal(secured.headers.get("cross-origin-opener-policy"), "same-origin");
   assert.equal(secured.headers.get("permissions-policy"), "camera=(), geolocation=(), microphone=()");
   assert.equal(secured.headers.get("referrer-policy"), "strict-origin-when-cross-origin");

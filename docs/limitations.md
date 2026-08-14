@@ -5,7 +5,7 @@ This is the honest pre-release status. Architecture, schema, feature maps, or te
 ## External activation not performed
 
 - No public production launch, custom domain, or external-host deployment is claimed. An earlier safe-default build is available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); it does not contain the current uncommitted workspace delta.
-- Production Hypixel and OpenAI credentials are not installed or verified. Any previously exposed credential must be replaced, not reused.
+- The private player gateway code/configuration exists, but a production claim requires both replacement Worker secrets, Sites signing configuration, and a successful deployed end-to-end lookup. Any previously exposed credential must be replaced, not reused. OpenAI remains separately optional.
 - Production D1, all four migrations, backup/restore, the economy schedule, domain, and observability are not activated for the current source.
 - Sites/ChatGPT auth and the administrator allowlist require deployment configuration.
 
@@ -53,10 +53,10 @@ This is the honest pre-release status. Architecture, schema, feature maps, or te
 
 ## Infrastructure and QA
 
-- Cache, single-flight, Hypixel rate state, and AI throttling are in-memory per runtime, not distributed.
+- Hosted player values use shared normalized Workers KV, while player single-flight and Hypixel header backoff remain per isolate. Cloudflare's rate bindings are per-location abuse guards rather than exact global quota accounting. AI throttling remains in-memory per runtime.
 - Docker Compose includes only the web service; no database/cache/worker stack.
 - PostgreSQL, Redis, external auth, object storage, queue, scheduler, analytics, and secrets adapters are not implemented.
-- Current automated tests cover 126 engine, service, provider/security, and rendered-route cases including saved state, Bazaar history, item/NBT safety, AI grounding/metrics, and worker policy, but not full browser E2E, visual regression, automated accessibility, load/soak, live credentials, production D1 application, or current-source deployment smoke tests.
+- Automated tests cover engine, service, provider/security, and rendered-route cases including signed gateway boundaries, saved state, Bazaar history, item/NBT safety, AI grounding/metrics, and worker policy, but not full browser E2E, visual regression, automated accessibility, load/soak, live credentials, production D1 application, or current-source deployment smoke tests.
 - A final visual, performance, current-policy, security, and complete-specification audit is still required before launch.
 
 Track remaining work in [TODO](../TODO.md).

@@ -1,8 +1,11 @@
 import Link from "@/components/AppLink";
-import { navigationGroups, primaryNavigation } from "@/lib/navigation";
-import { siteConfig } from "@/lib/config";
+import { featureFlags, siteConfig } from "@/lib/config";
+import { getVisibleNavigationGroups, getVisiblePrimaryNavigation } from "@/lib/navigation";
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
+  const primaryNavigation = getVisiblePrimaryNavigation();
+  const navigationGroups = getVisibleNavigationGroups();
+
   return (
     <div className="site-frame">
       <a className="skip-link" href="#main-content">Skip to content</a>
@@ -39,28 +42,30 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
         <div className="sidebar-foot">
           <span className="status-dot" aria-hidden="true" />
-          <span><strong>Policy-safe data</strong><small>Request-driven player lookups</small></span>
+          <span><strong>Policy-safe data</strong><small>{featureFlags.playerLookup ? "Request-driven player lookups" : "Live player lookup is currently off"}</small></span>
         </div>
       </aside>
 
       <div className="content-column">
         <header className="topbar">
           <Link className="mobile-brand" href="/">{siteConfig.name}</Link>
-          <form className="quick-search" action="/dashboard" method="get" role="search">
-            <label className="sr-only" htmlFor="global-player-search">Minecraft username or Java UUID</label>
-            <span aria-hidden="true">⌕</span>
-            <input id="global-player-search" name="player" placeholder="Username or UUID" autoComplete="off" maxLength={36} pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" />
-            <kbd>↵</kbd>
-          </form>
+          {featureFlags.playerLookup ? (
+            <form className="quick-search" action="/dashboard" method="get" role="search">
+              <label className="sr-only" htmlFor="global-player-search">Minecraft username or Java UUID</label>
+              <span aria-hidden="true">⌕</span>
+              <input id="global-player-search" name="player" placeholder="Username or UUID" autoComplete="off" maxLength={36} pattern="[A-Za-z0-9_]{1,16}|[0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}" />
+              <kbd>↵</kbd>
+            </form>
+          ) : <Link className="text-link" href="/dashboard?demo=1">Explore the labeled demo</Link>}
           <div className="topbar-actions">
-            <Link className="text-link" href="/items">Item lookup</Link>
-            <Link className="avatar-button" href="/account" aria-label="Account">P</Link>
+            <Link className="text-link" href="/more">Tool directory</Link>
+            {featureFlags.chatGptAuth ? <Link className="avatar-button" href="/account" aria-label="Account">P</Link> : null}
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>{children}</main>
         <footer className="site-footer">
           <span>{siteConfig.name} is not affiliated with or endorsed by Hypixel, Mojang, or Microsoft.</span>
-          <nav aria-label="Footer navigation"><Link href="/status">Status</Link><Link href="/privacy">Privacy</Link><Link href="/about">About</Link></nav>
+          <nav aria-label="Footer navigation"><Link href="/status">Status</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/about">About</Link></nav>
         </footer>
       </div>
 

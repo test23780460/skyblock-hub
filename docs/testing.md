@@ -8,7 +8,7 @@
 | `npm run typecheck` | Strict project TypeScript check. |
 | `npm run test:engines` | Deterministic progression, valuation, accessories, Bazaar history, craft/NPC, money-making, skill, minion-slot, dungeon-readiness, and activity/Garden calculators. |
 | `npm run test:services` | Game-data/skill-XP catalogs plus profile, Bazaar-history, money-making, and calculator service adapters. |
-| `npm run test:providers` | Hypixel/item-NBT behavior, mutation origins, saved state, goals, account deletion, AI grounding/metrics, economy history, and worker lease/backoff/admin checks. |
+| `npm run test:providers` | Hypixel/item-NBT behavior, signed player-gateway authentication/bounds/rate ordering, mutation origins, saved state, goals, account deletion, AI grounding/metrics, economy history, and worker lease/backoff/admin checks. |
 | `npm test` | Production build, all unit/service/provider suites, and rendered-HTML tests. |
 | `npm run db:generate` | Schema-to-migration generation; not a test by itself. |
 | `npm run db:check` | Validate Drizzle migration history against its metadata. |
@@ -17,16 +17,16 @@
 
 ## Current local evidence
 
-On 2026-08-11, this workspace completed:
+On 2026-08-14, the current workspace completed:
 
 - `npm run lint`: pass;
 - `npm run typecheck`: pass;
 - `npm test`: pass;
 - production vinext build: pass;
-- 40 engine tests, 16 service tests, 50 provider/security tests, and 20 rendered-HTML tests: **126 passing, 0 failing**;
+- 40 engine tests, 16 service tests, 72 provider/security tests, and 25 rendered-HTML tests: **153 passing, 0 failing**;
 - Drizzle migration history check: pass;
 - `npm run db:smoke`: four migrations, 36 tables, and zero foreign-key-check findings;
-- repository secret-pattern scan: pass across 259 project files;
+- repository secret-pattern scan: pass across 270 project files;
 - the earlier production dependency audit reported zero known vulnerabilities; the current retry could not reach the advisory endpoint in the sandbox, and the lockfile/dependencies are unchanged;
 - no fresh hydrated-browser, cross-viewport, accessibility, or visual-regression pass was run against this current source delta.
 

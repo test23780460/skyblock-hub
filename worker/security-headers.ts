@@ -1,4 +1,5 @@
-const BASELINE_CSP = "base-uri 'self'; frame-ancestors 'none'; object-src 'none'";
+const BASELINE_CSP =
+  "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 
 /**
  * Adds browser hardening headers without constraining Vinext scripts, styles,

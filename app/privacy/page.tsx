@@ -1,16 +1,168 @@
 import type { Metadata } from "next";
+import Link from "@/components/AppLink";
 
-export const metadata: Metadata = { title: "Privacy", description: "How SkyPilot handles account, profile, and analytics data." };
+export const metadata: Metadata = {
+  title: "Privacy",
+  description: "What SkyPilot collects, why it is used, where it is sent, and how to delete it.",
+};
 
-const sections = [
-  ["Request-driven player data", "When player lookup is enabled, SkyPilot fetches player and profile data only after an explicit user request. Goals, sign-in, and public pages do not schedule background player refreshes."],
-  ["Latest snapshot, not tracking", "Shared caches keep a current or bounded stale snapshot. SkyPilot does not build automated stat timelines, session tracking, player dossiers, or mass-monitoring systems."],
-  ["Optional accounts", "Enabled public tools work anonymously. When account sync is enabled, signed-in data uses a canonical SkyPilot user ID so authentication providers can be replaced without rewriting ownership records."],
-  ["Economy data", "Bazaar and auction information comes from public resource feeds handled separately from player lookups. Longer-term records are transformed aggregates or minimal sale observations—not raw API dumps."],
-  ["AI and logs", "AI is optional. SkyPilot avoids unnecessary prompt storage, sends only bounded structured context, and never logs API keys, raw inventory payloads, full profiles, or authentication headers."],
-  ["Analytics and control", "If product analytics are activated, they should be limited to useful events such as page and tool use. When account sync is enabled, a signed-in user can permanently delete their canonical SkyPilot account and account-owned data in-product. Shared or operational records may remain only when ownership is removed or the record is governed by a separate retention policy."],
-];
+const effectiveDate = "August 12, 2026";
 
 export default function PrivacyPage() {
-  return <div className="page-shell prose-page"><header className="page-header"><div className="page-title"><small>PRIVACY BY PRODUCT DESIGN</small><h1>Clear boundaries, useful data</h1><p>SkyPilot collects only what supports the feature you chose and keeps player data separate from public economy research.</p></div></header><section className="prose-grid">{sections.map(([title, copy], index) => <article className="panel" key={title}><span>{String(index + 1).padStart(2, "0")}</span><h2>{title}</h2><p>{copy}</p></article>)}</section></div>;
+  return (
+    <div className="page-shell prose-page">
+      <header className="page-header">
+        <div className="page-title">
+          <small>PRIVACY NOTICE · EFFECTIVE {effectiveDate.toUpperCase()}</small>
+          <h1>Your data has a job, a boundary, and a way out.</h1>
+          <p>
+            SkyPilot works without an account for core lookup and planning. This notice explains
+            what the current application code handles when you search, sign in, save work, or use
+            an optional integration.
+          </p>
+        </div>
+      </header>
+
+      <section className="prose-grid" aria-label="SkyPilot privacy practices">
+        <article className="panel">
+          <span>01</span>
+          <h2>Player lookups are request-driven</h2>
+          <p>
+            When you submit a Minecraft username or Java UUID, SkyPilot sends the selector and an
+            optional SkyBlock profile ID to its server. A username may be resolved through
+            Minecraft Services or Mojang, and the resolved UUID is used to request current player
+            and profile data from Hypixel. Lookups happen only after your action; saved profiles,
+            accounts, goals, and page visits do not schedule player refreshes.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>02</span>
+          <h2>Bounded shared caches, not player tracking</h2>
+          <p>
+            SkyPilot caches a normalized latest Hypixel snapshot for one hour and may use that
+            snapshot as clearly marked stale data for at most 24 hours when the provider is
+            unavailable. Username-to-UUID resolution may remain cached for up to seven days. These
+            caches can be shared between visitors to reduce upstream requests. The application
+            does not keep scheduled stat timelines, play sessions, raw upstream profile dumps, or
+            another co-op member&apos;s profile data.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>03</span>
+          <h2>What sign-in stores</h2>
+          <p>
+            Sign-in is optional. When you use a saved feature, SkyPilot creates a canonical
+            application user and stores the sign-in provider, provider subject (the provider&apos;s
+            account identifier), normalized email address, display name, and last login time. The
+            provider and subject reconnect your sign-in to the right SkyPilot owner; the email and
+            display name identify the account in its own workspace; and the login time records the
+            latest authentication. The provider supplies those fields to the server. SkyPilot does
+            not store your ChatGPT password or authentication token.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>04</span>
+          <h2>Saved data is your choice</h2>
+          <p>
+            Signed-in features can store site preferences; linked Minecraft UUIDs, usernames, and
+            profile identifiers; your labels and pinned or primary choices; goals and progress;
+            favorites; and build titles, notes, equipment choices, and visibility. A private build
+            is owner-only. An unlisted build can be opened by anyone with its share link, and a
+            public build can appear in the public gallery. Changing a build&apos;s visibility controls
+            future reads but cannot retract copies someone already received.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>05</span>
+          <h2>Optional AI and measurements</h2>
+          <p>
+            If the AI assistant is enabled and you use it, SkyPilot sends your question, selected
+            mode, and bounded server-resolved context to OpenAI. The request sets the OpenAI API{" "}
+            <code>store</code> option to <code>false</code>; that does not override OpenAI&apos;s own
+            service and retention rules. SkyPilot stores aggregate AI usage, cost, failure, and
+            latency counters—not prompts or answers. For provider abuse controls, it can send
+            OpenAI a one-way safety identifier derived from the signed-in account ID or requesting
+            IP address; it does not send that underlying identifier as the safety value. The current
+            application has no advertising pixels or third-party product analytics enabled.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>06</span>
+          <h2>Service providers and disclosures</h2>
+          <p>
+            Depending on the enabled feature, data is processed by OpenAI/ChatGPT Sites for hosting
+            and sign-in, Cloudflare for the private player gateway, cache, database, and security
+            controls, Minecraft Services or Mojang for username resolution, Hypixel for game data,
+            and OpenAI for optional AI answers. Hosting and security infrastructure can process the
+            request IP address and standard request headers; the player gateway receives a one-way
+            actor token for rate limiting, and the gateway code logs only the request event,
+            response status, and duration. The application code sends data to these services only
+            for the requested feature. It may also disclose data when required by law or to protect
+            the service and its users.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>07</span>
+          <h2>Retention and deletion</h2>
+          <p>
+            Player-cache limits are described above. Durable account data remains until you delete
+            it or it is removed by the operator. From the <Link href="/account">Account page</Link>,
+            a signed-in user can permanently delete the canonical SkyPilot user, external identity,
+            preferences, saved links, goals, recommendation state, builds, favorites, and linked
+            analytics. This does not delete the user&apos;s ChatGPT account. Shared Minecraft identity
+            and minimal profile records can remain without the user link; aggregate metrics and
+            security or administrator records with the canonical user reference removed can also
+            remain. A final
+            production-wide retention period for every operational record has not yet been set.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>08</span>
+          <h2>Public economy data is separate</h2>
+          <p>
+            When economy ingestion is enabled, SkyPilot stores normalized Bazaar summaries,
+            current active-auction fields, minimal ended-sale facts, and derived price or volume
+            aggregates from Hypixel&apos;s public feeds. It does not attach those feed records to the
+            visitor who views them and does not retain raw auction pages as a user history. Bazaar
+            history has bounded hourly and daily windows; the complete production retention policy
+            for every economy and operational record is still a launch requirement.
+          </p>
+        </article>
+
+        <article className="panel">
+          <span>09</span>
+          <h2>No sale or targeted advertising</h2>
+          <p>
+            The current SkyPilot application code has no path that sells account or lookup data or
+            uses it for targeted advertising. It contains no advertising network, data-broker, or
+            cross-site tracking integration. Hosting and sign-in providers may use essential
+            session, fraud-prevention, and security mechanisms under their own notices.
+          </p>
+        </article>
+      </section>
+
+      <div className="notice independence-note">
+        <strong>QUESTIONS OR REQUESTS</strong>
+        <span>
+          Open a private-data-safe ticket in the{" "}
+          <a
+            href="https://github.com/test23780460/skyblock-hub/issues"
+            rel="noreferrer"
+            target="_blank"
+          >
+            SkyPilot GitHub Issues tracker
+          </a>
+          . Do not post email addresses, account IDs, API keys, or other secrets. Review the{" "}
+          <Link href="/terms">Terms of Use</Link> for service rules and third-party disclaimers.
+        </span>
+      </div>
+    </div>
+  );
 }

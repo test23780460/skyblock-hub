@@ -14,7 +14,7 @@ Reports local configuration, cache counters, and Hypixel backoff state without p
 
 Accepts either a Java Minecraft username or a dashed/undashed Java UUID. Username requests first resolve the UUID through Minecraft Services; if both official name endpoints fail at the transport layer, SkyPilot makes one authenticated Hypixel player lookup by name and verifies the returned name before using its UUID. Authoritative not-found, access-denied, and rate-limit responses are never bypassed. UUID requests skip name resolution and validate the identifier against the authenticated Hypixel player response. Both paths fetch available SkyBlock profiles, normalize only the requested member's supported fields, and return deterministic analysis. `profile` is optional.
 
-Requires `ENABLE_PLAYER_LOOKUP=true` and `HYPIXEL_API_KEY`. Responses are `no-store`; the server provider still shares its bounded request cache. Common failures include invalid input, player/profile not found, no profiles, missing credentials, rate limit, timeout, and upstream invalid/unavailable response.
+Requires `ENABLE_PLAYER_LOOKUP=true`. Hosted production also requires the signed private player gateway (`PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`); only that Worker holds `HYPIXEL_API_KEY`. Responses are `no-store`, while normalized provider values use the gateway's bounded shared KV cache. Common failures include invalid input, player/profile not found, no profiles, missing gateway configuration, rate limit, timeout, and upstream invalid/unavailable response.
 
 ### `GET /api/economy/bazaar?q=<term>&limit=<1..250>`
 
@@ -182,4 +182,4 @@ Allowed action payloads:
 - Published Bazaar/active-Auction snapshots: five-minute freshness marker; product responses use a 30-second public cache.
 - Published ended-sale feed: three-minute freshness marker; retained sale rows are bounded by worker policy.
 
-Player/Minecraft caches and provider rate state are per runtime today. The public-economy worker lease, fencing token, backoff, feed markers, and snapshots are durable in D1. Clients must honor HTTP status and `Retry-After`; they must not retry tightly or supply additional keys.
+Hosted player/Minecraft provider values use shared normalized Workers KV plus a per-isolate L0 cache; single-flight and Hypixel header backoff remain local to an isolate. Cloudflare's rate bindings are abuse/headroom guards, not an exact global Hypixel quota ledger. The public-economy worker lease, fencing token, backoff, feed markers, and snapshots are durable in D1. Clients must honor HTTP status and `Retry-After`; they must not retry tightly or supply additional keys.

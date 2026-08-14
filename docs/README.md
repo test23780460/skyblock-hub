@@ -21,6 +21,7 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 ## Deploy and operate
 
 - [ChatGPT/Codex Sites deployment](deployment/chatgpt-sites.md)
+- [Private player gateway](deployment/player-gateway.md)
 - [External hosting](deployment/external-hosting.md)
 - [Hosting migration](deployment/migration.md)
 - [Operations runbook](operations.md)

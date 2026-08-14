@@ -6,6 +6,10 @@ import { isAdminUser } from "@/lib/auth/admin";
 import { sharedProviderCache } from "@/lib/cache/ttl-cache";
 import { featureFlags } from "@/lib/config";
 import { hypixelProvider } from "@/lib/providers/hypixel";
+import {
+  isPlayerGatewayConfigured,
+  isPlayerGatewayRequired,
+} from "@/lib/providers/player-gateway";
 import { hypixelRateLimits } from "@/lib/providers/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +22,9 @@ export default async function AdminPage() {
   if (!isAdminUser(user)) return <AdminGate title="Admin access is not enabled" copy="Your identity is valid, but it is not present in the server-side administrator allowlist." href="/" action="Return home" />;
 
   const limits = hypixelRateLimits.snapshot();
-  return <div className="page-shell admin-page"><header className="page-header"><div className="page-title"><small>ALLOWLISTED OPERATIONS</small><h1>SkyPilot control room</h1><p>System, provider, cache, worker, database, and AI visibility with targeted, confirmed controls.</p></div><span className="account-chip"><i /> ADMIN VERIFIED</span></header><AdminExperience snapshot={{ cache: sharedProviderCache.stats(), hypixelConfigured: hypixelProvider.isConfigured(), aiConfigured: Boolean(process.env.OPENAI_API_KEY), rateLimit: { authenticatedRemaining: limits.authenticated.remaining, publicRemaining: limits.public.remaining }, checkedAt: new Date().toISOString() }} /></div>;
+  const gatewayConfigured = isPlayerGatewayConfigured();
+  const directConfigured = !isPlayerGatewayRequired() && hypixelProvider.isConfigured();
+  return <div className="page-shell admin-page"><header className="page-header"><div className="page-title"><small>ALLOWLISTED OPERATIONS</small><h1>SkyPilot control room</h1><p>System, provider, cache, worker, database, and AI visibility with targeted, confirmed controls.</p></div><span className="account-chip"><i /> ADMIN VERIFIED</span></header><AdminExperience snapshot={{ cache: sharedProviderCache.stats(), hypixelConfigured: gatewayConfigured || directConfigured, aiConfigured: Boolean(process.env.OPENAI_API_KEY), rateLimit: { authenticatedRemaining: limits.authenticated.remaining, publicRemaining: limits.public.remaining }, checkedAt: new Date().toISOString() }} /></div>;
 }
 
 function AdminGate({ title, copy, href, action }: { title: string; copy: string; href: string; action: string }) {

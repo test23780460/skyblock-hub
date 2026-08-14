@@ -13,14 +13,14 @@ Current audited totals: **38 Complete, 88 Partial, 20 Deferred, and 3 Blocked** 
 
 ## Validation snapshot
 
-Fresh local validation on 2026-08-11 passed:
+Fresh local validation on 2026-08-14 passed:
 
 - `npm run lint`;
 - `npm run typecheck`;
 - `npm run db:check`;
 - `npm run db:smoke` (4 migrations, 36 tables, 0 foreign-key findings);
-- `npm run security:secrets` (259 project files);
-- `npm test`, including the production build and 40 engine, 16 service, 50 provider/security, and 20 rendered-HTML tests (126 passing, 0 failing).
+- `npm run security:secrets` (270 project files);
+- `npm test`, including the production build and 40 engine, 16 service, 72 provider/security, and 25 rendered-HTML tests (153 passing, 0 failing).
 
 Rendered HTML tests prove route/build output, not hydrated browser behavior. No live provider credential, production D1 migration, public deployment, or current-source GitHub Actions run is inferred from these local results.
 
@@ -31,7 +31,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 1 | Primary product vision | **Partial** | A coherent shell now joins profile analysis, saved state, goals, current/history economy views, money-making, optimizers, calculators, and grounded AI; several deep profile/domain replacements remain incomplete. |
 | 2 | Autonomous build requirement | **Complete** | `PROJECT_SPEC.md`, `TODO.md`, this audit, and repeatable validation commands preserve scope and evidence. |
 | 3 | External blocker rule | **Complete** | Safe-default feature gates and classified unavailable states isolate missing Hypixel, OpenAI, auth, D1, and deployment activation. |
-| 4 | Continuous quality loop | **Partial** | Lint, typecheck, build, 126 automated tests, migration smoke, and secret scanning pass; full browser, accessibility, visual, performance, and live-integration loops do not. |
+| 4 | Continuous quality loop | **Partial** | Lint, typecheck, build, 153 automated tests, migration smoke, and secret scanning pass; full browser, accessibility, visual, performance, and live-integration loops do not. |
 | 5 | Final completion loop | **Deferred** | The release gate cannot pass while the end-to-end gaps below remain. |
 | 6 | Product name and centralized branding | **Complete** | `lib/config.ts`, root metadata, sitemap, About content, and `public/og.png` use SkyPilot centrally. |
 | 7 | Design quality | **Partial** | `app/globals.css` and the shared shell are cohesive, but no complete cross-page visual acceptance pass exists. |
@@ -146,7 +146,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 116 | SEO | **Complete** | Metadata, Open Graph image, sitemap, robots rules, and private-route exclusion are implemented/tested. |
 | 117 | Documentation | **Complete** | README, architecture, security, API, database, setup, operations, testing, portability, deployment, limitations, spec, checklist, and this audit exist. |
 | 118 | Deployment documentation | **Complete** | Sites, external hosting, migration, database portability, auth, workers, secrets, and domain steps are documented honestly. |
-| 119 | Testing | **Partial** | 126 tests cover engines, services, provider/security boundaries, D1-backed saved state/history, NBT safety, AI grounding/metrics, workers, and rendered routes; browser E2E, full authz, live providers, and many deep feature flows remain untested. |
+| 119 | Testing | **Partial** | 153 tests cover engines, services, signed gateway/provider/security boundaries, D1-backed saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, feature-aware navigation, and rendered routes; browser E2E, full authz, live providers, and many deep feature flows remain untested. |
 | 120 | End-to-end tests | **Deferred** | Rendered HTML is server smoke coverage, not Playwright/browser E2E for the required flows. |
 | 121 | Mock data rule | **Complete** | Demo/illustrative data is visibly labeled and safe-default live failures never silently fall back to demo. |
 | 122 | No dead UI | **Partial** | Saved-state/build, market history, economy labs, money-making, skills, readiness, slot, and AI controls are wired; several deep module pages still present feature maps or narrow planning surfaces rather than complete capabilities. |

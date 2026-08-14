@@ -10,7 +10,7 @@ Sites is SkyPilot’s preferred initial host. The validated safe-default build i
 - the Cloudflare worker entry expects `ASSETS`, `DB`, and image bindings;
 - the worker entry includes a scheduled public-economy handler backed by a durable D1 lease/snapshot store;
 - optional Sites/ChatGPT identity helpers and canonical-user mapping exist;
-- production secrets, D1 data, scheduler, admin allowlist, domain, and public access are not activated.
+- production gateway secrets, D1 data, scheduler, admin allowlist, domain, and public access require separate activation and verification.
 
 ## Preflight
 
@@ -27,13 +27,15 @@ Sites is SkyPilot’s preferred initial host. The validated safe-default build i
 Required/optional runtime configuration:
 
 - D1 binding `DB` and all four repository migrations for saved account/goals/build state, aggregate AI metrics, and durable public-economy state/history;
-- replacement `HYPIXEL_API_KEY` for player lookup;
+- `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true` for hosted player lookup; keep the replacement `HYPIXEL_API_KEY` only in the separately deployed gateway Worker;
 - replacement `OPENAI_API_KEY` and an accessible `OPENAI_MODEL` for optional AI;
 - real `SITE_URL` and optional `SITE_NAME`;
 - verified `ADMIN_USER_IDS` for administrators;
 - launch-deferred flags kept off.
 
 Public Bazaar/Auction web reads use D1 snapshots and do not use the authenticated Hypixel key. Configure exactly one intended schedule before enabling public economy.
+
+Deploy and verify the [private player gateway](player-gateway.md) before enabling player lookup. Remove any legacy `HYPIXEL_API_KEY` from the Sites environment after cutover.
 
 ## Sites publish flow
 
@@ -61,7 +63,7 @@ Verify the deployed access policy and that untrusted clients cannot spoof the tr
 - homepage, navigation, labeled demo, privacy/about/status pages;
 - `/api/health` dependency states;
 - a completed economy worker cycle followed by Bazaar and snapshot-wide bounded Auction search;
-- live player lookup only after the replacement Hypixel key is installed;
+- live player lookup only after the replacement key is installed on the gateway, Sites signing configuration is active, and a request initiated from the deployed Sites origin succeeds;
 - AI unavailable state or one bounded request after activation;
 - anonymous goal rejection, signed-in goal lifecycle, account deletion on a test identity, and database migration state;
 - non-admin rejection and allowlisted admin access/actions;
@@ -70,4 +72,4 @@ Verify the deployed access policy and that untrusted clients cannot spoof the tr
 
 ## Operational limitations
 
-Sites source includes the durable D1 economy sink and scheduled handler, but saving a web version does not apply migrations or register/verify the production trigger. It also does not provide distributed player cache/rate budgets. If the host cannot schedule the worker safely, deploy a compatible worker/store separately and keep the Sites frontend on product-specific snapshot APIs. Do not poll player profiles as a substitute.
+Sites source includes the durable D1 economy sink and scheduled handler, but saving a web version does not apply migrations or register/verify the production trigger. The separately deployed player gateway supplies normalized KV caching and Cloudflare abuse guards; its per-location limiter is not an exact global Hypixel quota ledger. If the host cannot schedule the economy worker safely, deploy a compatible worker/store separately and keep the Sites frontend on product-specific snapshot APIs. Do not poll player profiles as a substitute.

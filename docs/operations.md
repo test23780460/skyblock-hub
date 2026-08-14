@@ -41,7 +41,11 @@ The baselines are not permission to exceed current Hypixel policy or source upda
 
 The current `MemoryTtlCache` holds at most 2,000 entries per process, evicts least-recently-used entries, coalesces identical in-flight loads in one runtime, and can serve bounded stale provider data after an upstream error.
 
-Player/Minecraft cache, Hypixel header rate state, and AI throttling remain per runtime. Public economy publication state, snapshots, lease, fencing token, and global backoff are durable in D1. Before horizontally scaling player/AI traffic, replace memory cache, single-flight, abuse limits, and rate budget with shared providers.
+Hosted player/Minecraft values use shared normalized Workers KV with a per-isolate L0 cache. Player single-flight and Hypixel response-header backoff remain per isolate; Cloudflare rate bindings provide distributed abuse/headroom protection but are per-location and are not an exact global credential quota. AI throttling remains per runtime. Public economy publication state, snapshots, lease, fencing token, and global backoff are durable in D1. Monitor the approved Hypixel allocation and add stricter upstream-call coordination if multi-region cache-miss volume approaches it.
+
+## Private player gateway
+
+The player gateway should emit only bounded structured request events (status and duration), never request bodies, player selectors, upstream payloads, or credentials. Alert on sustained `401`, `429`, and `5xx` rates, unusual cache-miss volume, and Hypixel quota headroom. If gateway authentication or quota coordination is uncertain, disable `ENABLE_PLAYER_LOOKUP`; do not restore a direct Sites-held Hypixel key as an emergency bypass. Follow the [gateway deployment runbook](deployment/player-gateway.md) for secret rotation and smoke checks.
 
 ## Incident actions
 

@@ -89,7 +89,7 @@ export async function requestJson(
 
     let text: string;
     try {
-      text = await response.text();
+      text = await readBoundedResponseText(response, maxResponseCharacters);
     } catch (error) {
       if (controller.signal.aborted || isAbortError(error)) {
         throw new ProviderError({
@@ -110,7 +110,7 @@ export async function requestJson(
         cause: error,
       });
     }
-    if (text.length === 0 || text.length > maxResponseCharacters) {
+    if (text.length === 0) {
       throw invalidJsonResponse(options.provider);
     }
 
@@ -129,6 +129,32 @@ export async function requestJson(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function readBoundedResponseText(
+  response: Response,
+  maxCharacters: number,
+): Promise<string> {
+  if (!response.body) throw new Error("Response body is missing");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let characters = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    characters += chunk.length;
+    if (characters > maxCharacters) {
+      await reader.cancel();
+      throw new Error("Response body exceeds its bound");
+    }
+    text += chunk;
+  }
+  const finalChunk = decoder.decode();
+  characters += finalChunk.length;
+  if (characters > maxCharacters) throw new Error("Response body exceeds its bound");
+  return text + finalChunk;
 }
 
 export function assertServerRuntime(): void {

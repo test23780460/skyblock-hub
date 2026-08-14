@@ -11,7 +11,7 @@ This repository is a working, tested foundation—not a completed public product
 Implemented today:
 
 - public homepage, navigation, responsive module surfaces, labeled demo profile, and request states;
-- live Minecraft identity and Hypixel profile lookup when the safe feature gate and a server-side Hypixel key are both configured;
+- live Minecraft identity and Hypixel profile lookup through a signed private Cloudflare gateway when its safe feature gate, Worker-only replacement key, shared normalized KV cache, and server signing configuration are active;
 - normalized, bounded Bazaar, active-auction, and ended-auction API views backed by durable D1 snapshots when public economy is enabled;
 - idempotent hourly/daily Bazaar aggregates with bounded retention plus an accessible 24H/7D/30D/1Y price-and-volume history view;
 - working accessory, Garden, Farming, pet, Minion, Dungeon, Slayer, core-skill, minion-slot, dungeon-readiness, craft, NPC/Bazaar, and money-making planners backed by deterministic tested engines;
@@ -21,7 +21,7 @@ Implemented today:
 - optional ChatGPT identity mapping, account deletion, owner-scoped saved Minecraft profiles/accounts, preferences, favorites, build creation/sharing, and goal lifecycle when Sites auth and migrations are active;
 - allowlisted admin status, aggregate-only AI usage/cost metrics, a lease-aware full economy refresh request, and targeted runtime economy-cache invalidation;
 - a 36-table Drizzle/D1 schema, four migrations, portable repository contracts, and a scheduled lease-fenced public-economy worker;
-- lint, typecheck, migration-history/smoke, build, 126 automated tests, and GitHub Actions CI configuration.
+- lint, typecheck, migration-history/smoke, production build, and broad engine/service/provider/render regression coverage, plus GitHub Actions CI configuration.
 
 Still incomplete or inactive:
 
@@ -29,7 +29,7 @@ Still incomplete or inactive:
 - complete gear-upgrade analysis, pets/storage, priced net worth, item browser/search, Auction/item valuation history, and several domain-specific systems are not wired end to end;
 - Bazaar search is limited to the loaded result slice, and craft/NPC/money-making inputs are explicitly editable reference scenarios rather than current live recipes, limits, setups, or guaranteed rates;
 - durable recommendation Complete/Ignore/Remind Later state, goal/analysis sharing, and broader AI knowledge grounding remain incomplete;
-- the production worker schedule, distributed caching/rate budgets, production D1 data, external auth providers, and a public domain are not activated;
+- the production economy schedule, player-gateway secrets/live smoke, production D1 data, external auth providers, and a public domain are not all activated;
 - Docker runs the web image only; the complete external database/cache/worker stack is not composed;
 - no public production URL, custom domain, or live-integration launch is claimed.
 
@@ -73,7 +73,8 @@ The current local validation result is documented in [Testing](docs/testing.md).
 
 | Variable | Required | Current use |
 | --- | --- | --- |
-| `HYPIXEL_API_KEY` | Live player analysis only | Server-only authenticated Hypixel requests. Not used for public economy requests. |
+| `HYPIXEL_API_KEY` | Gateway Worker only in production | Authenticated player/profile requests. Never placed in Sites/browser configuration; public economy requests omit it. |
+| `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, `REQUIRE_PLAYER_GATEWAY` | Hosted live player analysis | Signed server-to-server gateway transport; production must fail closed through the gateway. |
 | `OPENAI_API_KEY` | AI only | Server-only OpenAI Responses request. All non-AI tools remain available without it. |
 | `OPENAI_MODEL` | No | AI model override; defaults to the value in `.env.example`. |
 | `OPENAI_INPUT_COST_USD_PER_MILLION`, `OPENAI_OUTPUT_COST_USD_PER_MILLION` | No | Non-secret configured rates used only for aggregate AI cost estimates; default to zero. |
@@ -94,7 +95,7 @@ Browser
   -> Drizzle/D1, bounded Hypixel/Minecraft calls, optional OpenAI, worker jobs
 ```
 
-Player lookups are user-triggered and cached. Public economy ingestion is a separate scheduled worker concern; product routes read normalized durable snapshots rather than calling Hypixel. External payloads are normalized before they reach product responses; raw Hypixel proxying is intentionally absent.
+Player lookups are user-triggered and use the signed gateway's normalized KV cache in hosted production. Public economy ingestion is a separate scheduled worker concern; product routes read normalized durable snapshots rather than calling Hypixel. External payloads are normalized before they reach product responses; raw Hypixel proxying is intentionally absent.
 
 Read [Architecture](ARCHITECTURE.md), [architecture overview](docs/architecture.md), and [database guide](docs/database/README.md).
 
@@ -107,6 +108,7 @@ See [API reference](docs/api.md). SkyPilot does not expose an unrestricted Hypix
 ## Deployment
 
 - [ChatGPT/Codex Sites](docs/deployment/chatgpt-sites.md): current preferred target using the `DB` D1 binding and Sites identity headers.
+- [Private player gateway](docs/deployment/player-gateway.md): Worker/KV/rate bindings, secret boundary, deploy order, and live checks.
 - [External hosting](docs/deployment/external-hosting.md): what runs today and what adapters are still required.
 - [Migration plan](docs/deployment/migration.md): moving data, auth, workers, secrets, and domain without rewriting SkyBlock logic.
 

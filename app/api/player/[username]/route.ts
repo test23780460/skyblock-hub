@@ -3,6 +3,7 @@ import { providerErrorResponse } from "../../../../lib/providers/errors";
 import { featureUnavailableResponse } from "../../../../lib/feature-access";
 import {
   getPlayerAnalysisWithNegativeCache,
+  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "../../../../lib/providers/player-request-policy";
 
@@ -23,7 +24,9 @@ export async function GET(
     const profileId = optionalProfileId(
       new URL(request.url).searchParams.get("profile"),
     );
-    const data = await getPlayerAnalysisWithNegativeCache(username, profileId);
+    const data = await getPlayerAnalysisWithNegativeCache(username, profileId, {
+      actorSubject: playerRequestActorSubject(request),
+    });
     return new Response(JSON.stringify({ data }), {
       status: 200,
       headers: {

@@ -56,7 +56,7 @@ export function AdminExperience({ snapshot }: { snapshot: AdminSnapshot }) {
 
   const serviceCards = [
     { label: "Web runtime", value: "Operational", note: "Checked " + new Date(snapshot.checkedAt).toLocaleTimeString(), tone: "mint" },
-    { label: "Hypixel auth", value: snapshot.hypixelConfigured ? "Configured" : "Disabled", note: "Server secret only", tone: snapshot.hypixelConfigured ? "mint" : "amber" },
+    { label: "Player transport", value: snapshot.hypixelConfigured ? "Configured" : "Disabled", note: "Private server boundary", tone: snapshot.hypixelConfigured ? "mint" : "amber" },
     { label: "AI assistant", value: snapshot.aiConfigured ? "Configured" : "Optional offline", note: "Responses API", tone: snapshot.aiConfigured ? "violet" : "amber" },
     { label: "Cache entries", value: String(snapshot.cache.entries), note: snapshot.cache.hits + " hits · " + snapshot.cache.misses + " misses", tone: "cyan" },
   ];

@@ -4,6 +4,7 @@ import { readBoundedJson } from "@/lib/http/bounded-json";
 import { providerErrorResponse } from "@/lib/providers/errors";
 import {
   getPlayerAnalysisWithNegativeCache,
+  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "@/lib/providers/player-request-policy";
 import {
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
     const analysis = await getPlayerAnalysisWithNegativeCache(
       parsed.value.username,
       parsed.value.profileId,
+      { actorSubject: playerRequestActorSubject(request) },
     );
     const profile = analysis.profiles.find((candidate) => candidate.id === parsed.value.profileId);
     if (analysis.source !== "hypixel" || !profile) {

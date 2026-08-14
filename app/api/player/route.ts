@@ -3,6 +3,7 @@ import { ProviderError, providerErrorResponse } from "../../../lib/providers/err
 import { featureUnavailableResponse } from "../../../lib/feature-access";
 import {
   getPlayerAnalysisWithNegativeCache,
+  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "../../../lib/providers/player-request-policy";
 
@@ -23,7 +24,9 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
     const profileId = optionalProfileId(url.searchParams.get("profile"));
-    const data = await getPlayerAnalysisWithNegativeCache(username, profileId);
+    const data = await getPlayerAnalysisWithNegativeCache(username, profileId, {
+      actorSubject: playerRequestActorSubject(request),
+    });
     return playerResponse(data);
   } catch (error) {
     return providerErrorResponse(error);
