@@ -4,10 +4,10 @@ This is the honest pre-release status. Architecture, schema, feature maps, or te
 
 ## External activation not performed
 
-- No public production launch, custom domain, or external-host deployment is claimed. An earlier safe-default build is available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); it does not contain the current uncommitted workspace delta.
-- The private player gateway code/configuration exists, but a production claim requires both replacement Worker secrets, Sites signing configuration, and a successful deployed end-to-end lookup. Any previously exposed credential must be replaced, not reused. OpenAI remains separately optional.
-- Production D1, all four migrations, backup/restore, the economy schedule, domain, and observability are not activated for the current source.
-- Sites/ChatGPT auth and the administrator allowlist require deployment configuration.
+- No public-access production launch, custom domain, or external-host deployment is claimed. Current commit `3b4064d` is available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site).
+- The replacement Hypixel key is Worker-only, the signed browser capability is active, and a deployed live `Justiwantdreams` lookup plus receipt-backed profile save passed. The site must remain owner-only until the public abuse/risk and Hypixel Production-approval gates are resolved. OpenAI remains separately optional and disabled.
+- Sites D1 exposes the four-migration/36-table schema and accepted the live saved-profile write, but backup/restore, the economy schedule, a custom domain, broader data verification, and long-term observability remain unverified.
+- Sites/ChatGPT owner authentication is active; broader auth/admin permission and account lifecycle QA remains incomplete.
 
 ## Player analysis
 

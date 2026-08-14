@@ -9,7 +9,7 @@ This audit maps the 149 numbered sections in `PROJECT_SPEC.md` to direct evidenc
 - **Deferred**: the requested product behavior is not implemented beyond a flag, schema, catalog, generic planning surface, or intentionally future architecture.
 - **Blocked**: the remaining action requires owner/provider/deployment authority. A blocked activation does not excuse a separate code gap.
 
-Current audited totals: **38 Complete, 88 Partial, 20 Deferred, and 3 Blocked** (149 sections).
+Current audited totals: **39 Complete, 88 Partial, 20 Deferred, and 2 Blocked** (149 sections).
 
 ## Validation snapshot
 
@@ -19,10 +19,10 @@ Fresh local validation on 2026-08-14 passed:
 - `npm run typecheck`;
 - `npm run db:check`;
 - `npm run db:smoke` (4 migrations, 36 tables, 0 foreign-key findings);
-- `npm run security:secrets` (270 project files);
-- `npm test`, including the production build and 40 engine, 16 service, 72 provider/security, and 25 rendered-HTML tests (153 passing, 0 failing).
+- `npm run security:secrets` (275 tracked project files);
+- `npm test`, including the production build and 40 engine, 16 service, 88 provider/security, and 25 rendered-HTML tests (169 passing, 0 failing).
 
-Rendered HTML tests prove route/build output, not hydrated browser behavior. No live provider credential, production D1 migration, public deployment, or current-source GitHub Actions run is inferred from these local results.
+Rendered HTML tests prove route/build output, not hydrated browser behavior. Separately, exact-head GitHub Actions run `31775265691` passed, current commit `3b4064d` was deployed owner-only to Sites, and an authenticated live `Justiwantdreams` lookup plus receipt-backed profile save passed. No public launch or broad browser/release QA is inferred.
 
 ## Requirement-by-requirement map
 
@@ -31,7 +31,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 1 | Primary product vision | **Partial** | A coherent shell now joins profile analysis, saved state, goals, current/history economy views, money-making, optimizers, calculators, and grounded AI; several deep profile/domain replacements remain incomplete. |
 | 2 | Autonomous build requirement | **Complete** | `PROJECT_SPEC.md`, `TODO.md`, this audit, and repeatable validation commands preserve scope and evidence. |
 | 3 | External blocker rule | **Complete** | Safe-default feature gates and classified unavailable states isolate missing Hypixel, OpenAI, auth, D1, and deployment activation. |
-| 4 | Continuous quality loop | **Partial** | Lint, typecheck, build, 153 automated tests, migration smoke, and secret scanning pass; full browser, accessibility, visual, performance, and live-integration loops do not. |
+| 4 | Continuous quality loop | **Partial** | Lint, typecheck, build, 169 automated tests, migration smoke, secret scanning, exact-head CI, and one owner-authenticated live lookup/save pass; full browser, accessibility, visual, performance, and broader live-integration loops do not. |
 | 5 | Final completion loop | **Deferred** | The release gate cannot pass while the end-to-end gaps below remain. |
 | 6 | Product name and centralized branding | **Complete** | `lib/config.ts`, root metadata, sitemap, About content, and `public/og.png` use SkyPilot centrally. |
 | 7 | Design quality | **Partial** | `app/globals.css` and the shared shell are cohesive, but no complete cross-page visual acceptance pass exists. |
@@ -116,7 +116,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 86 | Historical economy data | **Partial** | Worker-built idempotent Bazaar OHLC/average-volume buckets retain hourly evidence for 90 days and daily evidence for three years, while ended sales remain bounded/deduplicated; auction/item valuation summaries and broader compaction remain absent. |
 | 87 | Database | **Complete** | `db/schema/**`, four checked migrations, 36 normalized tables, constraints/indexes/FKs, repositories, and clean migration smoke evidence cover the specified durable domains. |
 | 88 | Data-model flexibility | **Partial** | Stable relations are normalized and evolving fragments use bounded JSON, but complete resource/version update ingestion is absent. |
-| 89 | Initial hosting target | **Blocked** | An earlier owner-only Sites preview/config exists, but the current workspace is not deployed; production D1, scheduler, current-source publish, public access, and domain require deployment authority. |
+| 89 | Initial hosting target | **Partial** | Current commit `3b4064d` is deployed owner-only to Sites with its separate signed gateway, bound D1, and a successful live lookup/profile-save smoke; public access/domain, economy scheduling, backup/restore, and broader production QA remain. |
 | 90 | Zero hosting lock-in | **Partial** | Engines/contracts/jobs are portable; vinext/Workers, D1, Sites auth, images, and runtime composition remain provider-specific. |
 | 91 | Infrastructure abstractions | **Partial** | Repository, economy store/sink, provider, and scheduler-independent job boundaries exist; cache/rate/queue/auth/storage/analytics/secrets adapters are incomplete. |
 | 92 | Database portability | **Partial** | Canonical repository contracts, app-generated IDs, SQLite-safe normalized schema, and D1-to-PostgreSQL docs exist; no PostgreSQL adapter/import test exists. |
@@ -146,7 +146,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 116 | SEO | **Complete** | Metadata, Open Graph image, sitemap, robots rules, and private-route exclusion are implemented/tested. |
 | 117 | Documentation | **Complete** | README, architecture, security, API, database, setup, operations, testing, portability, deployment, limitations, spec, checklist, and this audit exist. |
 | 118 | Deployment documentation | **Complete** | Sites, external hosting, migration, database portability, auth, workers, secrets, and domain steps are documented honestly. |
-| 119 | Testing | **Partial** | 153 tests cover engines, services, signed gateway/provider/security boundaries, D1-backed saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, feature-aware navigation, and rendered routes; browser E2E, full authz, live providers, and many deep feature flows remain untested. |
+| 119 | Testing | **Partial** | 169 tests cover engines, services, signed gateway/provider/security boundaries, D1-backed saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, feature-aware navigation, and rendered routes; automated browser E2E, full authz, and many deep feature flows remain untested. One live lookup/save smoke is recorded separately. |
 | 120 | End-to-end tests | **Deferred** | Rendered HTML is server smoke coverage, not Playwright/browser E2E for the required flows. |
 | 121 | Mock data rule | **Complete** | Demo/illustrative data is visibly labeled and safe-default live failures never silently fall back to demo. |
 | 122 | No dead UI | **Partial** | Saved-state/build, market history, economy labs, money-making, skills, readiness, slot, and AI controls are wired; several deep module pages still present feature maps or narrow planning surfaces rather than complete capabilities. |
@@ -155,7 +155,7 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 125 | Central game configuration | **Partial** | Central catalogs/config/nav plus one versioned standard skill-XP curve and per-skill caps are shared by profile normalization and calculators; some rarity/item/domain constants remain local. |
 | 126 | Future SkyBlock updates | **Partial** | Stable IDs/catalogs, provider normalizers, versioned item summaries, and centralized skill XP improve update tolerance; several modules still use static local lists/reference assumptions. |
 | 127 | Home page | **Complete** | Search-first homepage, concise positioning, no-account message, labeled previews, module links, and non-affiliation render and test successfully. |
-| 128 | First profile experience | **Partial** | Empty/loading/error/profile reveal states are polished, but browser timing/interactions and complete live analysis are unverified. |
+| 128 | First profile experience | **Partial** | Empty/loading/error/profile reveal states are polished, and one owner-authenticated `Justiwantdreams` lookup/profile-save flow passed live; broad browser timing, failure, device, and complete-analysis coverage remain unverified. |
 | 129 | Profile summary card | **Partial** | A compact dashboard stat summary exists; it is not a share/export card and omits major live fields. |
 | 130 | Progression score | **Complete** | A bounded, tested unofficial score is visibly labeled SkyPilot-specific and not an official metric. |
 | 131 | Best value badges | **Complete** | Recommendation models/engine/UI support value/priority badges with deterministic ranking. |
@@ -165,8 +165,8 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. No 
 | 135 | AI failure handling | **Complete** | AI is optional/flagged; missing credentials and failures leave deterministic/non-AI tools available with clear messages. |
 | 136 | Monorepo/shared packages | **Complete** | Equivalent `app`/`components`/`lib`/`db`/`worker` separation avoids a forced multi-package scaffold while preserving boundaries. |
 | 137 | CI | **Complete** | `.github/workflows/ci.yml` runs install, lint, typecheck, Drizzle checks, migration smoke, tests/build, and Docker build. |
-| 138 | Git hygiene | **Partial** | Ignore rules and secret scans are strong; the audited feature delta still requires an intentional commit/current CI run before release. |
-| 139 | Initial public deployment | **Blocked** | An earlier owner-only Sites build exists, but the current source is neither committed nor deployed; public access/domain and production integration activation require owner/deployment approval, and product completeness is still insufficient. |
+| 138 | Git hygiene | **Complete** | Ignore rules and secret scans are strong; the capability delta is intentionally committed/pushed at `3b4064d`, and its exact-head GitHub Actions validation and Docker jobs pass. |
+| 139 | Initial public deployment | **Blocked** | The current source is committed and deployed owner-only with live player lookup/save verified, but public access/domain, Hypixel Production approval, authoritative abuse coordination or accepted residual risk, and remaining product/release QA are unresolved. |
 | 140 | Sites limitations | **Partial** | Economy jobs are isolated and scheduled through a Sites-compatible handler; external worker composition and unsupported infrastructure remain incomplete. |
 | 141 | Migration test | **Partial** | The four-migration chain creates all 36 expected SQLite tables with zero foreign-key findings, but no second-host/PostgreSQL production import/auth/worker migration smoke exists. |
 | 142 | Visual QA | **Partial** | Prior-source desktop/mobile spot checks are documented, but the current saved-state/history/AI/item/planner delta and every major page/state at desktop/tablet/mobile have no captured browser audit. |

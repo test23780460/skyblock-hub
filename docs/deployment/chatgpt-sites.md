@@ -1,6 +1,6 @@
 # ChatGPT/Codex Sites Deployment
 
-Sites is SkyPilot’s preferred initial host. An [owner-only SkyPilot preview](https://skypilot-skyblock.tratv.chatgpt.site) is deployed, but the URL alone is not evidence that the current source or a live integration has passed its deployment checks. This is not a public production launch.
+Sites is SkyPilot’s preferred initial host. Current commit `3b4064d` is deployed at the [owner-only SkyPilot preview](https://skypilot-skyblock.tratv.chatgpt.site); an authenticated live `Justiwantdreams` lookup and receipt-backed profile save passed on 2026-08-14. This is not a public production launch.
 
 ## Current readiness
 
@@ -11,7 +11,7 @@ Sites is SkyPilot’s preferred initial host. An [owner-only SkyPilot preview](h
 - the worker entry includes a scheduled public-economy handler backed by a durable D1 lease/snapshot store;
 - optional Sites/ChatGPT identity helpers and canonical-user mapping exist;
 - a gated, short-lived browser capability transport exists for owner-only player lookup when Sites server egress cannot reach the gateway, plus per-profile save receipts that avoid a second server-side lookup;
-- production gateway behavior, D1 data, scheduler, admin allowlist, domain, and public access require separate activation and verification.
+- gateway capability/CORS behavior and one D1-backed profile save are live-verified; economy scheduling, backup/restore, broader auth/admin QA, a custom domain, Hypixel Production approval, and public access require separate activation or verification.
 
 ## Preflight
 

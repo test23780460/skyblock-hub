@@ -23,14 +23,14 @@ On 2026-08-14, the current workspace completed:
 - `npm run typecheck`: pass;
 - `npm test`: pass;
 - production vinext build: pass;
-- 40 engine tests, 16 service tests, 72 provider/security tests, and 25 rendered-HTML tests: **153 passing, 0 failing**;
+- 40 engine tests, 16 service tests, 88 provider/security tests, and 25 rendered-HTML tests: **169 passing, 0 failing**;
 - Drizzle migration history check: pass;
 - `npm run db:smoke`: four migrations, 36 tables, and zero foreign-key-check findings;
-- repository secret-pattern scan: pass across 270 project files;
+- repository secret-pattern scan: pass across 275 tracked project files;
 - the earlier production dependency audit reported zero known vulnerabilities; the current retry could not reach the advisory endpoint in the sandbox, and the lockfile/dependencies are unchanged;
-- no fresh hydrated-browser, cross-viewport, accessibility, or visual-regression pass was run against this current source delta.
+- one owner-authenticated live `Justiwantdreams` lookup and receipt-backed profile save passed; no broad cross-viewport, accessibility, or visual-regression pass was run.
 
-A prior source revision passed GitHub Actions, but the current workspace delta has no matching commit or remote CI run yet. Earlier owner-authenticated smoke checks covered the homepage, health route, sitemap, absolute metadata, and labeled demo at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); they do not cover the current saved-state, history, AI, item, or planning changes. No public launch is claimed. Docker is installed locally, but its daemon was not running during this pass, so the current container path has not been re-smoked locally.
+Exact-head GitHub Actions run [`31775265691`](https://github.com/test23780460/skyblock-hub/actions/runs/31775265691) passed validation and Docker jobs for commit `3b4064d`. That commit is deployed at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site), where live player lookup and receipt-backed profile saving passed. This is not complete automated browser E2E or a public launch; the local Docker daemon was not running, although the CI Docker build passed.
 
 ## Important gaps
 

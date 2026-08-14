@@ -6,7 +6,7 @@ SkyPilot is not affiliated with or endorsed by Hypixel Inc., Mojang, or Microsof
 
 ## Current status
 
-This repository is a working, tested foundation—not a completed public production release. An [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site) exists, but the URL alone does not prove that the current source or a live integration has passed deployment checks. The private preview does not constitute a public launch.
+This repository is a working, tested foundation—not a completed public production release. The current capability build is deployed at the [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); an authenticated live `Justiwantdreams` lookup and receipt-backed profile save passed there on 2026-08-14. The private preview does not constitute a public launch.
 
 Implemented today:
 
@@ -31,9 +31,9 @@ Still incomplete or inactive:
 - durable recommendation Complete/Ignore/Remind Later state, goal/analysis sharing, and broader AI knowledge grounding remain incomplete;
 - the browser capability is replayable during its 30-second window and current rate bindings are not an exact global Hypixel credential ledger; public exposure still needs authoritative coordination or explicit residual-risk acceptance;
 - the save receipt covers only authenticated owner-scoped profile linking; it does not make the server-side AI path reachable, so AI must stay disabled in an egress-limited deployment;
-- the production economy schedule, player-gateway end-to-end smoke, Hypixel Production approval, production D1 data, external auth providers, and a public domain are not all verified;
+- the production economy schedule, Hypixel Production approval, D1 backup/restore and broader account QA, public abuse coordination, and a custom domain are not verified;
 - Docker runs the web image only; the complete external database/cache/worker stack is not composed;
-- no public production URL, custom domain, or live-integration launch is claimed.
+- no public-access production launch or custom domain is claimed.
 
 See [Known limitations](docs/limitations.md) and [TODO](TODO.md) before treating a surface as production-ready.
 
