@@ -5,6 +5,7 @@ import {
   type HypixelProvider,
 } from "../../lib/providers/hypixel";
 import type { EconomyJobResult, EconomySnapshotSink } from "./types";
+import type { EconomyPublicationLease } from "../../lib/repositories/economy-snapshots";
 
 export const ACTIVE_AUCTION_REFRESH_BASELINE_MS = 60_000;
 export const ENDED_AUCTION_REFRESH_BASELINE_MS = 55_000;
@@ -15,8 +16,11 @@ const PAGE_CONCURRENCY = 2;
 export async function refreshActiveAuctions(options: {
   provider?: HypixelProvider;
   sink?: EconomySnapshotSink;
+  lease?: EconomyPublicationLease;
   previousLastUpdated?: number | null;
 } = {}): Promise<EconomyJobResult> {
+  const sink = requireSink(options.sink);
+  const lease = requireLease(options.lease);
   const provider = options.provider ?? hypixelProvider;
   const first = await provider.getActiveAuctions(0);
   const snapshot = first.data;
@@ -41,6 +45,13 @@ export async function refreshActiveAuctions(options: {
       detail: "The Hypixel lastUpdated value has not changed.",
     };
   }
+  if (
+    options.previousLastUpdated !== null &&
+    options.previousLastUpdated !== undefined &&
+    snapshot.lastUpdated < options.previousLastUpdated
+  ) {
+    throw olderSnapshotError("active-auction");
+  }
   if (snapshot.totalPages < 1 || snapshot.totalPages > MAX_AUCTION_PAGES) {
     throw new ProviderError({
       code: "invalid_response",
@@ -52,6 +63,7 @@ export async function refreshActiveAuctions(options: {
   }
 
   const auctions: ActiveAuction[] = [...snapshot.auctions];
+  let skippedAuctions = snapshot.skippedAuctions;
   const pages = Array.from(
     { length: Math.max(0, snapshot.totalPages - 1) },
     (_, index) => index + 1,
@@ -74,6 +86,7 @@ export async function refreshActiveAuctions(options: {
         });
       }
       sawStaleCache ||= result.cacheStatus === "stale";
+      skippedAuctions += result.data.skippedAuctions;
       auctions.push(...result.data.auctions);
     }
   }
@@ -89,12 +102,11 @@ export async function refreshActiveAuctions(options: {
     };
   }
 
-  if (options.sink) {
-    await options.sink.replaceActiveAuctionSnapshot({
-      lastUpdated: snapshot.lastUpdated,
-      auctions,
-    });
-  }
+  await sink.replaceActiveAuctionSnapshot({
+    lastUpdated: snapshot.lastUpdated,
+    auctions,
+    skippedAuctions,
+  }, lease);
   return {
     job: "active-auctions",
     status: "completed",
@@ -107,8 +119,11 @@ export async function refreshActiveAuctions(options: {
 export async function refreshEndedAuctions(options: {
   provider?: HypixelProvider;
   sink?: EconomySnapshotSink;
+  lease?: EconomyPublicationLease;
   previousLastUpdated?: number | null;
 } = {}): Promise<EconomyJobResult> {
+  const sink = requireSink(options.sink);
+  const lease = requireLease(options.lease);
   const provider = options.provider ?? hypixelProvider;
   const result = await provider.getEndedAuctions();
   if (result.cacheStatus === "stale") {
@@ -131,8 +146,15 @@ export async function refreshEndedAuctions(options: {
       detail: "The Hypixel lastUpdated value has not changed.",
     };
   }
+  if (
+    options.previousLastUpdated !== null &&
+    options.previousLastUpdated !== undefined &&
+    result.data.lastUpdated < options.previousLastUpdated
+  ) {
+    throw olderSnapshotError("ended-auction");
+  }
 
-  if (options.sink) await options.sink.saveEndedAuctionSnapshot(result.data);
+  await sink.saveEndedAuctionSnapshot(result.data, lease);
   return {
     job: "ended-auctions",
     status: "completed",
@@ -140,4 +162,36 @@ export async function refreshEndedAuctions(options: {
     records: result.data.auctions.length,
     cacheStatus: result.cacheStatus,
   };
+}
+
+function requireSink(sink: EconomySnapshotSink | undefined): EconomySnapshotSink {
+  if (sink) return sink;
+  throw new ProviderError({
+    code: "upstream_unavailable",
+    message: "Public economy ingestion requires durable snapshot storage.",
+    status: 503,
+    action: "Run this job through the elected economy worker.",
+  });
+}
+
+function requireLease(
+  lease: EconomyPublicationLease | undefined,
+): EconomyPublicationLease {
+  if (lease) return lease;
+  throw new ProviderError({
+    code: "upstream_unavailable",
+    message: "Public economy publication requires an elected worker lease.",
+    status: 503,
+    action: "Run this job through the elected economy worker.",
+  });
+}
+
+function olderSnapshotError(feed: string): ProviderError {
+  return new ProviderError({
+    code: "invalid_response",
+    message: `Hypixel returned an older ${feed} snapshot than the published version.`,
+    status: 502,
+    action: "Keep the current durable snapshot and wait for a newer worker cycle.",
+    retryable: true,
+  });
 }

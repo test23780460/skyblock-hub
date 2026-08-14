@@ -24,6 +24,10 @@ import {
   requestJson,
   type FetchImplementation,
 } from "./http";
+import {
+  createSkyBlockItemDecodeBudget,
+  normalizeSkyBlockItemData,
+} from "./skyblock-items";
 
 const API_BASE_URL = "https://api.hypixel.net/v2/";
 const PLAYER_TTL_MS = 60 * 60 * 1_000;
@@ -141,6 +145,29 @@ export class HypixelProvider {
       async () => {
         const payload = await this.authenticatedRequest("player", { uuid });
         return normalizePlayer(payload);
+      },
+    );
+  }
+
+  async getPlayerByUsername(
+    usernameInput: string,
+  ): Promise<CachedLoadResult<HypixelPlayer>> {
+    const username = normalizeMinecraftUsername(usernameInput);
+    return cachedLoad(
+      this.cache,
+      `hypixel:player-name:${username.toLowerCase()}`,
+      {
+        ttlMs: PLAYER_TTL_MS,
+        staleTtlMs: PLAYER_STALE_TTL_MS,
+        staleIfError: true,
+      },
+      async () => {
+        const payload = await this.authenticatedRequest("player", { name: username });
+        const player = normalizePlayer(payload);
+        if (player.displayName.toLowerCase() !== username.toLowerCase()) {
+          throw invalidResponse("Hypixel");
+        }
+        return player;
       },
     );
   }
@@ -290,10 +317,10 @@ function normalizePlayer(payload: unknown): HypixelPlayer {
   return { uuid, displayName };
 }
 
-function normalizeProfiles(
+async function normalizeProfiles(
   payload: unknown,
   requestedUuid: string,
-): HypixelSkyBlockProfile[] {
+): Promise<HypixelSkyBlockProfile[]> {
   const root = requireSuccessfulPayload(payload);
   if (root.profiles === null) return [];
   if (!Array.isArray(root.profiles) || root.profiles.length > 32) {
@@ -301,6 +328,7 @@ function normalizeProfiles(
   }
 
   const profiles: HypixelSkyBlockProfile[] = [];
+  const itemDecodeBudget = createSkyBlockItemDecodeBudget();
   for (const value of root.profiles) {
     const profile = optionalObject(value);
     if (!profile) continue;
@@ -315,7 +343,10 @@ function normalizeProfiles(
         try {
           const normalizedMemberId = upstreamUuid(memberId);
           if (normalizedMemberId !== requestedUuid) continue;
-          members[normalizedMemberId] = normalizeMemberForAnalysis(memberValue);
+          members[normalizedMemberId] = await normalizeMemberForAnalysis(
+            memberValue,
+            itemDecodeBudget,
+          );
           break;
         } catch {
           // Ignore malformed member data without retaining another co-op member.
@@ -340,7 +371,10 @@ function normalizeProfiles(
   return profiles;
 }
 
-function normalizeMemberForAnalysis(member: JsonObject): JsonObject {
+async function normalizeMemberForAnalysis(
+  member: JsonObject,
+  itemDecodeBudget: ReturnType<typeof createSkyBlockItemDecodeBudget>,
+): Promise<JsonObject> {
   const normalized: JsonObject = {};
 
   const profile = optionalObject(member.profile);
@@ -435,12 +469,10 @@ function normalizeMemberForAnalysis(member: JsonObject): JsonObject {
     }
   }
 
-  if (rawInventoryVisible(member)) {
-    normalized.inventory = { inv_contents: { data: "present" } };
-  }
-  if (rawAccessoryInventoryVisible(member) && !normalized.accessory_bag_storage) {
-    normalized.accessory_bag_storage = { present: true };
-  }
+  normalized.item_data = await normalizeSkyBlockItemData(
+    member,
+    itemDecodeBudget,
+  );
 
   return normalized;
 }
@@ -449,29 +481,6 @@ function normalizeBanking(value: unknown): JsonObject | null {
   const banking = optionalObject(value);
   const balance = nonNegativeNumber(banking?.balance);
   return balance === null ? null : { balance };
-}
-
-function rawInventoryVisible(member: JsonObject): boolean {
-  return [
-    rawPath(member, ["inventory", "inv_contents", "data"]),
-    rawPath(member, ["inv_contents", "data"]),
-  ].some((value) => typeof value === "string" && value.length > 0);
-}
-
-function rawAccessoryInventoryVisible(member: JsonObject): boolean {
-  return [
-    rawPath(member, ["inventory", "bag_contents", "talisman_bag", "data"]),
-    rawPath(member, ["talisman_bag", "data"]),
-  ].some((value) => typeof value === "string" && value.length > 0);
-}
-
-function rawPath(object: JsonObject, path: readonly string[]): unknown {
-  let current: unknown = object;
-  for (const segment of path) {
-    if (!isJsonObject(current)) return undefined;
-    current = current[segment];
-  }
-  return current;
 }
 
 function normalizeBazaar(payload: unknown): BazaarSnapshot {

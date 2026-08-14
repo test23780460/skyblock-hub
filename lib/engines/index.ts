@@ -1,9 +1,11 @@
 export * from "./accessories.js";
 export * from "./bazaar.js";
+export * from "./bazaar-history.js";
 export * from "./calculators/index.js";
 export * from "./coins.js";
+export * from "./economy-methods.js";
 export * from "./net-worth.js";
+export * from "./money-making.js";
 export * from "./progression.js";
 export * from "./recommendations.js";
 export * from "./valuation.js";
-

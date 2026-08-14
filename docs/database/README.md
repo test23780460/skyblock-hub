@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-SkyPilot currently uses Drizzle ORM with the SQLite dialect and a Cloudflare D1 runtime binding. The schema entry point is `db/schema.ts`; domain tables are split under `db/schema/`. The generated migration and Drizzle snapshot live under `drizzle/` and should be versioned with schema changes.
+SkyPilot currently uses Drizzle ORM with the SQLite dialect and a Cloudflare D1 runtime binding. The schema entry point is `db/schema.ts`; domain tables are split under `db/schema/`. Generated migrations and Drizzle snapshots live under `drizzle/` and are versioned with schema changes.
 
 The database contains no credentials. Connection/binding configuration belongs in the deployment environment, and `.env.example` must contain blank placeholders only.
 
@@ -49,6 +49,12 @@ These tables do not authorize continuous profile polling. Profile fetches remain
 | `auction_listings` | Current ingested auction state. |
 | `auction_sales` | Deduplicated ended-sale facts. |
 | `item_valuations` | Versioned estimates, confidence, sample size, and factors. |
+| `public_economy_worker_state` | Global worker lease, fencing token, backoff, and safe failure state. |
+| `public_economy_feed_state` | Published version/freshness/count marker for each public feed. |
+| `public_bazaar_snapshot_rows` | Latest normalized Bazaar version consumed by product APIs. |
+| `public_bazaar_history_buckets` | Idempotent hour/day Bazaar OHLC and average-volume history with bounded retention. |
+| `public_active_auction_snapshot_rows` | Latest complete normalized active-Auction version. |
+| `public_ended_auction_sales` | Minimal deduplicated ended-sale facts with bounded retention. |
 
 ### Platform and operations
 
@@ -87,8 +93,11 @@ Run:
 
 ```powershell
 npm.cmd run db:generate
-.\node_modules\.bin\drizzle-kit.cmd check --config=drizzle.config.ts
+npm.cmd run db:check
+npm.cmd run db:smoke
 npm.cmd run typecheck
 ```
+
+`db:smoke` applies the full chain to isolated SQLite, compares its 36-table result with the latest snapshot, and runs the foreign-key check.
 
 `db:generate` should produce no diff when the repository migration snapshot matches the schema. Typecheck may require the project’s Cloudflare worker ambient types to be configured by the runtime/tooling owner.

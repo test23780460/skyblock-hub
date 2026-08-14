@@ -4,6 +4,7 @@ const labels: Readonly<Record<FeatureFlag, string>> = {
   aiAssistant: "AI assistant",
   chatGptAuth: "account authentication",
   playerLookup: "player lookup",
+  browserPlayerGateway: "browser player transport",
   publicEconomy: "public economy data",
   ads: "advertising",
   premium: "premium features",

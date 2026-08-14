@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { estimateDungeonRuns } from "../../dist/engine-tests/lib/engines/calculators/dungeon.js";
-import { estimateFarmingXp } from "../../dist/engine-tests/lib/engines/calculators/farming.js";
+import { estimateFarmingLevelTarget, estimateFarmingXp } from "../../dist/engine-tests/lib/engines/calculators/farming.js";
+import { estimateGardenYield } from "../../dist/engine-tests/lib/engines/calculators/garden.js";
 import { estimateMinionProfit } from "../../dist/engine-tests/lib/engines/calculators/minion.js";
 import { estimatePetXp } from "../../dist/engine-tests/lib/engines/calculators/pet.js";
 import { estimateSlayerProgress } from "../../dist/engine-tests/lib/engines/calculators/slayer.js";
@@ -20,6 +21,21 @@ test("farming XP estimates account for boosts and daily play time", () => {
   assert.equal(result.daysRemaining, 4);
 });
 
+test("farming target planner accepts current and target levels on the centralized curve", () => {
+  const result = estimateFarmingLevelTarget({
+    currentLevel: 1,
+    targetLevel: 2,
+    baseXpPerHour: 125,
+    hoursPerDay: 0.5,
+  });
+  assert.equal(result.currentXp, 50);
+  assert.equal(result.targetXp, 175);
+  assert.equal(result.remainingXp, 125);
+  assert.equal(result.hoursRemaining, 1);
+  assert.equal(result.daysRemaining, 2);
+  assert.match(result.assumptions[0], /level 60/i);
+});
+
 test("pet XP estimates use an explicit skill conversion and pet boost", () => {
   const result = estimatePetXp({
     currentPetXp: 400_000,
@@ -30,6 +46,32 @@ test("pet XP estimates use an explicit skill conversion and pet boost", () => {
   });
   assert.equal(result.effectivePetXpPerHour, 60_000);
   assert.equal(result.hoursRemaining, 10);
+});
+
+test("garden yield combines general and crop-specific Fortune without hidden multipliers", () => {
+  const result = estimateGardenYield({
+    baseFortune: 100,
+    cropSpecificFortune: 25,
+    sources: [{ id: "tool", label: "Tool", fortune: 75 }],
+    blocksPerHour: 10_000,
+    baseDropsPerBlock: 1,
+    coinValuePerItem: 4,
+    budget: 1_000_000,
+    upgrades: [
+      { id: "cheap", name: "Cheap", fortuneGain: 10, cost: 100_000 },
+      { id: "expensive", name: "Expensive", fortuneGain: 20, cost: 2_000_000 },
+    ],
+  });
+  assert.equal(result.totalFortune, 200);
+  assert.equal(result.expectedDropMultiplier, 3);
+  assert.equal(result.guaranteedDropMultiplier, 3);
+  assert.equal(result.extraDropChancePercent, 0);
+  assert.equal(result.expectedItemsPerHour, 30_000);
+  assert.equal(result.expectedGrossCoinsPerHour, 120_000);
+  assert.equal(result.rankedUpgrades[0].id, "cheap");
+  assert.equal(result.rankedUpgrades[0].incrementalItemsPerHour, 1_000);
+  assert.equal(result.rankedUpgrades[0].affordable, true);
+  assert.equal(result.rankedUpgrades[1].affordable, false);
 });
 
 test("minion profit exposes production and operating-cost assumptions", () => {
@@ -92,4 +134,3 @@ test("calculators reject impossible zero-success assumptions", () => {
     /successRate must be greater than zero/,
   );
 });
-

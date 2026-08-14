@@ -1,0 +1,54 @@
+{
+  "fixtureNotice": "SYNTHETIC TEST DATA ONLY - generated into gzipped NBT during tests; never live player data",
+  "schemaVersion": "skyblock-items-v1",
+  "containers": {
+    "armor": [
+      {
+        "slot": 3,
+        "count": 1,
+        "id": "SYNTHETIC_HELMET",
+        "name": "§6Ancient Synthetic Helmet",
+        "lore": ["§7Fixture lore that must be discarded", "§6LEGENDARY DUNGEON HELMET"],
+        "stars": 5,
+        "rarityUpgrades": 1
+      }
+    ],
+    "inventory": [
+      {
+        "slot": 0,
+        "count": 1,
+        "id": "SYNTHETIC_SWORD",
+        "name": "§dSynthetic Blade",
+        "lore": ["§7Never expose this lore", "§d§lMYTHIC SWORD"],
+        "stars": 3,
+        "rarityUpgrades": 0
+      }
+    ],
+    "accessories": [
+      {
+        "slot": 4,
+        "count": 1,
+        "id": "SYNTHETIC_TALISMAN",
+        "name": "§aSynthetic Talisman",
+        "lore": ["§7Private fixture lore", "§aUNCOMMON ACCESSORY"],
+        "stars": 0,
+        "rarityUpgrades": 0
+      },
+      {
+        "slot": 5,
+        "count": 1,
+        "id": "SYNTHETIC_RING",
+        "name": "§9Synthetic Ring",
+        "lore": ["§7Private fixture lore", "§9RARE ACCESSORY"],
+        "stars": 0,
+        "rarityUpgrades": 0
+      }
+    ]
+  },
+  "expected": {
+    "helmetName": "Ancient Synthetic Helmet",
+    "weaponName": "Synthetic Blade",
+    "accessoryFamily": "SYNTHETIC",
+    "uniqueAccessoryCount": 2
+  }
+}

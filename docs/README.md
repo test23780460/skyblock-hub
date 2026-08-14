@@ -21,6 +21,7 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 ## Deploy and operate
 
 - [ChatGPT/Codex Sites deployment](deployment/chatgpt-sites.md)
+- [Private player gateway](deployment/player-gateway.md)
 - [External hosting](deployment/external-hosting.md)
 - [Hosting migration](deployment/migration.md)
 - [Operations runbook](operations.md)
@@ -30,8 +31,8 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 
 - [Hypixel API policy](policies/hypixel-api.md)
 - [Known limitations](limitations.md)
+- [149-section completion audit](completion-audit.md)
 - [Implementation checklist](../TODO.md)
 - [Full product specification](../PROJECT_SPEC.md)
 
 The current build task has not activated production credentials, a production database, a scheduler, a domain, or a public deployment.
-

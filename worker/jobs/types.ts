@@ -1,17 +1,7 @@
-import type {
-  ActiveAuction,
-  BazaarSnapshot,
-  EndedAuctionSnapshot,
-} from "../../lib/providers/hypixel";
-
-export interface EconomySnapshotSink {
-  saveBazaarSnapshot(snapshot: BazaarSnapshot): Promise<void>;
-  replaceActiveAuctionSnapshot(snapshot: {
-    lastUpdated: number;
-    auctions: ActiveAuction[];
-  }): Promise<void>;
-  saveEndedAuctionSnapshot(snapshot: EndedAuctionSnapshot): Promise<void>;
-}
+export type {
+  EconomySnapshotSink,
+  PublicEconomySnapshotStore,
+} from "../../lib/repositories/economy-snapshots";
 
 export type EconomyJobResult = {
   job: "bazaar" | "active-auctions" | "ended-auctions";
@@ -22,3 +12,9 @@ export type EconomyJobResult = {
   detail?: string;
 };
 
+export type EconomyCycleResult = {
+  status: "completed" | "skipped" | "backing-off" | "failed";
+  jobs: EconomyJobResult[];
+  retryAfterSeconds?: number;
+  errorCode?: string;
+};

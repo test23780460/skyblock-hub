@@ -143,6 +143,7 @@ export const savedBuilds = sqliteTable(
   (table) => [
     uniqueIndex("saved_builds_share_slug_uidx").on(table.shareSlug),
     index("saved_builds_user_updated_idx").on(table.userId, table.updatedAt),
+    index("saved_builds_visibility_updated_idx").on(table.visibility, table.updatedAt),
     index("saved_builds_profile_idx").on(table.profileId),
     check(
       "saved_builds_visibility_check",

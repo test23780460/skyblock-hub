@@ -13,7 +13,10 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  // Hypixel's public API is Cloudflare-fronted. Force global fetches through
+  // the public route so production Workers do not treat them as an implicit
+  // same-zone Worker call.
+  compatibility_flags: ["nodejs_compat", "global_fetch_strictly_public"],
   d1_databases: d1
     ? [
         {

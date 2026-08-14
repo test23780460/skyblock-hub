@@ -1,5 +1,10 @@
 import type {
+  GearSnapshot,
   PlayerAnalysis,
+  ProfileAccessorySummary,
+  ProfileItemContainerSummary,
+  ProfileItemData,
+  ProfileItemSummary,
   ProfileStat,
   Recommendation,
   SkillSnapshot,
@@ -10,8 +15,16 @@ import type {
   HypixelPlayer,
   HypixelSkyBlockProfile,
 } from "../providers/hypixel";
-import { isJsonObject, type JsonObject } from "../providers/guards";
+import {
+  cleanMinecraftText,
+  isJsonObject,
+  type JsonObject,
+} from "../providers/guards";
 import { ProviderError } from "../providers/errors";
+import {
+  CORE_SKILL_LEVEL_CAPS,
+  standardSkillLevelFromXp,
+} from "../game-data/skill-xp";
 
 const CORE_SKILLS = [
   ["farming", "Farming"],
@@ -22,30 +35,6 @@ const CORE_SKILLS = [
   ["enchanting", "Enchanting"],
   ["alchemy", "Alchemy"],
 ] as const;
-
-// Standard skill XP increments. This table is versioned in one place so game
-// updates cannot silently alter deterministic analysis.
-const STANDARD_SKILL_XP = [
-  50, 125, 200, 300, 500, 750, 1_000, 1_500, 2_000, 3_500, 5_000, 7_500,
-  10_000, 15_000, 20_000, 30_000, 50_000, 75_000, 100_000, 200_000,
-  300_000, 400_000, 500_000, 600_000, 700_000, 800_000, 900_000,
-  1_000_000, 1_100_000, 1_200_000, 1_300_000, 1_400_000, 1_500_000,
-  1_600_000, 1_700_000, 1_800_000, 1_900_000, 2_000_000, 2_100_000,
-  2_200_000, 2_300_000, 2_400_000, 2_500_000, 2_600_000, 2_750_000,
-  2_900_000, 3_100_000, 3_400_000, 3_700_000, 4_000_000, 4_300_000,
-  4_600_000, 4_900_000, 5_200_000, 5_500_000, 5_800_000, 6_100_000,
-  6_400_000, 6_700_000, 7_000_000,
-] as const;
-
-const SKILL_LEVEL_CAPS: Record<string, number> = {
-  farming: 60,
-  mining: 60,
-  combat: 60,
-  foraging: 60,
-  fishing: 50,
-  enchanting: 60,
-  alchemy: 50,
-};
 
 export type ProfileRecommendationInputs = {
   skyBlockLevel: number | null;
@@ -139,9 +128,10 @@ export function analyzeSkyBlockProfile(
     return unavailableCoopProfile(profile);
   }
 
+  const itemData = readProfileItemData(member);
   const inputs = extractRecommendationInputs(profile, member);
   const skills = buildSkills(member);
-  const unavailable = buildUnavailable(member, inputs);
+  const unavailable = buildUnavailable(member, inputs, itemData);
 
   return {
     id: profile.id,
@@ -154,9 +144,11 @@ export function analyzeSkyBlockProfile(
         ["last_save"],
       ]),
     ),
-    stats: buildStats(inputs),
+    stats: buildStats(inputs, itemData),
     skills,
-    gear: [],
+    gear: buildGearDiagnostics(itemData),
+    itemData,
+    accessories: buildAccessorySummaries(itemData),
     recommendations: buildRecommendations(inputs),
     strengths: buildStrengths(inputs),
     weaknesses: buildWeaknesses(inputs),
@@ -207,6 +199,13 @@ export function extractRecommendationInputs(
     ["dungeons", "dungeon_types", "catacombs", "experience"],
     ["dungeons", "catacombs", "experience"],
   ]);
+  const itemData = readProfileItemData(member);
+  const inventoryContainer = itemData?.containers.find(
+    (container) => container.key === "inventory",
+  );
+  const accessoryContainer = itemData?.containers.find(
+    (container) => container.key === "accessories",
+  );
 
   return {
     skyBlockLevel: skyBlockXp === null ? null : round(skyBlockXp / 100, 2),
@@ -221,20 +220,23 @@ export function extractRecommendationInputs(
     catacombsLevel,
     catacombsXp,
     totalSlayerXp: totalSlayerXp(member),
-    hasInventoryData: hasNestedData(member, [
-      ["inventory", "inv_contents", "data"],
-      ["inv_contents", "data"],
-    ]),
+    hasInventoryData: inventoryContainer?.state === "parsed",
     hasAccessoryBagData:
       getPath(member, ["accessory_bag_storage"]) !== undefined ||
-      hasNestedData(member, [
-        ["inventory", "bag_contents", "talisman_bag", "data"],
-        ["talisman_bag", "data"],
-      ]),
+      accessoryContainer?.state === "parsed",
   };
 }
 
-function buildStats(inputs: ProfileRecommendationInputs): ProfileStat[] {
+function buildStats(
+  inputs: ProfileRecommendationInputs,
+  itemData: ProfileItemData | undefined,
+): ProfileStat[] {
+  const normalizedItemCount =
+    itemData?.containers.reduce(
+      (total, container) =>
+        container.state === "parsed" ? total + container.itemCount : total,
+      0,
+    ) ?? 0;
   return [
     {
       key: "level",
@@ -253,7 +255,10 @@ function buildStats(inputs: ProfileRecommendationInputs): ProfileStat[] {
       label: "Estimated Net Worth",
       value: null,
       unit: "coins",
-      note: "Requires the separate market valuation pipeline",
+      note:
+        normalizedItemCount > 0
+          ? `${normalizedItemCount.toLocaleString("en-US")} safe item summaries are ready, but no current market-price join is available.`
+          : "Requires visible item data and the separate current-market valuation pipeline",
     },
     {
       key: "mp",
@@ -305,6 +310,290 @@ function buildSkills(member: JsonObject): SkillSnapshot[] {
   }));
 }
 
+function readProfileItemData(member: JsonObject): ProfileItemData | undefined {
+  const root = getPath(member, ["item_data"]);
+  if (!isJsonObject(root) || root.version !== "skyblock-items-v1") {
+    return undefined;
+  }
+  if (!Array.isArray(root.containers) || root.containers.length > 5) {
+    return undefined;
+  }
+
+  const containers: ProfileItemContainerSummary[] = [];
+  for (const value of root.containers) {
+    if (!isJsonObject(value)) continue;
+    const key = itemContainerKey(value.key);
+    const state = itemContainerState(value.state);
+    if (!key || !state || typeof value.label !== "string") continue;
+    if (
+      value.label.length < 1 ||
+      value.label.length > 64 ||
+      typeof value.note !== "string" ||
+      value.note.length > 240 ||
+      !Number.isSafeInteger(value.itemCount) ||
+      (value.itemCount as number) < 0 ||
+      (value.itemCount as number) > 512 ||
+      !Number.isSafeInteger(value.skippedItemCount) ||
+      (value.skippedItemCount as number) < 0 ||
+      (value.skippedItemCount as number) > 512 ||
+      typeof value.truncated !== "boolean" ||
+      !Array.isArray(value.items) ||
+      value.items.length > 216
+    ) {
+      continue;
+    }
+    const items = value.items.flatMap((item) => {
+      const normalized = readProfileItem(item);
+      return normalized ? [normalized] : [];
+    });
+    if (
+      items.length > (value.itemCount as number) ||
+      (state !== "parsed" &&
+        (items.length > 0 ||
+          (value.itemCount as number) > 0 ||
+          (value.skippedItemCount as number) > 0))
+    ) {
+      continue;
+    }
+    containers.push({
+      key,
+      label: cleanMinecraftText(value.label, 64),
+      state,
+      itemCount: value.itemCount as number,
+      skippedItemCount: value.skippedItemCount as number,
+      items,
+      truncated: value.truncated,
+      note: cleanMinecraftText(value.note, 240),
+    });
+  }
+  return { version: "skyblock-items-v1", containers };
+}
+
+function readProfileItem(value: unknown): ProfileItemSummary | null {
+  if (!isJsonObject(value)) return null;
+  const slot = value.slot;
+  const id = value.id;
+  const rarity = itemRarity(value.rarity);
+  const category = itemCategory(value.category);
+  if (
+    !(
+      slot === null ||
+      (Number.isSafeInteger(slot) && (slot as number) >= 0 && (slot as number) <= 255)
+    ) ||
+    !(
+      id === null ||
+      (typeof id === "string" && /^[A-Z0-9_:-]{1,96}$/.test(id))
+    ) ||
+    typeof value.name !== "string" ||
+    value.name.length < 1 ||
+    value.name.length > 96 ||
+    !Number.isSafeInteger(value.count) ||
+    (value.count as number) < 1 ||
+    (value.count as number) > 255 ||
+    !rarity ||
+    !category ||
+    !Number.isSafeInteger(value.stars) ||
+    (value.stars as number) < 0 ||
+    (value.stars as number) > 15 ||
+    typeof value.recombobulated !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    slot: slot as number | null,
+    id: id as string | null,
+    name: cleanMinecraftText(value.name, 96),
+    count: value.count as number,
+    rarity,
+    category,
+    stars: value.stars as number,
+    recombobulated: value.recombobulated,
+  };
+}
+
+function itemContainerKey(
+  value: unknown,
+): ProfileItemContainerSummary["key"] | null {
+  return value === "inventory" ||
+    value === "armor" ||
+    value === "equipment" ||
+    value === "accessories" ||
+    value === "wardrobe"
+    ? value
+    : null;
+}
+
+function itemContainerState(
+  value: unknown,
+): ProfileItemContainerSummary["state"] | null {
+  return value === "parsed" ||
+    value === "hidden" ||
+    value === "malformed" ||
+    value === "oversized" ||
+    value === "unsupported"
+    ? value
+    : null;
+}
+
+function itemRarity(value: unknown): ProfileItemSummary["rarity"] | null {
+  return value === "COMMON" ||
+    value === "UNCOMMON" ||
+    value === "RARE" ||
+    value === "EPIC" ||
+    value === "LEGENDARY" ||
+    value === "MYTHIC" ||
+    value === "DIVINE" ||
+    value === "SUPREME" ||
+    value === "SPECIAL" ||
+    value === "VERY SPECIAL" ||
+    value === "UNKNOWN"
+    ? value
+    : null;
+}
+
+function itemCategory(value: unknown): ProfileItemSummary["category"] | null {
+  return value === "helmet" ||
+    value === "chestplate" ||
+    value === "leggings" ||
+    value === "boots" ||
+    value === "weapon" ||
+    value === "tool" ||
+    value === "equipment" ||
+    value === "accessory" ||
+    value === "item"
+    ? value
+    : null;
+}
+
+function buildGearDiagnostics(
+  itemData: ProfileItemData | undefined,
+): GearSnapshot[] {
+  if (!itemData) return [];
+  const armor = itemData.containers.find((item) => item.key === "armor");
+  const equipment = itemData.containers.find((item) => item.key === "equipment");
+  const inventory = itemData.containers.find((item) => item.key === "inventory");
+  const diagnostics: GearSnapshot[] = [];
+  const detectedArmorSlots = new Set<string>();
+
+  if (armor?.state === "parsed") {
+    for (const [index, item] of armor.items.entries()) {
+      const slot = equippedArmorSlot(item, index);
+      detectedArmorSlots.add(slot);
+      diagnostics.push(gearDiagnostic(slot, item));
+    }
+    if (!armor.truncated) {
+      for (const slot of ["Helmet", "Chestplate", "Leggings", "Boots"]) {
+        if (detectedArmorSlots.has(slot)) continue;
+        diagnostics.push({
+          slot,
+          name: "Empty equipped slot",
+          rarity: "—",
+          status: "missing",
+          note: "No item occupied this slot in the decoded equipped-armor container.",
+        });
+      }
+    }
+  }
+
+  if (equipment?.state === "parsed") {
+    for (const [index, item] of equipment.items.slice(0, 8).entries()) {
+      diagnostics.push(gearDiagnostic(`Equipment ${index + 1}`, item));
+    }
+  }
+
+  if (inventory?.state === "parsed") {
+    for (const item of inventory.items
+      .filter((candidate) =>
+        candidate.category === "weapon" || candidate.category === "tool",
+      )
+      .slice(0, 4)) {
+      diagnostics.push(
+        gearDiagnostic(
+          item.category === "weapon" ? "Carried weapon" : "Carried tool",
+          item,
+        ),
+      );
+    }
+  }
+
+  if (diagnostics.length === 0) {
+    const failure = [armor, equipment, inventory].find(
+      (container) =>
+        container &&
+        container.state !== "parsed" &&
+        container.state !== "hidden",
+    );
+    if (failure) {
+      diagnostics.push({
+        slot: "Item data",
+        name: "Safe decode unavailable",
+        rarity: "—",
+        status: "unavailable",
+        note: failure.note,
+      });
+    }
+  }
+  return diagnostics.slice(0, 20);
+}
+
+function gearDiagnostic(slot: string, item: ProfileItemSummary): GearSnapshot {
+  const modifiers = [
+    item.stars > 0 ? `${item.stars} visible star${item.stars === 1 ? "" : "s"}` : null,
+    item.recombobulated ? "recombobulator marker detected" : null,
+  ].filter((value): value is string => value !== null);
+  return {
+    slot,
+    name: item.name,
+    rarity: item.rarity,
+    status: "detected",
+    note:
+      modifiers.length > 0
+        ? `Detected in the latest requested snapshot; ${modifiers.join(", ")}.`
+        : "Detected in the latest requested snapshot; no upgrade rating is inferred.",
+  };
+}
+
+function equippedArmorSlot(item: ProfileItemSummary, index: number): string {
+  if (item.category === "helmet") return "Helmet";
+  if (item.category === "chestplate") return "Chestplate";
+  if (item.category === "leggings") return "Leggings";
+  if (item.category === "boots") return "Boots";
+  const slot = item.slot ?? index;
+  return (["Boots", "Leggings", "Chestplate", "Helmet"] as const)[slot] ??
+    `Armor ${index + 1}`;
+}
+
+function buildAccessorySummaries(
+  itemData: ProfileItemData | undefined,
+): ProfileAccessorySummary[] {
+  const container = itemData?.containers.find(
+    (item) => item.key === "accessories",
+  );
+  if (container?.state !== "parsed") return [];
+  const byId = new Map<string, ProfileAccessorySummary>();
+  for (const item of container.items) {
+    if (!item.id) continue;
+    const existing = byId.get(item.id);
+    if (existing) {
+      existing.count = Math.min(255, existing.count + item.count);
+      continue;
+    }
+    byId.set(item.id, {
+      id: item.id,
+      name: item.name,
+      rarity: item.rarity,
+      familyId: accessoryFamilyId(item.id),
+      count: item.count,
+    });
+  }
+  return [...byId.values()].slice(0, 216);
+}
+
+function accessoryFamilyId(id: string): string {
+  const family = id.replace(/_(?:TALISMAN|RING|ARTIFACT|RELIC)$/, "");
+  return family || id;
+}
+
 function skillSnapshot(
   member: JsonObject,
   key: string,
@@ -320,12 +609,12 @@ function skillSnapshot(
   ]);
 
   if (directLevel !== null) {
-    const cappedLevel = Math.min(directLevel, SKILL_LEVEL_CAPS[key] ?? 60);
+    const cappedLevel = Math.min(directLevel, CORE_SKILL_LEVEL_CAPS[key] ?? 60);
     const wholeLevel = Math.max(0, Math.floor(cappedLevel));
     return {
       level: round(cappedLevel, 2),
       progress:
-        cappedLevel >= (SKILL_LEVEL_CAPS[key] ?? 60)
+        cappedLevel >= (CORE_SKILL_LEVEL_CAPS[key] ?? 60)
           ? 100
           : round((cappedLevel - wholeLevel) * 100, 1),
       xp,
@@ -333,28 +622,8 @@ function skillSnapshot(
   }
   if (xp === null) return { level: null, progress: null, xp: null };
 
-  const derived = levelFromXp(xp, SKILL_LEVEL_CAPS[key] ?? 60);
+  const derived = standardSkillLevelFromXp(xp, CORE_SKILL_LEVEL_CAPS[key] ?? 60);
   return { level: derived.level, progress: derived.progress, xp };
-}
-
-function levelFromXp(
-  xpInput: number,
-  levelCap: number,
-): { level: number; progress: number } {
-  let remaining = Math.max(0, xpInput);
-  let completed = 0;
-  for (const requirement of STANDARD_SKILL_XP.slice(0, levelCap)) {
-    if (remaining < requirement) {
-      const fraction = remaining / requirement;
-      return {
-        level: round(completed + fraction, 2),
-        progress: round(fraction * 100, 1),
-      };
-    }
-    remaining -= requirement;
-    completed += 1;
-  }
-  return { level: levelCap, progress: 100 };
 }
 
 function buildRecommendations(
@@ -435,20 +704,46 @@ function buildWeaknesses(inputs: ProfileRecommendationInputs): string[] {
 function buildUnavailable(
   member: JsonObject,
   inputs: ProfileRecommendationInputs,
+  itemData: ProfileItemData | undefined,
 ): string[] {
   const unavailable: string[] = [];
-  if (!inputs.hasInventoryData) {
+  const itemContainers =
+    itemData?.containers.filter((container) => container.key !== "accessories") ??
+    [];
+  const parsedItemContainers = itemContainers.filter(
+    (container) => container.state === "parsed",
+  );
+  const failedContainers = itemData?.containers.filter(
+    (container) =>
+      container.state === "malformed" ||
+      container.state === "oversized" ||
+      container.state === "unsupported",
+  ) ?? [];
+
+  if (parsedItemContainers.length === 0) {
     unavailable.push(
       "Inventory-based gear and net-worth analysis is unavailable because inventory data is hidden or absent.",
     );
   } else {
     unavailable.push(
-      "Inventory NBT is visible but intentionally not presented until the size-bounded item parser is enabled.",
+      "Safe item identities are available, but exact net worth remains unavailable until a current market-price snapshot is joined.",
     );
   }
-  if (!inputs.hasAccessoryBagData) {
+  for (const container of failedContainers) {
+    unavailable.push(`${container.label}: ${container.note}`);
+  }
+  if (itemData?.containers.some((container) => container.truncated)) {
     unavailable.push(
-      "Detailed accessory ownership is unavailable because accessory bag data is hidden or absent.",
+      "At least one item container summary reached the fixed safe-item output limit; omitted items were not analyzed.",
+    );
+  }
+
+  const accessoryContainer = itemData?.containers.find(
+    (container) => container.key === "accessories",
+  );
+  if (!inputs.hasAccessoryBagData || accessoryContainer?.state !== "parsed") {
+    unavailable.push(
+      "Detailed accessory ownership is unavailable because accessory item identities are hidden, absent, or could not be safely decoded; aggregate Magical Power may still be visible.",
     );
   }
   if (firstNumber(member, [["leveling", "experience"]]) === null) {
@@ -513,16 +808,6 @@ function getPath(object: JsonObject, path: readonly string[]): unknown {
     current = current[segment];
   }
   return current;
-}
-
-function hasNestedData(
-  member: JsonObject,
-  paths: readonly (readonly string[])[],
-): boolean {
-  return paths.some((path) => {
-    const value = getPath(member, path);
-    return typeof value === "string" && value.length > 0;
-  });
 }
 
 function numberOrNull(value: unknown): number | null {

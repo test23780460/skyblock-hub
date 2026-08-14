@@ -6,6 +6,11 @@ import {
   type ProviderErrorCode,
 } from "./errors";
 import { getPlayerAnalysis } from "./player-analysis";
+import {
+  getPlayerAnalysisFromGateway,
+  isPlayerGatewayConfigured,
+  isPlayerGatewayRequired,
+} from "./player-gateway";
 
 const WINDOW_MS = 60_000;
 const REQUESTS_PER_WINDOW = 24;
@@ -35,7 +40,7 @@ export function playerRequestLimitFailure(request: Request): Response | null {
     }
   }
 
-  const key = request.headers.get("cf-connecting-ip")?.trim().slice(0, 80) || "anonymous";
+  const key = playerRequestActorSubject(request);
   const existing = requestWindows.get(key);
   if (!existing || existing.resetsAt <= now) {
     if (!existing && requestWindows.size >= MAX_WINDOWS) {
@@ -60,20 +65,36 @@ export function playerRequestLimitFailure(request: Request): Response | null {
   }));
 }
 
+export function playerRequestActorSubject(request: Request): string {
+  return request.headers.get("cf-connecting-ip")?.trim().slice(0, 80) || "anonymous";
+}
+
 export async function getPlayerAnalysisWithNegativeCache(
-  username: string,
+  playerInput: string,
   profileId: string | null = null,
+  options: { actorSubject?: string } = {},
 ): Promise<Awaited<ReturnType<typeof getPlayerAnalysis>>> {
   const cacheKey = [
     "player-negative",
-    username.trim().toLowerCase().slice(0, 64),
+    playerInput.trim().toLowerCase().slice(0, 64),
     profileId?.trim().toLowerCase().slice(0, 64) || "selected",
   ].join(":");
   const cached = await negativeCache.get<NegativeResult>(cacheKey);
   if (cached) throw fromNegative(cached.value);
 
   try {
-    return await getPlayerAnalysis(username, profileId);
+    if (isPlayerGatewayConfigured()) {
+      return await getPlayerAnalysisFromGateway(playerInput, profileId, options);
+    }
+    if (isPlayerGatewayRequired()) {
+      throw new ProviderError({
+        code: "missing_credentials",
+        message: "Live player analysis is not configured for this deployment.",
+        status: 503,
+        action: "An administrator must configure SkyPilot's private player service.",
+      });
+    }
+    return await getPlayerAnalysis(playerInput, profileId);
   } catch (error) {
     const classified = asProviderError(error);
     if (isNegativeCacheable(classified.code)) {

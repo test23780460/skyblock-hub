@@ -3,6 +3,7 @@ import { ProviderError, providerErrorResponse } from "../../../lib/providers/err
 import { featureUnavailableResponse } from "../../../lib/feature-access";
 import {
   getPlayerAnalysisWithNegativeCache,
+  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "../../../lib/providers/player-request-policy";
 
@@ -17,13 +18,15 @@ export async function GET(request: Request): Promise<Response> {
     if (!username) {
       throw new ProviderError({
         code: "invalid_input",
-        message: "A Minecraft username is required.",
+        message: "A Minecraft username or Java UUID is required.",
         status: 400,
-        action: "Add a username query parameter and try again.",
+        action: "Add a username or UUID query parameter and try again.",
       });
     }
     const profileId = optionalProfileId(url.searchParams.get("profile"));
-    const data = await getPlayerAnalysisWithNegativeCache(username, profileId);
+    const data = await getPlayerAnalysisWithNegativeCache(username, profileId, {
+      actorSubject: playerRequestActorSubject(request),
+    });
     return playerResponse(data);
   } catch (error) {
     return providerErrorResponse(error);

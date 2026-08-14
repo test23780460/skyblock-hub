@@ -1,6 +1,7 @@
 services:
   web:
     build: .
+    init: true
     ports:
       - "3000:3000"
     env_file:
@@ -8,4 +9,8 @@ services:
         required: false
     environment:
       SITE_URL: http://localhost:3000
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

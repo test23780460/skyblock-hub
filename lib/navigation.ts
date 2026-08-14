@@ -1,9 +1,13 @@
+import { featureFlags, type FeatureFlag } from "@/lib/config";
+
 export type NavigationItem = {
   label: string;
   href: string;
   icon: string;
   description: string;
   badge?: string;
+  feature?: FeatureFlag;
+  audience?: "public" | "operations";
 };
 
 export type NavigationGroup = {
@@ -12,22 +16,22 @@ export type NavigationGroup = {
 };
 
 export const primaryNavigation: NavigationItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: "⌁", description: "Player overview and next moves" },
+  { label: "Dashboard", href: "/dashboard", icon: "⌁", description: "Player overview and next moves", feature: "playerLookup" },
   { label: "Progression", href: "/progression", icon: "↗", description: "Prioritized upgrade paths" },
   { label: "Gear", href: "/gear", icon: "◇", description: "Armor, weapons, tools, and pets" },
   { label: "Accessories", href: "/accessories", icon: "✦", description: "Magical Power optimizer" },
-  { label: "Economy", href: "/economy", icon: "◫", description: "Market intelligence" },
-  { label: "Goals", href: "/goals", icon: "◎", description: "Plan and track milestones" },
+  { label: "Economy", href: "/economy", icon: "◫", description: "Editable craft and market planning labs" },
+  { label: "Goals", href: "/goals", icon: "◎", description: "Plan and track milestones", feature: "chatGptAuth" },
 ];
 
 export const navigationGroups: NavigationGroup[] = [
   {
     label: "Markets",
     items: [
-      { label: "Bazaar", href: "/bazaar", icon: "⇄", description: "Prices, history, and flips" },
-      { label: "Auctions", href: "/auctions", icon: "⌂", description: "Auction search and valuation" },
-      { label: "Money Making", href: "/money-making", icon: "◆", description: "Risk-adjusted opportunities" },
-      { label: "Items", href: "/items", icon: "▦", description: "Item browser and valuation" },
+      { label: "Bazaar", href: "/bazaar", icon: "⇄", description: "Current prices, history, and flip estimates", feature: "publicEconomy" },
+      { label: "Auctions", href: "/auctions", icon: "⌂", description: "Current auction search and valuation", feature: "publicEconomy" },
+      { label: "Money Making", href: "/money-making", icon: "◆", description: "Editable, risk-aware method scenarios" },
+      { label: "Items", href: "/items", icon: "▦", description: "Item catalog and planning context" },
     ],
   },
   {
@@ -56,9 +60,10 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Tools",
     items: [
       { label: "Calculators", href: "/calculators", icon: "#", description: "XP, profit, and upgrade math" },
-      { label: "AI Assistant", href: "/ai", icon: "✣", description: "Profile-aware explanations", badge: "AI" },
-      { label: "Account", href: "/account", icon: "○", description: "Saved profiles and preferences" },
-      { label: "Admin", href: "/admin", icon: "⚙", description: "Operations and health" },
+      { label: "Builds", href: "/builds", icon: "+", description: "Save and share loadout plans" },
+      { label: "AI Assistant", href: "/ai", icon: "✣", description: "Profile-aware explanations", badge: "AI", feature: "aiAssistant" },
+      { label: "Account", href: "/account", icon: "○", description: "Saved profiles and preferences", feature: "chatGptAuth" },
+      { label: "Admin", href: "/admin", icon: "⚙", description: "Allowlisted operations and health", feature: "chatGptAuth", audience: "operations" },
     ],
   },
 ];
@@ -67,6 +72,32 @@ export const allNavigation = [
   ...primaryNavigation,
   ...navigationGroups.flatMap((group) => group.items),
 ];
+
+type NavigationFeatureState = Readonly<Record<FeatureFlag, boolean>>;
+
+export function isNavigationItemEnabled(
+  item: NavigationItem,
+  flags: NavigationFeatureState = featureFlags,
+): boolean {
+  return !item.feature || flags[item.feature];
+}
+
+export function getVisiblePrimaryNavigation(
+  flags: NavigationFeatureState = featureFlags,
+): NavigationItem[] {
+  return primaryNavigation.filter((item) => item.audience !== "operations" && isNavigationItemEnabled(item, flags));
+}
+
+export function getVisibleNavigationGroups(
+  flags: NavigationFeatureState = featureFlags,
+): NavigationGroup[] {
+  return navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.audience !== "operations" && isNavigationItemEnabled(item, flags)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 export function findNavigationItem(slug: string): NavigationItem | undefined {
   const path = "/" + slug.replace(/^\/+|\/+$/g, "");
