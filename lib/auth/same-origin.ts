@@ -10,7 +10,9 @@ export function sameOriginMutationFailure(request: Request): Response | null {
 
   if (!origin || fetchSite === "cross-site") return forbidden();
   try {
-    if (new URL(origin).origin !== new URL(request.url).origin) return forbidden();
+    const parsedOrigin = new URL(origin);
+    const requestOrigin = new URL(request.url).origin;
+    if (origin !== parsedOrigin.origin || origin !== requestOrigin) return forbidden();
   } catch {
     return forbidden();
   }

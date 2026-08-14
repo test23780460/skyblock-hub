@@ -1,4 +1,6 @@
 const REQUEST_VERSION = "skypilot-player-gateway-v1";
+const BROWSER_REQUEST_VERSION = "skypilot-player-browser-v1";
+const PROFILE_RECEIPT_VERSION = "skypilot-profile-receipt-v1";
 const REQUEST_PATH = "/v1/player-analysis";
 const MAX_CLOCK_SKEW_SECONDS = 30;
 const HEADER_TIMESTAMP = "x-skypilot-timestamp";
@@ -17,6 +19,25 @@ export type PlayerGatewayRequestAuth = {
   actor: string;
   signature: string;
 };
+
+export type PlayerGatewayProfileReceipt = {
+  version: typeof PROFILE_RECEIPT_VERSION;
+  expiresAt: number;
+  playerUuid: string;
+  username: string;
+  profileId: string;
+  profileName: string;
+  gameMode: string;
+  selected: boolean;
+  dataState: "complete" | "partial";
+  fetchedAt: string;
+  signature: string;
+};
+
+export type PlayerGatewayProfileReceiptClaims = Omit<
+  PlayerGatewayProfileReceipt,
+  "version" | "signature"
+>;
 
 export async function opaquePlayerGatewayActor(
   secret: string,
@@ -41,6 +62,38 @@ export async function signPlayerGatewayRequest(
   const signature = await hmac(
     secret,
     requestCanonical(timestamp, nonce, actor, bodyHash),
+  );
+  return new Headers({
+    [HEADER_TIMESTAMP]: timestamp,
+    [HEADER_NONCE]: nonce,
+    [HEADER_ACTOR]: actor,
+    [HEADER_SIGNATURE]: signature,
+  });
+}
+
+export async function signPlayerGatewayBrowserRequest(
+  secret: string,
+  body: string,
+  actor: string,
+  origin: string,
+  options: { now?: number; nonce?: string } = {},
+): Promise<Headers> {
+  assertSecret(secret);
+  const canonicalOrigin = exactHttpsOrigin(origin);
+  const timestamp = String(Math.floor((options.now ?? Date.now()) / 1_000));
+  const nonce = options.nonce ?? randomNonce();
+  assertToken("nonce", nonce, 16, 64);
+  assertToken("actor", actor, 24, 96);
+  const bodyHash = await sha256(body);
+  const signature = await hmac(
+    secret,
+    browserRequestCanonical(
+      timestamp,
+      nonce,
+      actor,
+      canonicalOrigin,
+      bodyHash,
+    ),
   );
   return new Headers({
     [HEADER_TIMESTAMP]: timestamp,
@@ -83,6 +136,47 @@ export async function verifyPlayerGatewayRequest(
   }
 }
 
+export async function verifyPlayerGatewayBrowserRequest(
+  secret: string,
+  headers: Headers,
+  body: string,
+  origin: string,
+  now = Date.now(),
+): Promise<{ ok: true; nonce: string; actor: string } | { ok: false }> {
+  try {
+    assertSecret(secret);
+    const canonicalOrigin = exactHttpsOrigin(origin);
+    const timestamp = requiredHeader(headers, HEADER_TIMESTAMP);
+    const nonce = requiredHeader(headers, HEADER_NONCE);
+    const actor = requiredHeader(headers, HEADER_ACTOR);
+    const signature = requiredHeader(headers, HEADER_SIGNATURE);
+    assertToken("nonce", nonce, 16, 64);
+    assertToken("actor", actor, 24, 96);
+    assertToken("signature", signature, 40, 96);
+    const seconds = Number(timestamp);
+    if (!Number.isSafeInteger(seconds)) return { ok: false };
+    const nowSeconds = Math.floor(now / 1_000);
+    if (Math.abs(nowSeconds - seconds) > MAX_CLOCK_SKEW_SECONDS) {
+      return { ok: false };
+    }
+    const bodyHash = await sha256(body);
+    const verified = await verifyHmac(
+      secret,
+      browserRequestCanonical(
+        timestamp,
+        nonce,
+        actor,
+        canonicalOrigin,
+        bodyHash,
+      ),
+      signature,
+    );
+    return verified ? { ok: true, nonce, actor } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function signPlayerGatewayResponse(
   secret: string,
   status: number,
@@ -92,6 +186,53 @@ export async function signPlayerGatewayResponse(
   assertSecret(secret);
   const bodyHash = await sha256(body);
   return hmac(secret, responseCanonical(status, nonce, bodyHash));
+}
+
+export async function signPlayerGatewayProfileReceipt(
+  secret: string,
+  claims: Omit<PlayerGatewayProfileReceiptClaims, "expiresAt">,
+  now = Date.now(),
+): Promise<PlayerGatewayProfileReceipt> {
+  assertSecret(secret);
+  const value: PlayerGatewayProfileReceiptClaims = {
+    ...claims,
+    expiresAt: Math.floor(now / 1_000) + 600,
+  };
+  assertProfileReceiptClaims(value, now, true);
+  const signature = await hmac(secret, profileReceiptCanonical(value));
+  return { version: PROFILE_RECEIPT_VERSION, ...value, signature };
+}
+
+export async function verifyPlayerGatewayProfileReceipt(
+  secret: string,
+  receipt: unknown,
+  now = Date.now(),
+): Promise<PlayerGatewayProfileReceiptClaims | null> {
+  try {
+    assertSecret(secret);
+    if (!isExactProfileReceipt(receipt)) return null;
+    const signature = receipt.signature;
+    const claims: PlayerGatewayProfileReceiptClaims = {
+      expiresAt: receipt.expiresAt,
+      playerUuid: receipt.playerUuid,
+      username: receipt.username,
+      profileId: receipt.profileId,
+      profileName: receipt.profileName,
+      gameMode: receipt.gameMode,
+      selected: receipt.selected,
+      dataState: receipt.dataState,
+      fetchedAt: receipt.fetchedAt,
+    };
+    assertProfileReceiptClaims(claims, now, false);
+    const verified = await verifyHmac(
+      secret,
+      profileReceiptCanonical(claims),
+      signature,
+    );
+    return verified ? claims : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function verifyPlayerGatewayResponse(
@@ -147,8 +288,43 @@ function requestCanonical(
   ].join("\n");
 }
 
+function browserRequestCanonical(
+  timestamp: string,
+  nonce: string,
+  actor: string,
+  origin: string,
+  bodyHash: string,
+): string {
+  return [
+    BROWSER_REQUEST_VERSION,
+    "POST",
+    REQUEST_PATH,
+    origin,
+    timestamp,
+    nonce,
+    actor,
+    bodyHash,
+  ].join("\n");
+}
+
 function responseCanonical(status: number, nonce: string, bodyHash: string): string {
   return [REQUEST_VERSION, "RESPONSE", String(status), nonce, bodyHash].join("\n");
+}
+
+function profileReceiptCanonical(claims: PlayerGatewayProfileReceiptClaims): string {
+  return [
+    PROFILE_RECEIPT_VERSION,
+    "SAVE",
+    String(claims.expiresAt),
+    claims.playerUuid,
+    claims.username,
+    claims.profileId,
+    claims.profileName,
+    claims.gameMode,
+    claims.selected ? "1" : "0",
+    claims.dataState,
+    claims.fetchedAt,
+  ].join("\n");
 }
 
 async function sha256(value: string): Promise<string> {
@@ -225,4 +401,79 @@ function assertToken(label: string, value: string, min: number, max: number): vo
   ) {
     throw new Error(`Invalid ${label}`);
   }
+}
+
+function exactHttpsOrigin(value: string): string {
+  const url = new URL(value);
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash ||
+    value !== url.origin
+  ) {
+    throw new Error("Invalid browser capability origin");
+  }
+  return url.origin;
+}
+
+function isExactProfileReceipt(value: unknown): value is PlayerGatewayProfileReceipt {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const receipt = value as Record<string, unknown>;
+  const expected = [
+    "version",
+    "expiresAt",
+    "playerUuid",
+    "username",
+    "profileId",
+    "profileName",
+    "gameMode",
+    "selected",
+    "dataState",
+    "fetchedAt",
+    "signature",
+  ];
+  return Object.keys(receipt).length === expected.length &&
+    expected.every((key) => key in receipt) &&
+    receipt.version === PROFILE_RECEIPT_VERSION &&
+    typeof receipt.signature === "string" &&
+    /^[A-Za-z0-9_-]{40,96}$/u.test(receipt.signature);
+}
+
+function assertProfileReceiptClaims(
+  claims: PlayerGatewayProfileReceiptClaims,
+  now: number,
+  signing: boolean,
+): void {
+  const nowSeconds = Math.floor(now / 1_000);
+  if (
+    !Number.isSafeInteger(claims.expiresAt) ||
+    claims.expiresAt < nowSeconds - 5 ||
+    claims.expiresAt > nowSeconds + (signing ? 601 : 900) ||
+    !/^[a-f0-9]{32}$/u.test(claims.playerUuid) ||
+    !/^[A-Za-z0-9_]{1,16}$/u.test(claims.username) ||
+    !/^[a-f0-9]{32}$/u.test(claims.profileId) ||
+    !boundedReceiptText(claims.profileName, 64) ||
+    !boundedReceiptText(claims.gameMode, 32) ||
+    typeof claims.selected !== "boolean" ||
+    (claims.dataState !== "complete" && claims.dataState !== "partial") ||
+    typeof claims.fetchedAt !== "string" ||
+    claims.fetchedAt.length > 40 ||
+    !Number.isFinite(Date.parse(claims.fetchedAt))
+  ) {
+    throw new Error("Invalid profile receipt claims");
+  }
+}
+
+function boundedReceiptText(value: unknown, max: number): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > max) {
+    return false;
+  }
+  for (const character of value) {
+    const code = character.charCodeAt(0);
+    if (code < 32 || code === 127) return false;
+  }
+  return true;
 }

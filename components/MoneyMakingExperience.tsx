@@ -10,6 +10,7 @@ import {
   type MoneyMakingRisk,
 } from "@/lib/engines/money-making";
 import type { ApiFailure, PlayerAnalysis } from "@/lib/models";
+import { loadPlayerAnalysisForBrowser } from "@/lib/providers/player-browser";
 import {
   availableCoinsFromProfile,
   buildReferenceMoneyMakingMethods,
@@ -63,7 +64,15 @@ function numericInput(raw: string): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-export function MoneyMakingExperience({ username, demo }: { username: string; demo: boolean }) {
+export function MoneyMakingExperience({
+  username,
+  demo,
+  browserCapability,
+}: {
+  username: string;
+  demo: boolean;
+  browserCapability: boolean;
+}) {
   const [loadState, setLoadState] = useState<LoadState>(username || demo ? "loading" : "idle");
   const [analysis, setAnalysis] = useState<PlayerAnalysis | null>(null);
   const [failure, setFailure] = useState<ApiFailure["error"] | null>(null);
@@ -96,21 +105,13 @@ export function MoneyMakingExperience({ username, demo }: { username: string; de
       if (!username) return;
       setLoadState("loading");
       try {
-        const response = await fetch(`/api/player?username=${encodeURIComponent(username)}`, {
-          headers: { accept: "application/json" },
+        const playerAnalysis = await loadPlayerAnalysisForBrowser(username, {
+          browserCapability,
         });
-        const payload = (await response.json()) as { data?: PlayerAnalysis } & Partial<ApiFailure>;
-        if (!response.ok || !payload.data) {
-          throw payload.error ?? {
-            code: "lookup_failed",
-            message: "SkyPilot could not load this profile.",
-            action: "Check the username or continue with manual inputs.",
-          };
-        }
         if (!active) return;
-        const profile = payload.data.profiles.find((entry) => entry.id === payload.data?.selectedProfileId) ?? payload.data.profiles[0];
-        setAnalysis(payload.data);
-        setSelectedProfileId(payload.data.selectedProfileId);
+        const profile = playerAnalysis.profiles.find((entry) => entry.id === playerAnalysis.selectedProfileId) ?? playerAnalysis.profiles[0];
+        setAnalysis(playerAnalysis);
+        setSelectedProfileId(playerAnalysis.selectedProfileId);
         if (profile) {
           setFacts(moneyMakingFactsFromProfile(profile));
           setCapital(availableCoinsFromProfile(profile) ?? 0);
@@ -126,7 +127,7 @@ export function MoneyMakingExperience({ username, demo }: { username: string; de
     return () => {
       active = false;
     };
-  }, [demo, username]);
+  }, [browserCapability, demo, username]);
 
   const selectedProfile = useMemo(
     () => analysis?.profiles.find((profile) => profile.id === selectedProfileId) ?? analysis?.profiles[0] ?? null,

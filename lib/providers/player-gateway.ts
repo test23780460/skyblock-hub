@@ -21,6 +21,7 @@ import {
   opaquePlayerGatewayActor,
   PLAYER_GATEWAY_PATH,
   playerGatewayRequestAuth,
+  signPlayerGatewayBrowserRequest,
   signPlayerGatewayRequest,
   verifyPlayerGatewayResponse,
 } from "./player-gateway-auth";
@@ -39,6 +40,14 @@ type PlayerGatewayOptions = {
   gatewaySecret?: string;
   now?: number;
   nonce?: string;
+};
+
+export type PlayerGatewayBrowserCapability = {
+  url: string;
+  method: "POST";
+  headers: Record<string, string>;
+  body: string;
+  expiresAt: string;
 };
 
 const PROVIDER_CODES = new Set<ProviderErrorCode>([
@@ -161,8 +170,53 @@ export async function getPlayerAnalysisFromGateway(
   }
 
   const payload = parseJson(responseBody);
-  if (!response.ok) throw gatewayFailure(payload, response.status, response.headers);
-  return parsePlayerAnalysis(payload);
+  if (!response.ok) {
+    throw playerGatewayFailure(payload, response.status, response.headers);
+  }
+  return parsePlayerGatewayPayload(payload);
+}
+
+export async function createPlayerGatewayBrowserCapability(
+  playerInput: string,
+  profileIdInput: string | null,
+  origin: string,
+  options: PlayerGatewayOptions = {},
+): Promise<PlayerGatewayBrowserCapability> {
+  const selector = normalizeMinecraftPlayerInput(playerInput);
+  const profileId = optionalProfileId(profileIdInput);
+  const gatewayUrl = configuredGatewayUrl(
+    options.gatewayUrl ?? process.env.PLAYER_GATEWAY_URL,
+  );
+  const secret = (options.gatewaySecret ?? process.env.PLAYER_GATEWAY_SECRET)?.trim();
+  if (!secret || secret.length < 32) throw missingGatewayConfiguration();
+
+  const player = selector.kind === "uuid" ? selector.uuid : selector.username;
+  const body = JSON.stringify({ player, ...(profileId ? { profileId } : {}) });
+  const actor = await opaquePlayerGatewayActor(
+    secret,
+    options.actorSubject?.trim() || "anonymous",
+  );
+  const now = options.now ?? Date.now();
+  const headers = await signPlayerGatewayBrowserRequest(
+    secret,
+    body,
+    actor,
+    origin,
+    {
+      now,
+      ...(options.nonce ? { nonce: options.nonce } : {}),
+    },
+  );
+  headers.set("accept", "application/json");
+  headers.set("content-type", "application/json; charset=utf-8");
+
+  return {
+    url: gatewayUrl.toString(),
+    method: "POST",
+    headers: Object.fromEntries(headers),
+    body,
+    expiresAt: new Date(now + 30_000).toISOString(),
+  };
 }
 
 function configuredGatewayUrl(value: string | undefined): URL {
@@ -219,7 +273,7 @@ function parseJson(body: string): unknown {
   }
 }
 
-function parsePlayerAnalysis(payload: unknown): PlayerAnalysis {
+export function parsePlayerGatewayPayload(payload: unknown): PlayerAnalysis {
   if (!isJsonObject(payload) || !isGatewayPlayerAnalysis(payload.data)) {
     throw invalidGatewayResponse();
   }
@@ -360,7 +414,11 @@ function boundedStringArray(value: unknown, max: number, maxLength: number): boo
     value.every((item) => typeof item === "string" && item.length <= maxLength);
 }
 
-function gatewayFailure(payload: unknown, status: number, headers: Headers): ProviderError {
+export function playerGatewayFailure(
+  payload: unknown,
+  status: number,
+  headers: Headers,
+): ProviderError {
   if (!isJsonObject(payload) || !isJsonObject(payload.error)) {
     throw invalidGatewayResponse();
   }

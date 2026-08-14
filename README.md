@@ -6,12 +6,12 @@ SkyPilot is not affiliated with or endorsed by Hypixel Inc., Mojang, or Microsof
 
 ## Current status
 
-This repository is a working, tested foundation—not a completed public production release. An earlier safe-default build remains available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site); the current workspace changes have not been published there, and the private preview does not activate live integrations or constitute a public launch.
+This repository is a working, tested foundation—not a completed public production release. An [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site) exists, but the URL alone does not prove that the current source or a live integration has passed deployment checks. The private preview does not constitute a public launch.
 
 Implemented today:
 
 - public homepage, navigation, responsive module surfaces, labeled demo profile, and request states;
-- live Minecraft identity and Hypixel profile lookup through a signed private Cloudflare gateway when its safe feature gate, Worker-only replacement key, shared normalized KV cache, and server signing configuration are active;
+- live Minecraft identity and Hypixel profile lookup through a signed fixed-route Cloudflare gateway when its safe feature gate, Worker-only replacement key, shared normalized KV cache, and signing configuration are active; owner-only Sites deployments may use the separately gated 30-second exact-body browser capability and ten-minute per-profile save receipts;
 - normalized, bounded Bazaar, active-auction, and ended-auction API views backed by durable D1 snapshots when public economy is enabled;
 - idempotent hourly/daily Bazaar aggregates with bounded retention plus an accessible 24H/7D/30D/1Y price-and-volume history view;
 - working accessory, Garden, Farming, pet, Minion, Dungeon, Slayer, core-skill, minion-slot, dungeon-readiness, craft, NPC/Bazaar, and money-making planners backed by deterministic tested engines;
@@ -29,7 +29,9 @@ Still incomplete or inactive:
 - complete gear-upgrade analysis, pets/storage, priced net worth, item browser/search, Auction/item valuation history, and several domain-specific systems are not wired end to end;
 - Bazaar search is limited to the loaded result slice, and craft/NPC/money-making inputs are explicitly editable reference scenarios rather than current live recipes, limits, setups, or guaranteed rates;
 - durable recommendation Complete/Ignore/Remind Later state, goal/analysis sharing, and broader AI knowledge grounding remain incomplete;
-- the production economy schedule, player-gateway secrets/live smoke, production D1 data, external auth providers, and a public domain are not all activated;
+- the browser capability is replayable during its 30-second window and current rate bindings are not an exact global Hypixel credential ledger; public exposure still needs authoritative coordination or explicit residual-risk acceptance;
+- the save receipt covers only authenticated owner-scoped profile linking; it does not make the server-side AI path reachable, so AI must stay disabled in an egress-limited deployment;
+- the production economy schedule, player-gateway end-to-end smoke, Hypixel Production approval, production D1 data, external auth providers, and a public domain are not all verified;
 - Docker runs the web image only; the complete external database/cache/worker stack is not composed;
 - no public production URL, custom domain, or live-integration launch is claimed.
 
@@ -75,6 +77,8 @@ The current local validation result is documented in [Testing](docs/testing.md).
 | --- | --- | --- |
 | `HYPIXEL_API_KEY` | Gateway Worker only in production | Authenticated player/profile requests. Never placed in Sites/browser configuration; public economy requests omit it. |
 | `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, `REQUIRE_PLAYER_GATEWAY` | Hosted live player analysis | Signed server-to-server gateway transport; production must fail closed through the gateway. |
+| `ENABLE_BROWSER_PLAYER_GATEWAY` | Owner-only Sites compatibility | Enables short-lived exact-body browser capabilities plus ten-minute per-profile save receipts. It does not make the AI server path browser-capable and is not public-ready by itself. |
+| `SKYPILOT_SITE_ORIGIN` | Gateway Worker browser mode | Non-secret exact HTTPS Sites origin allowed by the Worker's origin-bound signature and CORS policy. |
 | `OPENAI_API_KEY` | AI only | Server-only OpenAI Responses request. All non-AI tools remain available without it. |
 | `OPENAI_MODEL` | No | AI model override; defaults to the value in `.env.example`. |
 | `OPENAI_INPUT_COST_USD_PER_MILLION`, `OPENAI_OUTPUT_COST_USD_PER_MILLION` | No | Non-secret configured rates used only for aggregate AI cost estimates; default to zero. |
@@ -95,7 +99,7 @@ Browser
   -> Drizzle/D1, bounded Hypixel/Minecraft calls, optional OpenAI, worker jobs
 ```
 
-Player lookups are user-triggered and use the signed gateway's normalized KV cache in hosted production. Public economy ingestion is a separate scheduled worker concern; product routes read normalized durable snapshots rather than calling Hypixel. External payloads are normalized before they reach product responses; raw Hypixel proxying is intentionally absent.
+Player lookups are user-triggered and use the signed gateway's normalized KV cache in hosted production. The preferred path is server-to-server; an owner-only compatibility mode lets the same-origin server issue a short-lived, exact-body, origin-bound browser capability for the fixed product route. It never exposes the Hypixel or gateway secret, but it is replayable during its 30-second window and therefore is not a public-launch control by itself. The gateway also returns a ten-minute HMAC receipt for each profile so the authenticated same-origin save route can verify and persist the chosen link without another gateway request. That receipt attests only bounded lookup metadata and does not enable AI server egress. Public economy ingestion is a separate scheduled worker concern; product routes read normalized durable snapshots rather than calling Hypixel. External payloads are normalized before they reach product responses; raw Hypixel proxying is intentionally absent.
 
 Read [Architecture](ARCHITECTURE.md), [architecture overview](docs/architecture.md), and [database guide](docs/database/README.md).
 
@@ -108,7 +112,7 @@ See [API reference](docs/api.md). SkyPilot does not expose an unrestricted Hypix
 ## Deployment
 
 - [ChatGPT/Codex Sites](docs/deployment/chatgpt-sites.md): current preferred target using the `DB` D1 binding and Sites identity headers.
-- [Private player gateway](docs/deployment/player-gateway.md): Worker/KV/rate bindings, secret boundary, deploy order, and live checks.
+- [Private player gateway](docs/deployment/player-gateway.md): server and owner-only browser-capability transports, narrow profile-save receipts, Worker/KV/rate bindings, secret boundary, deploy order, and live checks.
 - [External hosting](docs/deployment/external-hosting.md): what runs today and what adapters are still required.
 - [Migration plan](docs/deployment/migration.md): moving data, auth, workers, secrets, and domain without rewriting SkyBlock logic.
 

@@ -55,8 +55,9 @@ export function parseSavedProfileCreate(value: unknown): ParseResult<{
   alias: string | null;
   isPinned: boolean;
   isPrimary: boolean;
+  receipt?: unknown;
 }> {
-  if (!isObject(value) || !onlyKeys(value, ["username", "profileId", "alias", "isPinned", "isPrimary"])) {
+  if (!isObject(value) || !onlyKeys(value, ["username", "profileId", "alias", "isPinned", "isPrimary", "receipt"])) {
     return invalid("Provide only the supported saved-profile fields.");
   }
   const username = text(value.username, 36);
@@ -73,6 +74,7 @@ export function parseSavedProfileCreate(value: unknown): ParseResult<{
     alias,
     isPinned: value.isPinned === true,
     isPrimary: value.isPrimary === true,
+    ...(value.receipt === undefined ? {} : { receipt: value.receipt }),
   } };
 }
 

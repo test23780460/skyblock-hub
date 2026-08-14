@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { normalizeApiFailure } from "@/lib/api-failure";
 import { demoPlayerAnalysis } from "@/lib/demo";
 import type { ApiFailure, PlayerAnalysis, ProfileStat, Recommendation } from "@/lib/models";
+import { loadPlayerAnalysisResultForBrowser } from "@/lib/providers/player-browser";
+import type { PlayerGatewayProfileReceipt } from "@/lib/providers/player-gateway-auth";
 import { analyzeProfileRecommendations } from "@/lib/services";
 import { ProfileItemCoverage } from "@/components/ProfileItemCoverage";
 
@@ -42,16 +44,20 @@ function priorityLabel(priority: Recommendation["priority"]): string {
 
 export function DashboardExperience({
   username,
+  requestedProfileId,
   demo,
   accountSavingEnabled,
   signedIn,
   signInHref,
+  browserCapability,
 }: {
   username: string;
+  requestedProfileId: string;
   demo: boolean;
   accountSavingEnabled: boolean;
   signedIn: boolean;
   signInHref: string;
+  browserCapability: boolean;
 }) {
   const [analysis, setAnalysis] = useState<PlayerAnalysis | null>(null);
   const [failure, setFailure] = useState<ApiFailure["error"] | null>(null);
@@ -63,6 +69,7 @@ export function DashboardExperience({
   const [favoriteIds, setFavoriteIds] = useState<Record<string, true>>({});
   const [savedStateMessage, setSavedStateMessage] = useState("");
   const [savedStateError, setSavedStateError] = useState("");
+  const [saveReceipts, setSaveReceipts] = useState<Readonly<Record<string, PlayerGatewayProfileReceipt>>>({});
 
   useEffect(() => {
     let active = true;
@@ -78,22 +85,23 @@ export function DashboardExperience({
         if (active) {
           setAnalysis(demoPlayerAnalysis);
           setSelectedId(demoPlayerAnalysis.selectedProfileId);
+          setSaveReceipts({});
         }
         return;
       }
 
       if (!username) return;
       try {
-        const response = await fetch("/api/player?username=" + encodeURIComponent(username), { headers: { accept: "application/json" } });
-        const payload = (await response.json()) as { data?: PlayerAnalysis } & Partial<ApiFailure>;
-        if (!response.ok || !payload.data) {
-          throw payload.error || { code: "lookup_failed", message: "SkyPilot could not analyze this profile right now.", action: "Try again shortly or explore the labeled demo." };
-        }
+        const result = await loadPlayerAnalysisResultForBrowser(username, {
+          browserCapability,
+          profileId: requestedProfileId || null,
+        });
         const delay = new Promise((resolve) => setTimeout(resolve, 1750));
         await delay;
         if (active) {
-          setAnalysis(payload.data);
-          setSelectedId(payload.data.selectedProfileId);
+          setAnalysis(result.analysis);
+          setSelectedId(result.analysis.selectedProfileId);
+          setSaveReceipts(result.saveReceipts);
         }
       } catch (error) {
         if (!active) return;
@@ -106,7 +114,7 @@ export function DashboardExperience({
       active = false;
       timers.forEach(clearTimeout);
     };
-  }, [username, demo]);
+  }, [username, requestedProfileId, demo, browserCapability]);
 
   useEffect(() => {
     if (!signedIn || !accountSavingEnabled) return;
@@ -162,6 +170,9 @@ export function DashboardExperience({
           alias: profile.name,
           isPinned: false,
           isPrimary: false,
+          ...(browserCapability && saveReceipts[profile.id]
+            ? { receipt: saveReceipts[profile.id] }
+            : {}),
         }),
       });
       setSavedProfileIds((current) => ({ ...current, [profile.id]: true }));
@@ -250,8 +261,8 @@ export function DashboardExperience({
           <select id="profile-select" value={profile.id} onChange={(event) => setSelectedId(event.target.value)}>
             {analysis.profiles.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.gameMode}</option>)}
           </select>
-          <Link className="button-secondary" href={"/dashboard?player=" + encodeURIComponent(username || analysis.player.username)}>Recalculate</Link>
-          {analysis.source === "hypixel" && signedIn ? <button className="button-secondary" type="button" disabled={Boolean(savedProfileIds[profile.id])} onClick={() => void saveCurrentProfile()}>{savedProfileIds[profile.id] ? "Profile saved" : "Save profile"}</button> : analysis.source === "hypixel" && accountSavingEnabled ? <Link className="button-secondary" href={signInHref}>Sign in to save</Link> : null}
+          <Link className="button-secondary" href={`/dashboard?player=${encodeURIComponent(username || analysis.player.username)}&profile=${encodeURIComponent(profile.id)}`}>Recalculate</Link>
+          {analysis.source === "hypixel" && (!browserCapability || Boolean(saveReceipts[profile.id])) && signedIn ? <button className="button-secondary" type="button" disabled={Boolean(savedProfileIds[profile.id])} onClick={() => void saveCurrentProfile()}>{savedProfileIds[profile.id] ? "Profile saved" : "Save profile"}</button> : analysis.source === "hypixel" && (!browserCapability || Boolean(saveReceipts[profile.id])) && accountSavingEnabled ? <Link className="button-secondary" href={signInHref}>Sign in to save</Link> : null}
         </div>
       </header>
 

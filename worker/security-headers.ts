@@ -14,7 +14,7 @@ export function withBrowserSecurityHeaders(
   if (response.status === 101) return response;
 
   const headers = new Headers(response.headers);
-  headers.set("Content-Security-Policy", BASELINE_CSP);
+  headers.set("Content-Security-Policy", `${BASELINE_CSP}; ${connectSourcePolicy()}`);
   headers.set("Cross-Origin-Opener-Policy", "same-origin");
   headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -31,4 +31,20 @@ export function withBrowserSecurityHeaders(
     statusText: response.statusText,
     headers,
   });
+}
+
+function connectSourcePolicy(): string {
+  const sources = ["'self'"];
+  const configured = process.env.PLAYER_GATEWAY_URL?.trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.protocol === "https:" && !url.username && !url.password) {
+        sources.push(url.origin);
+      }
+    } catch {
+      // Invalid deployment values must not widen the browser policy.
+    }
+  }
+  return `connect-src ${sources.join(" ")}`;
 }

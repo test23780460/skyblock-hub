@@ -1,6 +1,6 @@
 # ChatGPT/Codex Sites Deployment
 
-Sites is SkyPilot’s preferred initial host. The validated safe-default build is deployed at the [owner-only SkyPilot preview](https://skypilot-skyblock.tratv.chatgpt.site). This is not a public production launch and does not enable live integrations.
+Sites is SkyPilot’s preferred initial host. An [owner-only SkyPilot preview](https://skypilot-skyblock.tratv.chatgpt.site) is deployed, but the URL alone is not evidence that the current source or a live integration has passed its deployment checks. This is not a public production launch.
 
 ## Current readiness
 
@@ -10,7 +10,8 @@ Sites is SkyPilot’s preferred initial host. The validated safe-default build i
 - the Cloudflare worker entry expects `ASSETS`, `DB`, and image bindings;
 - the worker entry includes a scheduled public-economy handler backed by a durable D1 lease/snapshot store;
 - optional Sites/ChatGPT identity helpers and canonical-user mapping exist;
-- production gateway secrets, D1 data, scheduler, admin allowlist, domain, and public access require separate activation and verification.
+- a gated, short-lived browser capability transport exists for owner-only player lookup when Sites server egress cannot reach the gateway, plus per-profile save receipts that avoid a second server-side lookup;
+- production gateway behavior, D1 data, scheduler, admin allowlist, domain, and public access require separate activation and verification.
 
 ## Preflight
 
@@ -28,14 +29,15 @@ Required/optional runtime configuration:
 
 - D1 binding `DB` and all four repository migrations for saved account/goals/build state, aggregate AI metrics, and durable public-economy state/history;
 - `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true` for hosted player lookup; keep the replacement `HYPIXEL_API_KEY` only in the separately deployed gateway Worker;
+- exact matching `SITE_URL` and Worker `SKYPILOT_SITE_ORIGIN`; for an owner-only deployment that needs direct browser transport, also set `ENABLE_BROWSER_PLAYER_GATEWAY=true`;
 - replacement `OPENAI_API_KEY` and an accessible `OPENAI_MODEL` for optional AI;
-- real `SITE_URL` and optional `SITE_NAME`;
+- optional `SITE_NAME`;
 - verified `ADMIN_USER_IDS` for administrators;
 - launch-deferred flags kept off.
 
 Public Bazaar/Auction web reads use D1 snapshots and do not use the authenticated Hypixel key. Configure exactly one intended schedule before enabling public economy.
 
-Deploy and verify the [private player gateway](player-gateway.md) before enabling player lookup. Remove any legacy `HYPIXEL_API_KEY` from the Sites environment after cutover.
+Deploy and verify the [private player gateway](player-gateway.md) before enabling player lookup. Remove any legacy `HYPIXEL_API_KEY` from the Sites environment after cutover. The browser capability is exact-body, origin-bound, and valid for 30 seconds, but it is replayable during that window; it is an owner-only compatibility transport, not evidence of public-launch readiness.
 
 ## Sites publish flow
 
@@ -63,8 +65,11 @@ Verify the deployed access policy and that untrusted clients cannot spoof the tr
 - homepage, navigation, labeled demo, privacy/about/status pages;
 - `/api/health` dependency states;
 - a completed economy worker cycle followed by Bazaar and snapshot-wide bounded Auction search;
-- live player lookup only after the replacement key is installed on the gateway, Sites signing configuration is active, and a request initiated from the deployed Sites origin succeeds;
-- AI unavailable state or one bounded request after activation;
+- live player lookup only after the replacement key is installed on the gateway, Sites signing configuration is active, and a request initiated from the deployed Sites origin succeeds end to end;
+- when browser capability mode is enabled, exact-origin preflight/POST success, hostile-origin rejection without CORS, exact-body preservation, omitted browser credentials, and a fresh capability on each lookup;
+- with a signed-in test identity, save a selected live profile using its ten-minute receipt; verify persisted claims and reject missing, expired, tampered, player-mismatched, and profile-mismatched receipts;
+- separate checks for `/api/player` and AI player context before enabling those server-only consumers; the save receipt does not repair their server egress;
+- keep AI in its explicit unavailable state for this egress-limited deployment; activate it only after its separate server-side path and production controls pass;
 - anonymous goal rejection, signed-in goal lifecycle, account deletion on a test identity, and database migration state;
 - non-admin rejection and allowlisted admin access/actions;
 - metadata, sitemap, robots exclusions, social image, responsive layouts, and error/loading states;
@@ -72,4 +77,4 @@ Verify the deployed access policy and that untrusted clients cannot spoof the tr
 
 ## Operational limitations
 
-Sites source includes the durable D1 economy sink and scheduled handler, but saving a web version does not apply migrations or register/verify the production trigger. The separately deployed player gateway supplies normalized KV caching and Cloudflare abuse guards; its per-location limiter is not an exact global Hypixel quota ledger. If the host cannot schedule the economy worker safely, deploy a compatible worker/store separately and keep the Sites frontend on product-specific snapshot APIs. Do not poll player profiles as a substitute.
+Sites source includes the durable D1 economy sink and scheduled handler, but saving a web version does not apply migrations or register/verify the production trigger. The separately deployed player gateway supplies normalized KV caching and Cloudflare abuse guards; its per-location limiter is not an exact global Hypixel quota ledger. Browser capabilities are also not authoritatively consume-once. Ten-minute save receipts attest only bounded public profile snapshot claims for an authenticated owner-scoped save; they do not authorize the gateway or solve AI server egress. Public access remains blocked until a strongly consistent replay/credential-budget coordinator exists or the residual risk is explicitly accepted, Hypixel Production approval is confirmed, and final security, policy, browser, accessibility, responsive, and operational QA passes. If the host cannot schedule the economy worker safely, deploy a compatible worker/store separately and keep the Sites frontend on product-specific snapshot APIs. Do not poll player profiles as a substitute.

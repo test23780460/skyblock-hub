@@ -8,6 +8,7 @@ import { MoneyMakingExperience } from "@/components/MoneyMakingExperience";
 import { SkillsPlannerExperience } from "@/components/SkillsPlannerExperience";
 import { ModuleExperience } from "@/components/ModuleExperience";
 import { getModuleDefinition } from "@/lib/module-catalog";
+import { featureFlags } from "@/lib/config";
 
 type ModulePageProps = {
   params: Promise<{ section: string }>;
@@ -33,7 +34,11 @@ export default async function ModulePage({ params, searchParams }: ModulePagePro
   if (section === "minions") return <CalculatorHubExperience focus="minion" />;
   if (section === "money-making") {
     const query = await searchParams;
-    return <MoneyMakingExperience demo={query.demo === "1"} username={(query.player || "").trim()} />;
+    return <MoneyMakingExperience
+      demo={query.demo === "1"}
+      username={(query.player || "").trim()}
+      browserCapability={featureFlags.browserPlayerGateway}
+    />;
   }
   if (section === "slayers") return <CalculatorHubExperience focus="slayer" />;
   if (section === "skills") return <SkillsPlannerExperience />;

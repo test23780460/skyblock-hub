@@ -14,7 +14,15 @@ Reports local configuration, cache counters, and Hypixel backoff state without p
 
 Accepts either a Java Minecraft username or a dashed/undashed Java UUID. Username requests first resolve the UUID through Minecraft Services; if both official name endpoints fail at the transport layer, SkyPilot makes one authenticated Hypixel player lookup by name and verifies the returned name before using its UUID. Authoritative not-found, access-denied, and rate-limit responses are never bypassed. UUID requests skip name resolution and validate the identifier against the authenticated Hypixel player response. Both paths fetch available SkyBlock profiles, normalize only the requested member's supported fields, and return deterministic analysis. `profile` is optional.
 
-Requires `ENABLE_PLAYER_LOOKUP=true`. Hosted production also requires the signed private player gateway (`PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`); only that Worker holds `HYPIXEL_API_KEY`. Responses are `no-store`, while normalized provider values use the gateway's bounded shared KV cache. Common failures include invalid input, player/profile not found, no profiles, missing gateway configuration, rate limit, timeout, and upstream invalid/unavailable response.
+Requires `ENABLE_PLAYER_LOOKUP=true`. Hosted production also requires the signed private player gateway (`PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`); only that Worker holds `HYPIXEL_API_KEY`. This endpoint and AI player-context resolution still rely on the server-to-server gateway composition. Responses are `no-store`, while normalized provider values use the gateway's bounded shared KV cache. Common failures include invalid input, player/profile not found, no profiles, missing gateway configuration, rate limit, timeout, and upstream invalid/unavailable response.
+
+### `POST /api/player/capability`
+
+Owner-only compatibility endpoint for deployments that deliberately set `ENABLE_BROWSER_PLAYER_GATEWAY=true`. It accepts an exact JSON object containing `player` and optional `profileId`, requires an explicit request `Origin` matching the exact HTTPS `SITE_URL`, applies the ordinary player-request guard, and returns a private/no-store capability containing a fixed gateway URL, `POST` method, required headers, exact serialized body, and expiry.
+
+The capability lasts 30 seconds and is bound to the exact body, opaque actor, timestamp, nonce, fixed Worker path, and configured Sites origin. It does not expose either gateway secret. The client validates its bounded shape, reuses the exact body, omits credentials, rejects redirects, and calls the gateway under exact-origin CORS. A successful gateway result also carries one ten-minute HMAC save receipt per returned profile; the capability issuer itself does not fetch or return those receipts.
+
+This capability is not one-time or globally replay-proof: any holder may replay its exact request and signed origin header during the short validity window. Keep the feature off for public access until authoritative consume-once/global credential coordination is implemented or the residual risk is explicitly reviewed and accepted. The endpoint only issues a capability; it is not a raw upstream proxy and does not replace the server transport for AI context.
 
 ### `GET /api/economy/bazaar?q=<term>&limit=<1..250>`
 
@@ -74,7 +82,9 @@ Returns the signed-in owner's linked Minecraft accounts, saved profile links, sa
 
 ### `POST /api/saved-profiles`
 
-Accepts a bounded Minecraft username plus profile ID and optional alias/pinned/primary choices. Before linking, the server performs the ordinary request-driven current profile lookup and confirms that the selected profile belongs to that Minecraft account. Saving a link never schedules player refreshes.
+Accepts a bounded Minecraft username plus profile ID and optional alias/pinned/primary choices. In the normal server transport, the server performs the ordinary request-driven current lookup before linking. When `ENABLE_BROWSER_PLAYER_GATEWAY=true`, the request must instead include the chosen receipt returned with the live gateway analysis. Sites verifies its HMAC, ten-minute expiry, exact player selector, and profile ID, then persists only the receipt's signed UUID, canonical username, profile name, game mode, selected state, complete/partial state, and lookup timestamp under the authenticated owner.
+
+The receipt is not account authentication, Minecraft ownership proof, or permission to access another owner's state. It is not owner-, actor-, or origin-bound and may be reused until expiry, so the route accepts it only with verified Sites identity and the ordinary exact-origin mutation check. Missing, expired, tampered, or mismatched receipts fail without a fallback lookup in browser-capability mode. Saving a link never schedules player refreshes.
 
 ### `PATCH|DELETE /api/saved-profiles/<profile-id>`
 

@@ -10,6 +10,7 @@ if (typeof process.geteuid !== "function") {
 await import("tsx");
 await import("./integration.test.ts");
 await import("./player-gateway.test.ts");
+await import("./player-capability-security.test.ts");
 await import("./profile-items.test.tsx");
 await import("./goals.test.ts");
 await import("./account-deletion.test.ts");

@@ -38,6 +38,7 @@
     }
   ],
   "vars": {
-    "SKYPILOT_GATEWAY_VERSION": "v1"
+    "SKYPILOT_GATEWAY_VERSION": "v1",
+    "SKYPILOT_SITE_ORIGIN": "https://skypilot-skyblock.tratv.chatgpt.site"
   }
 }

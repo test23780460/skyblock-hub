@@ -19,6 +19,7 @@ export const featureFlags = {
   aiAssistant: envFlag("ENABLE_AI_ASSISTANT", false),
   chatGptAuth: envFlag("ENABLE_CHATGPT_AUTH", false),
   playerLookup: envFlag("ENABLE_PLAYER_LOOKUP", false),
+  browserPlayerGateway: envFlag("ENABLE_BROWSER_PLAYER_GATEWAY", false),
   publicEconomy: envFlag("ENABLE_PUBLIC_ECONOMY", false),
   ads: envFlag("ENABLE_ADS", false),
   premium: envFlag("ENABLE_PREMIUM", false),

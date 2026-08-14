@@ -689,6 +689,17 @@ test("browser mutation guard compares the exact request origin", async () => {
   }));
   assert.equal(mismatched?.status, 403);
 
+  for (const origin of [
+    "https://skypilot.example/path",
+    "https://user@skypilot.example",
+    "https://skypilot.example/",
+  ]) {
+    assert.equal(sameOriginMutationFailure(new Request("https://skypilot.example/api/goals", {
+      method: "POST",
+      headers: { origin },
+    }))?.status, 403);
+  }
+
   const crossSite = sameOriginMutationFailure(new Request("https://skypilot.example/api/goals", {
     method: "POST",
     headers: { "sec-fetch-site": "cross-site" },
@@ -731,26 +742,43 @@ test("cache stats prune expired entries that were never read again", async () =>
 });
 
 test("worker security headers preserve responses and add HTTPS-only HSTS", async () => {
-  const secured = withBrowserSecurityHeaders(new Response("image-or-page", {
-    status: 202,
-    headers: { "content-type": "text/plain", "x-existing": "preserved" },
-  }), new URL("https://skypilot.example/_vinext/image"));
+  const previousGatewayUrl = process.env.PLAYER_GATEWAY_URL;
+  try {
+    process.env.PLAYER_GATEWAY_URL = "https://gateway.example/v1/player-analysis";
+    const secured = withBrowserSecurityHeaders(new Response("image-or-page", {
+      status: 202,
+      headers: { "content-type": "text/plain", "x-existing": "preserved" },
+    }), new URL("https://skypilot.example/_vinext/image"));
 
-  assert.equal(secured.status, 202);
-  assert.equal(await secured.text(), "image-or-page");
-  assert.equal(secured.headers.get("x-existing"), "preserved");
-  assert.equal(secured.headers.get("content-security-policy"), "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
-  assert.equal(secured.headers.get("cross-origin-opener-policy"), "same-origin");
-  assert.equal(secured.headers.get("permissions-policy"), "camera=(), geolocation=(), microphone=()");
-  assert.equal(secured.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
-  assert.equal(secured.headers.get("x-content-type-options"), "nosniff");
-  assert.equal(secured.headers.get("x-frame-options"), "DENY");
-  assert.equal(secured.headers.get("strict-transport-security"), "max-age=31536000");
+    assert.equal(secured.status, 202);
+    assert.equal(await secured.text(), "image-or-page");
+    assert.equal(secured.headers.get("x-existing"), "preserved");
+    assert.equal(secured.headers.get("content-security-policy"), "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; connect-src 'self' https://gateway.example");
+    assert.equal(secured.headers.get("cross-origin-opener-policy"), "same-origin");
+    assert.equal(secured.headers.get("permissions-policy"), "camera=(), geolocation=(), microphone=()");
+    assert.equal(secured.headers.get("referrer-policy"), "strict-origin-when-cross-origin");
+    assert.equal(secured.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(secured.headers.get("x-frame-options"), "DENY");
+    assert.equal(secured.headers.get("strict-transport-security"), "max-age=31536000");
 
-  const local = withBrowserSecurityHeaders(new Response(null, {
-    headers: { "strict-transport-security": "max-age=999" },
-  }), new URL("http://localhost:3000/status"));
-  assert.equal(local.headers.has("strict-transport-security"), false);
+    process.env.PLAYER_GATEWAY_URL = "https://user:password@gateway.example/path";
+    const invalidGateway = withBrowserSecurityHeaders(
+      new Response(null),
+      new URL("https://skypilot.example/status"),
+    );
+    assert.equal(
+      invalidGateway.headers.get("content-security-policy"),
+      "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; connect-src 'self'",
+    );
+
+    const local = withBrowserSecurityHeaders(new Response(null, {
+      headers: { "strict-transport-security": "max-age=999" },
+    }), new URL("http://localhost:3000/status"));
+    assert.equal(local.headers.has("strict-transport-security"), false);
+  } finally {
+    if (previousGatewayUrl === undefined) delete process.env.PLAYER_GATEWAY_URL;
+    else process.env.PLAYER_GATEWAY_URL = previousGatewayUrl;
+  }
 });
 
 function jsonResponse(value: unknown): Response {

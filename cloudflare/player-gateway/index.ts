@@ -8,7 +8,9 @@ import { getPlayerAnalysis } from "../../lib/providers/player-analysis";
 import {
   PLAYER_GATEWAY_PATH,
   playerGatewayResponseSignatureHeader,
+  signPlayerGatewayProfileReceipt,
   signPlayerGatewayResponse,
+  verifyPlayerGatewayBrowserRequest,
   verifyPlayerGatewayRequest,
 } from "../../lib/providers/player-gateway-auth";
 import { KvTtlCache } from "./kv-cache";
@@ -56,6 +58,29 @@ export async function handlePlayerGatewayRequest(
   if (url.pathname !== PLAYER_GATEWAY_PATH || url.search) {
     return new Response(null, { status: 404, headers: noStoreHeaders() });
   }
+  const browserOrigin = browserRequestOrigin(request, env);
+  if (request.method === "OPTIONS") {
+    return browserPreflight(request, browserOrigin);
+  }
+  if (request.headers.has("origin") && !browserOrigin) {
+    return new Response(null, { status: 403, headers: noStoreHeaders() });
+  }
+
+  const response = await handlePlayerGatewayCore(
+    request,
+    env,
+    dependencies,
+    browserOrigin,
+  );
+  return browserOrigin ? withBrowserCors(response, browserOrigin) : response;
+}
+
+async function handlePlayerGatewayCore(
+  request: Request,
+  env: PlayerGatewayEnv,
+  dependencies: PlayerGatewayDependencies,
+  browserOrigin: string | null,
+): Promise<Response> {
   if (request.method !== "POST") {
     return new Response(null, {
       status: 405,
@@ -76,12 +101,21 @@ export async function handlePlayerGatewayRequest(
   } catch {
     return new Response(null, { status: 400, headers: noStoreHeaders() });
   }
-  const auth = await verifyPlayerGatewayRequest(
-    env.PLAYER_GATEWAY_SECRET,
-    request.headers,
-    body,
-    dependencies.now?.() ?? Date.now(),
-  );
+  const now = dependencies.now?.() ?? Date.now();
+  const auth = browserOrigin
+    ? await verifyPlayerGatewayBrowserRequest(
+        env.PLAYER_GATEWAY_SECRET,
+        request.headers,
+        body,
+        browserOrigin,
+        now,
+      )
+    : await verifyPlayerGatewayRequest(
+        env.PLAYER_GATEWAY_SECRET,
+        request.headers,
+        body,
+        now,
+      );
   if (!auth.ok) {
     return new Response(null, { status: 401, headers: noStoreHeaders() });
   }
@@ -137,10 +171,22 @@ export async function handlePlayerGatewayRequest(
       hypixel,
       mojang,
     });
+    const saveReceipts = await Promise.all(data.profiles.map((profile) =>
+      signPlayerGatewayProfileReceipt(env.PLAYER_GATEWAY_SECRET, {
+        playerUuid: data.player.uuid,
+        username: data.player.username,
+        profileId: profile.id,
+        profileName: profile.name,
+        gameMode: profile.gameMode,
+        selected: profile.id === data.selectedProfileId,
+        dataState: profile.unavailable.length ? "partial" : "complete",
+        fetchedAt: data.fetchedAt,
+      }, now)
+    ));
     return signedJson(
       env.PLAYER_GATEWAY_SECRET,
       auth.nonce,
-      { data },
+      { data, saveReceipts },
       200,
     );
   } catch (error) {
@@ -153,6 +199,90 @@ export async function handlePlayerGatewayRequest(
     }
     return signedError(env.PLAYER_GATEWAY_SECRET, auth.nonce, error);
   }
+}
+
+function browserRequestOrigin(
+  request: Request,
+  env: PlayerGatewayEnv,
+): string | null {
+  const requestOrigin = request.headers.get("origin")?.trim();
+  const configured = env.SKYPILOT_SITE_ORIGIN?.trim();
+  if (!requestOrigin || !configured || requestOrigin !== configured) return null;
+  try {
+    const url = new URL(configured);
+    return url.protocol === "https:" &&
+      !url.username && !url.password && url.pathname === "/" &&
+      !url.search && !url.hash && configured === url.origin
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const PREFLIGHT_HEADERS = new Set([
+  "accept",
+  "content-type",
+  "x-skypilot-actor",
+  "x-skypilot-nonce",
+  "x-skypilot-signature",
+  "x-skypilot-timestamp",
+]);
+const REQUIRED_PREFLIGHT_HEADERS = [
+  "content-type",
+  "x-skypilot-actor",
+  "x-skypilot-nonce",
+  "x-skypilot-signature",
+  "x-skypilot-timestamp",
+] as const;
+
+function browserPreflight(request: Request, origin: string | null): Response {
+  if (!origin || request.headers.get("access-control-request-method") !== "POST") {
+    return new Response(null, { status: 403, headers: noStoreHeaders() });
+  }
+  const requested = new Set(
+    (request.headers.get("access-control-request-headers") ?? "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (
+    [...requested].some((name) => !PREFLIGHT_HEADERS.has(name)) ||
+    REQUIRED_PREFLIGHT_HEADERS.some((name) => !requested.has(name))
+  ) {
+    return new Response(null, { status: 403, headers: noStoreHeaders() });
+  }
+  const headers = new Headers(noStoreHeaders());
+  headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Access-Control-Allow-Methods", "POST");
+  headers.set("Access-Control-Allow-Headers", [...PREFLIGHT_HEADERS].join(", "));
+  headers.set("Access-Control-Max-Age", "600");
+  headers.set(
+    "Vary",
+    "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+  );
+  return new Response(null, { status: 204, headers });
+}
+
+function withBrowserCors(response: Response, origin: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origin);
+  headers.set("Access-Control-Expose-Headers", "Retry-After");
+  headers.set("Vary", appendVary(headers.get("Vary"), "Origin"));
+  headers.delete("Access-Control-Allow-Credentials");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function appendVary(current: string | null, value: string): string {
+  const values = new Set(
+    (current ?? "").split(",").map((item) => item.trim()).filter(Boolean),
+  );
+  values.add(value);
+  return [...values].join(", ");
 }
 
 function transportCauseKind(error: unknown): string {

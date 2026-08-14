@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { configuredCapabilityOrigin } from "../../app/api/player/capability/route";
 import { handlePlayerGatewayRequest, type PlayerGatewayEnv } from "../../cloudflare/player-gateway/index";
 import { KvTtlCache } from "../../cloudflare/player-gateway/kv-cache";
 import { MemoryTtlCache } from "../../lib/cache/ttl-cache";
@@ -11,16 +12,20 @@ import {
   PLAYER_GATEWAY_PATH,
   playerGatewayRequestAuth,
   playerGatewayResponseSignatureHeader,
+  signPlayerGatewayBrowserRequest,
   signPlayerGatewayRequest,
   signPlayerGatewayResponse,
+  verifyPlayerGatewayBrowserRequest,
   verifyPlayerGatewayRequest,
   verifyPlayerGatewayResponse,
 } from "../../lib/providers/player-gateway-auth";
 import {
+  createPlayerGatewayBrowserCapability,
   getPlayerAnalysisFromGateway,
   isPlayerGatewayConfigured,
   isPlayerGatewayRequired,
 } from "../../lib/providers/player-gateway";
+import { loadPlayerAnalysisForBrowser } from "../../lib/providers/player-browser";
 
 const SECRET = "fixture-gateway-secret-that-is-at-least-thirty-two-characters";
 const NOW = 1_786_248_000_000;
@@ -60,6 +65,29 @@ test("player gateway deployment flags are parsed explicitly and independently", 
     REQUIRE_PLAYER_GATEWAY: "true",
     HYPIXEL_API_KEY: "fixture-direct-key",
   }), true, "a direct key must not disable the gateway-required deployment policy");
+});
+
+test("capability issuer accepts only the configured canonical Sites origin", () => {
+  const previous = process.env.SITE_URL;
+  process.env.SITE_URL = "https://skypilot.example";
+  try {
+    assert.equal(
+      configuredCapabilityOrigin(new Request("https://skypilot.example/api/player/capability")),
+      "https://skypilot.example",
+    );
+    assert.throws(
+      () => configuredCapabilityOrigin(new Request("https://preview.skypilot.example/api/player/capability")),
+      (error: unknown) => error instanceof ProviderError && error.code === "missing_credentials",
+    );
+    process.env.SITE_URL = "https://skypilot.example/";
+    assert.throws(
+      () => configuredCapabilityOrigin(new Request("https://skypilot.example/api/player/capability")),
+      (error: unknown) => error instanceof ProviderError && error.code === "missing_credentials",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.SITE_URL;
+    else process.env.SITE_URL = previous;
+  }
 });
 
 test("KV cold reads preserve the original snapshot freshness metadata", async () => {
@@ -129,6 +157,92 @@ test("player gateway signatures are body-bound, short-lived, and response-bound"
       playerGatewayResponseSignatureHeader(signature),
     ),
     false,
+  );
+});
+
+test("browser capabilities are body-bound, origin-bound, and short-lived", async () => {
+  const body = JSON.stringify({ player: "PilotFixture" });
+  const actor = await opaquePlayerGatewayActor(SECRET, "fixture-browser");
+  const headers = await signPlayerGatewayBrowserRequest(
+    SECRET,
+    body,
+    actor,
+    "https://skypilot.example",
+    { now: NOW, nonce: "browser_nonce_1234567890" },
+  );
+  assert.deepEqual(
+    await verifyPlayerGatewayBrowserRequest(
+      SECRET,
+      headers,
+      body,
+      "https://skypilot.example",
+      NOW,
+    ),
+    { ok: true, nonce: "browser_nonce_1234567890", actor },
+  );
+  assert.deepEqual(
+    await verifyPlayerGatewayBrowserRequest(
+      SECRET,
+      headers,
+      body,
+      "https://preview.skypilot.example",
+      NOW,
+    ),
+    { ok: false },
+  );
+  assert.deepEqual(
+    await verifyPlayerGatewayBrowserRequest(
+      SECRET,
+      headers,
+      `${body} `,
+      "https://skypilot.example",
+      NOW,
+    ),
+    { ok: false },
+  );
+  assert.deepEqual(
+    await verifyPlayerGatewayBrowserRequest(
+      SECRET,
+      headers,
+      body,
+      "https://skypilot.example",
+      NOW + 31_000,
+    ),
+    { ok: false },
+  );
+});
+
+test("browser capability issuer chooses the fixed target, body, actor, and expiry", async () => {
+  const capability = await createPlayerGatewayBrowserCapability(
+    "PilotFixture",
+    null,
+    "https://skypilot.example",
+    {
+      actorSubject: "fixture-browser",
+      gatewayUrl: "https://gateway.example",
+      gatewaySecret: SECRET,
+      now: NOW,
+      nonce: "issued_nonce_12345678901",
+    },
+  );
+  assert.equal(capability.url, `https://gateway.example${PLAYER_GATEWAY_PATH}`);
+  assert.equal(capability.method, "POST");
+  assert.equal(capability.body, JSON.stringify({ player: "PilotFixture" }));
+  assert.equal(capability.expiresAt, new Date(NOW + 30_000).toISOString());
+  assert.equal(JSON.stringify(capability).includes(SECRET), false);
+  assert.deepEqual(
+    await verifyPlayerGatewayBrowserRequest(
+      SECRET,
+      new Headers(capability.headers),
+      capability.body,
+      "https://skypilot.example",
+      NOW,
+    ),
+    {
+      ok: true,
+      nonce: "issued_nonce_12345678901",
+      actor: await opaquePlayerGatewayActor(SECRET, "fixture-browser"),
+    },
   );
 });
 
@@ -225,6 +339,56 @@ test("default player gateway transport invokes globalThis.fetch as a qualified m
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("browser player transport preserves the signed body and omits credentials", async () => {
+  const issuedAt = Date.now();
+  const capability = await createPlayerGatewayBrowserCapability(
+    "PilotFixture",
+    null,
+    "https://skypilot.example",
+    {
+      actorSubject: "fixture-browser",
+      gatewayUrl: "https://gateway.example",
+      gatewaySecret: SECRET,
+      now: issuedAt,
+      nonce: "client_browser_nonce_12345",
+    },
+  );
+  const liveAnalysis = {
+    ...demoPlayerAnalysis,
+    source: "hypixel" as const,
+    cacheStatus: "fresh" as const,
+    player: {
+      ...demoPlayerAnalysis.player,
+      username: "PilotFixture",
+      uuid: "0123456789abcdef0123456789abcdef",
+    },
+  };
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const result = await loadPlayerAnalysisForBrowser("PilotFixture", {
+    browserCapability: true,
+    fetchImplementation: async (input, init) => {
+      requests.push({ input: String(input), init });
+      if (String(input) === "/api/player/capability") {
+        return Response.json({ data: capability }, {
+          headers: { "cache-control": "private, no-store" },
+        });
+      }
+      assert.equal(String(input), capability.url);
+      assert.equal(init?.credentials, "omit");
+      assert.equal(init?.redirect, "error");
+      assert.equal(init?.referrerPolicy, "no-referrer");
+      assert.equal(init?.body, capability.body);
+      assert.deepEqual(
+        Object.fromEntries(new Headers(init?.headers)),
+        capability.headers,
+      );
+      return Response.json({ data: liveAnalysis });
+    },
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(result.player.username, "PilotFixture");
 });
 
 test("player gateway client rejects an unsigned response", async () => {
@@ -440,6 +604,126 @@ test("private gateway rejects unsigned traffic and returns signed normalized ana
   assert.equal(responseBody.includes("fixture-hypixel-key"), false);
 });
 
+test("browser gateway CORS accepts only the configured origin and fixed headers", async () => {
+  const env = gatewayEnv();
+  const requestedHeaders = [
+    "content-type",
+    "x-skypilot-actor",
+    "x-skypilot-nonce",
+    "x-skypilot-signature",
+    "x-skypilot-timestamp",
+  ].join(", ");
+  const preflight = await handlePlayerGatewayRequest(new Request(
+    `https://gateway.example${PLAYER_GATEWAY_PATH}`,
+    {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://skypilot.example",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": requestedHeaders,
+      },
+    },
+  ), env);
+  assert.equal(preflight.status, 204);
+  assert.equal(
+    preflight.headers.get("access-control-allow-origin"),
+    "https://skypilot.example",
+  );
+  assert.equal(preflight.headers.has("access-control-allow-credentials"), false);
+  assert.match(preflight.headers.get("vary") ?? "", /Origin/u);
+
+  const hostilePreflight = await handlePlayerGatewayRequest(new Request(
+    `https://gateway.example${PLAYER_GATEWAY_PATH}`,
+    {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://preview.skypilot.example",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": requestedHeaders,
+      },
+    },
+  ), env);
+  assert.equal(hostilePreflight.status, 403);
+  assert.equal(hostilePreflight.headers.has("access-control-allow-origin"), false);
+
+  const unknownHeaderPreflight = await handlePlayerGatewayRequest(new Request(
+    `https://gateway.example${PLAYER_GATEWAY_PATH}`,
+    {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://skypilot.example",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": `${requestedHeaders}, authorization`,
+      },
+    },
+  ), env);
+  assert.equal(unknownHeaderPreflight.status, 403);
+
+  const capability = await createPlayerGatewayBrowserCapability(
+    "00000000000000000000000000000001",
+    null,
+    "https://skypilot.example",
+    {
+      actorSubject: "fixture-browser",
+      gatewayUrl: "https://gateway.example",
+      gatewaySecret: SECRET,
+    },
+  );
+  const headers = new Headers(capability.headers);
+  headers.set("origin", "https://skypilot.example");
+  const response = await handlePlayerGatewayRequest(new Request(capability.url, {
+    method: "POST",
+    headers,
+    body: capability.body,
+  }), env, {
+    fetchImplementation: async (input) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/player")) {
+        return Response.json({
+          success: true,
+          player: {
+            uuid: "00000000000000000000000000000001",
+            displayname: "PilotFixture",
+          },
+        });
+      }
+      return Response.json({
+        success: true,
+        profiles: [{
+          profile_id: "00000000000000000000000000000002",
+          cute_name: "Pineapple",
+          selected: true,
+          members: {
+            "00000000000000000000000000000001": {
+              currencies: { coin_purse: 1_250_000 },
+            },
+          },
+        }],
+      });
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("access-control-allow-origin"),
+    "https://skypilot.example",
+  );
+  assert.equal(response.headers.has("access-control-allow-credentials"), false);
+
+  const unsignedHeaders = new Headers({
+    origin: "https://skypilot.example",
+    "content-type": "application/json",
+  });
+  const visibleError = await handlePlayerGatewayRequest(new Request(
+    `https://gateway.example${PLAYER_GATEWAY_PATH}`,
+    { method: "POST", headers: unsignedHeaders, body: capability.body },
+  ), env);
+  assert.equal(visibleError.status, 401);
+  assert.equal(
+    visibleError.headers.get("access-control-allow-origin"),
+    "https://skypilot.example",
+  );
+});
+
 test("actor throttling cannot consume the shared credential budget", async () => {
   let globalChecks = 0;
   const body = JSON.stringify({ player: "PilotFixture" });
@@ -479,6 +763,7 @@ function gatewayEnv(): PlayerGatewayEnv {
     PLAYER_ACTOR_LIMITER: limiter,
     PLAYER_GLOBAL_LIMITER: limiter,
     SKYPILOT_GATEWAY_VERSION: "v1",
+    SKYPILOT_SITE_ORIGIN: "https://skypilot.example",
   };
 }
 

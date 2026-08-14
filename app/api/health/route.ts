@@ -26,7 +26,13 @@ export async function GET(): Promise<Response> {
             enabled: featureFlags.playerLookup,
             configured,
             gatewayRequired,
-            transport: gatewayConfigured ? "private_gateway" : directConfigured ? "direct" : "none",
+            transport: gatewayConfigured
+              ? featureFlags.browserPlayerGateway
+                ? "browser_capability_gateway"
+                : "private_gateway"
+              : directConfigured
+                ? "direct"
+                : "none",
             status: featureFlags.playerLookup && configured
               ? gatewayConfigured ? "available" : cooldownStatus(rateLimits.authenticated, now)
               : "disabled",
