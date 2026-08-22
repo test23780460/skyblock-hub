@@ -18,6 +18,11 @@ const config = JSON.parse(
 const economyConfig = JSON.parse(
   await readFile(new URL("../wrangler.economy.jsonc", import.meta.url), "utf8"),
 );
+const [attributes, workerTypes, economyWorkerTypes] = await Promise.all([
+  readFile(new URL("../.gitattributes", import.meta.url), "utf8"),
+  readFile(new URL("../worker-configuration.d.ts", import.meta.url), "utf8"),
+  readFile(new URL("../worker-economy-configuration.d.ts", import.meta.url), "utf8"),
+]);
 
 test("Wrangler source config defines one unified Static Assets Worker", () => {
   assert.equal(config.name, "skypilot-local");
@@ -34,6 +39,27 @@ test("Wrangler source config defines one unified Static Assets Worker", () => {
   assert.equal(config.env.staging.workers_dev, true);
   assert.equal("images" in config, false, "unused Images binding must stay absent");
   assert.equal("site" in config, false, "deprecated Workers Sites must not be configured");
+});
+
+test("generated Worker types retain entrypoint metadata with portable line endings", () => {
+  assert.match(
+    workerTypes,
+    /mainModule: typeof import\("\.\/worker\/index"\);/u,
+  );
+  assert.match(
+    economyWorkerTypes,
+    /mainModule: typeof import\("\.\/worker\/economy"\);/u,
+  );
+  assert.doesNotMatch(workerTypes, /\r/u);
+  assert.doesNotMatch(economyWorkerTypes, /\r/u);
+  assert.match(
+    attributes,
+    /^worker-configuration\.d\.ts text eol=lf whitespace=-blank-at-eol$/mu,
+  );
+  assert.match(
+    attributes,
+    /^worker-economy-configuration\.d\.ts text eol=lf whitespace=-blank-at-eol$/mu,
+  );
 });
 
 test("production and staging use isolated D1 databases", () => {

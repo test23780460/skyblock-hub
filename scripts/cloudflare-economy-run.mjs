@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { resolveCloudflareEnvironment } from "./cloudflare-environment.mjs";
+import { assertCloudflareTypeOutput } from "./cloudflare-type-output.mjs";
 import { assertCommittedWorktree } from "./release-git.mjs";
 
 const [requestedEnvironment, action] = process.argv.slice(2);
@@ -55,4 +56,11 @@ const result = spawnSync(process.execPath, [wrangler, ...args], {
   stdio: "inherit",
 });
 if (result.error) throw result.error;
-process.exitCode = result.status ?? 1;
+const status = result.status ?? 1;
+if (status !== 0) process.exit(status);
+if (action === "typegen" || action === "types-check") {
+  assertCloudflareTypeOutput(
+    "worker-economy-configuration.d.ts",
+    "./worker/economy",
+  );
+}

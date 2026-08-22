@@ -6,6 +6,7 @@ import {
   removeSensitiveBuildArtifacts,
 } from "./cloudflare-artifacts.mjs";
 import { resolveCloudflareEnvironment } from "./cloudflare-environment.mjs";
+import { assertCloudflareTypeOutput } from "./cloudflare-type-output.mjs";
 import { assertCommittedWorktree } from "./release-git.mjs";
 
 const [requestedEnvironment, action] = process.argv.slice(2);
@@ -115,6 +116,7 @@ if (action === "typegen" || action === "types-check") {
   ];
   if (action === "types-check") args.push("--check");
   run(cli.wrangler, args);
+  assertCloudflareTypeOutput("worker-configuration.d.ts", "./worker/index");
   process.exit(0);
 }
 
