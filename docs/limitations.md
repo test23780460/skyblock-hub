@@ -7,17 +7,20 @@ evidence, and externally activated production behavior are different things.
 
 - No native public deployment, custom domain, DNS cutover, or public launch is
   claimed. The migration worktree builds production/staging web Workers plus
-  matching private economy Workers. Exact application commit `e380eedd37bf` has
-  a recorded staging web deployment and narrow API/service smoke; production
-  resources/deployment, Builds connections, domain work, and release smoke
-  remain operator work.
+  matching private economy Workers. Exact application commit `75659fb2f3d6` has
+  a recorded staging web deployment and narrow API/service/route/homepage smoke.
+  Both favicon paths are live, all 28 current navigation destinations return 200
+  to direct HTTP smoke, and exact desktop/mobile homepage checks have no
+  horizontal overflow or console/page errors. Production resources/deployment,
+  Builds connections, domain work, and release smoke remain operator work.
 - Commit `3b4064d` at the owner-only Sites URL is historical rollback evidence,
   not the current preferred runtime or exact-head native verification.
 - Native staging and production have separate configured application D1/KV/rate
   bindings, one shared dedicated `PROVIDER_BUDGET_DB`, and environment-matched
-  `ECONOMY_SERVICE` targets, but all five app migrations plus the provider
-  database's one additive migration still need remote application and
-  backup/restore validation.
+  `ECONOMY_SERVICE` targets. All five production application migrations are
+  applied with no pending migration, 37 app tables plus two bookkeeping tables,
+  and a clean remote foreign-key check. Staging/provider-budget migration
+  evidence and backup/restore validation remain incomplete.
 - Any Hypixel or OpenAI key previously shared outside a secret manager is
   compromised and must be rotated before activation. Hypixel Production
   approval and a final current-policy review remain public-launch gates.
@@ -77,7 +80,8 @@ evidence, and externally activated production behavior are different things.
   publications. Ingestion exists only in the matching private economy Worker;
   both its flag and the web flag are initially false, and no Cron exists, so
   these surfaces are unavailable until deliberately activated.
-- Activation requires Workers Paid, all five remote app migrations, D1 usage/cost
+- Activation still requires Workers Paid, confirmation that the recorded five
+  production app migrations remain current, D1 usage/cost
   and capacity monitoring, replacement of the current non-incremental
   active-Auction crawl with a reviewed incremental or compacted ingestion
   design, exactly one reviewed production Cron on `skypilot-economy`, and a
@@ -121,8 +125,9 @@ evidence, and externally activated production behavior are different things.
   [Testing](testing.md) for the distinction between current local evidence,
   recorded exact-commit narrow staging smoke, historical rollback evidence, and
   still-unverified production/browser evidence.
-- Full responsive/browser, accessibility, visual-regression, load/soak,
-  remote-migration, account/auth, dependency, current-policy, and release-level
+- Full interactive route E2E, responsive/browser, accessibility,
+  visual-regression, performance/load/soak,
+  remaining remote-migration, account/auth, dependency, current-policy, and release-level
   security audits are still required.
 
 Track remaining work in [TODO](../TODO.md) and exact validation evidence in

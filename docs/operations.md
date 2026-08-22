@@ -16,10 +16,17 @@ The private economy service entry, scheduler, lease/fencing/backoff, feed jobs,
 and D1 readers are implemented, but **both Workers in every initial environment
 have `ENABLE_PUBLIC_ECONOMY=false` and no Cron Trigger**. Do not activate the
 row-heavy writer while its active-Auction crawl is non-incremental. Workers
-Paid, all five remote app migrations, a usage/cost and capacity budget, a
-reviewed incremental or compacted ingestion replacement,
+Paid, current migrations for every bound database role, a usage/cost and
+capacity budget, a reviewed incremental or compacted ingestion replacement,
 monitoring, and exactly one reviewed production Cron on the private economy
 Worker are confirmed.
+
+On 2026-08-22, all five application migrations were applied successfully to
+production D1 `skypilot-production`. A follow-up remote migration listing had
+nothing pending; read-only verification found 39 SQLite tables (37 application
+plus two migration-bookkeeping tables), and `PRAGMA foreign_key_check` returned
+no rows. This is schema evidence only, not backup/restore or production-traffic
+evidence.
 
 ## Health and status
 
@@ -80,8 +87,8 @@ the configured reservation capacity, the approved Hypixel allocation, response
 headers, and multi-region cold-miss volume. Keep `ENABLE_PLAYER_LOOKUP=false` for
 public traffic until staging load evidence and alerting validate those settings.
 
-The PlayerDB path and public privacy disclosure pass focused tests. Exact commit
-`e380eedd37bf` also verifies staging egress/schema and safe error classification:
+The PlayerDB path and public privacy disclosure pass focused tests. Exact
+application commit `75659fb2f3d6` also verifies staging egress/schema and safe error classification:
 an unknown username returned `404 player_not_found`, while valid username and
 UUID shapes reached Hypixel and returned `503 forbidden` because the configured
 credential was invalid. This is not a successful live-data or load test. Keep

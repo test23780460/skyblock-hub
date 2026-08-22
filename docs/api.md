@@ -88,8 +88,9 @@ Returns a bounded retained ended-sale feed from D1, sorted by end time. Buyer, s
 All economy reads require the web Worker's `ENABLE_PUBLIC_ECONOMY=true` and a
 published private-worker snapshot. The initial web and private economy
 configurations keep both flags off and register no Cron. Before enabling them,
-confirm Workers Paid, all five remote app migrations, D1 usage/cost and capacity
-monitoring, replacement of the current non-incremental active-Auction crawl with
+confirm Workers Paid, that the recorded five production app migrations remain
+current, D1 usage/cost and capacity monitoring, replacement of the current
+non-incremental active-Auction crawl with
 a reviewed incremental or compacted ingestion design, exactly one
 reviewed production trigger on `skypilot-economy`, and the first complete
 publication. Disabled or pre-first-publish routes return a safe unavailable

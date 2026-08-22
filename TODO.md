@@ -19,6 +19,11 @@ Never place real secret values in this file, source control, fixtures, logs, cli
   for which local and remote gates have exact-version passing evidence.
 - The Drizzle chain contains five migrations and creates 37 SQLite tables. The
   clean-database smoke and foreign-key check remain the required exact-head gate.
+- On 2026-08-22, all five migrations were applied successfully to production
+  application D1 `skypilot-production`; the remote migration list is empty,
+  read-only verification finds 39 SQLite tables (37 application plus two
+  migration-bookkeeping tables), and `PRAGMA foreign_key_check` returns no rows.
+  This is not backup/restore or production-traffic evidence.
 - The repository secret-pattern scan passes. Generated native artifacts are scrubbed separately before dry-run/deploy.
 - Native production/staging configurations use isolated application D1/KV/rate
   resources, one shared dedicated `PROVIDER_BUDGET_DB`, Static Assets, and matching private
@@ -27,12 +32,17 @@ Never place real secret values in this file, source control, fixtures, logs, cli
   the non-incremental active-Auction crawl is not approved for activation.
   A prior local Worker `Justiwantdreams` lookup returned three profiles and then
   a cached response; health returned 200 without disclosing binding/secret names.
-  Exact commit `e380eedd37bf` is also deployed to staging web Worker version
-  prefix `51f5f3e6` at
+  Exact application commit `75659fb2f3d6` is deployed to staging web Worker
+  version prefix `ef2f930b` at
   `https://skypilot-staging.ptravis022.workers.dev`. Its health, disabled-economy
   service binding, PlayerDB egress/schema, validation, and safe error paths were
   smoked; the configured Hypixel credential is invalid, so successful live
   player data, production deployment, and domain cutover remain unverified.
+  Both conventional favicon paths are live; direct HTTP smoke returned 200 for
+  all 28 current navigation destinations; and exact Playwright homepage checks
+  at 1440x1000 and 390x844 found the correct title/favicon link, no horizontal
+  overflow, and zero console/page errors. These are not full interactive route
+  E2E, accessibility, broad visual/performance/load, or release evidence.
 - Commit `3b4064d`, GitHub Actions run `31775265691`, and its owner-only Sites lookup/save smoke remain historical rollback evidence only. They are not exact-head native Cloudflare deployment evidence.
 - Many module pages remain reference/planning surfaces. Unchecked items below are intentionally not inferred complete from UI copy, schemas, interfaces, or unit-tested engines alone.
 
@@ -52,7 +62,7 @@ Never place real secret values in this file, source control, fixtures, logs, cli
 - [ ] `[PROD]` Centralize rarities, categories, skill definitions, constants, routes, and feature metadata; make skills, Slayers, items, currencies, areas, and progression systems data-driven/extensible. (Req. 88, 125, 126)
 - [ ] `[PROD]` Implement provider boundaries for database, storage, cache, auth, scheduler, queue, analytics, and secrets so business logic does not depend on Sites or another host. (Req. 90, 91, 93, 94)
 - [x] `[PROD]` Design PostgreSQL-compatible entities, relations, constraints, indexes, and migrations for users/auth/accounts/profiles, goals/recommendations/builds/favorites, items/Bazaar/Auctions/valuations/history, methods, flags/admin/analytics/metrics/errors/jobs; use JSON only for legitimately evolving attributes. **Evidence:** 37-table schema, five generated migrations, provider-neutral repositories, and clean migration smoke. (Req. 87, 88)
-- [x] `[PROD]` Verify migrations from a clean database and document D1-to-PostgreSQL portability if D1 is used. Business logic must not depend on D1 behavior. **Evidence:** Drizzle history check and clean in-memory SQLite application pass; `docs/database/portability.md`. Production D1 and PostgreSQL import remain unverified. (Req. 92)
+- [x] `[PROD]` Verify migrations from a clean database and document D1-to-PostgreSQL portability if D1 is used. Business logic must not depend on D1 behavior. **Evidence:** Drizzle history check and clean in-memory SQLite application pass; all five migrations are applied to production application D1 with an empty pending list, 37 app tables plus two bookkeeping tables, and a clean foreign-key check; `docs/database/portability.md`. Backup/restore and PostgreSQL import remain unverified. (Req. 92)
 - [ ] `[PROD]` Implement worker jobs as scheduler-independent tasks for Bazaar refresh, auction/ended-sale ingestion, hourly/daily aggregates, valuations, cache cleanup, and maintenance. Make the worker externally deployable. **Implemented subset:** a separate private Cloudflare economy Worker exposes only a service-binding refresh entry and a disabled scheduled entry; its lease-fenced, backoff-aware D1 cycle publishes complete Bazaar, active-Auction, and ended-sale snapshots plus idempotent Bazaar hour/day buckets with bounded retention. Valuation, other-resource, broader maintenance, capacity-safe incremental ingestion, and second-host composition remain. (Req. 95, 96, 140)
 - [ ] `[PROD]` Add centralized feature-flag configuration/service; default Discord, ads, premium, public profiles, Guild tools, price alerts, and experiments off. Avoid scattered boolean UI checks. (Req. 69, 71, 72, 99, 100)
 - [ ] `[PROD]` Supply safe local-runtime and migration flows plus `Dockerfile`/`docker-compose.yml` where compatible; document any extra step after `docker compose up`. (Req. 97, 98)
@@ -187,15 +197,15 @@ Never place real secret values in this file, source control, fixtures, logs, cli
 - [x] `[PROD]` Complete README, contributor/agent, architecture, security, API, database, feature, policy, testing, and deployment documentation. **Evidence:** `README.md`, `AGENTS.md`, `ARCHITECTURE.md`, `SECURITY.md`, `PROJECT_SPEC.md`, this checklist, and `docs/`. Feature status is consolidated in `docs/limitations.md` rather than falsely presenting every planned module as complete. (Req. 117)
 - [x] `[PROD]` Document native Cloudflare, legacy Sites rollback, external hosting, and migration of frontend/backend/workers/database/storage/secrets/auth/jobs/domain. **Evidence:** `docs/CLOUDFLARE_SETUP.md`, `docs/CLOUDFLARE_MIGRATION.md`, `docs/deployment/`, and portability/database guides. (Req. 118)
 - [ ] `[PROD]` Build meaningful unit/integration/API/progression/calculator/economy/valuation/parser/auth/permission suites on fixtures. **Implemented subset:** 203 tests cover engines, services, separate native web/economy configuration, provider/security boundaries including PlayerDB fallback validation, the shared dedicated D1 provider budget, D1-backed saved state/history, NBT bounds, AI grounding/metrics, workers, legal pages, feature-aware navigation, and rendered routes; automated browser E2E and several deep feature/auth flows remain. A prior local native player lookup/cache smoke and the exact-commit staging PlayerDB/error-path smoke are separately recorded; successful valid-key live data remains unverified. (Req. 119)
-- [ ] `[PROD]` Add E2E coverage for search → profile → dashboard, recommendations, budget optimizer, Bazaar, calculator, enabled account creation, goal save, and admin permissions. (Req. 120)
+- [ ] `[PROD]` Add E2E coverage for search → profile → dashboard, recommendations, budget optimizer, Bazaar, calculator, enabled account creation, goal save, and admin permissions. **Recorded subset:** exact staging Playwright homepage checks pass at desktop/mobile viewports and direct HTTP smoke covers all 28 current navigation destinations, but no listed interactive flow is exercised. (Req. 120)
 - [ ] `[PROD]` Verify production never silently displays mock/demo data as live and that every route/control is functional or correctly hidden/flagged. (Req. 121, 122)
 - [x] `[PROD]` Configure CI for deterministic install, lint, typecheck, tests, production/native builds, generated Worker-type/config checks, and artifact scrubbing; keep credentials and generated junk out of Git. **Evidence:** `.github/workflows/ci.yml`, `.github/workflows/cloudflare-native.yml`, `.gitignore`, blank examples, and local validation. Run `31775265691` for `3b4064d` is historical Sites-era CI evidence; a current native Workers Builds run remains external verification. (Req. 137, 138)
-- [ ] `[PROD]` Perform visual QA on every major page at desktop/tablet/mobile sizes; fix spacing, type, empty areas, cards, tables, icons, overflow, navigation, alignment, and hierarchy. (Req. 142, 143)
+- [ ] `[PROD]` Perform visual QA on every major page at desktop/tablet/mobile sizes; fix spacing, type, empty areas, cards, tables, icons, overflow, navigation, alignment, and hierarchy. **Recorded subset:** the staging homepage has no horizontal overflow at 1440x1000 or 390x844 and emits no Playwright console/page errors; broader page/state review remains. (Req. 142, 143)
 - [ ] `[PROD]` Performance-test homepage, large profiles, Bazaar/Auction lists, item search, charts, admin, and mobile; fix measured/obvious bottlenecks. (Req. 113, 144)
 - [ ] `[PROD]` Re-read current Hypixel policy immediately before release and audit polling, cache, keys/proxy/rate limits, branding, monetization, unfair functionality, and privacy. Current policy overrides conflicts. (Req. 20, 78–83, 133, 145)
 - [ ] `[PROD]` Audit secrets, auth/authz/admin, injection, XSS, CSRF, abuse, logs, inputs, API errors, and external/NBT parsing; fix significant findings. (Req. 80, 114, 115, 146)
 - [ ] `[PROD]` Run the final specification loop until no implementable gap, dead UI, placeholder, fake production data, state/mobile/accessibility issue, test failure, lock-in, or policy/security issue remains. (Req. 5, 148)
-- [x] `[PROD]` Preserve a stable owner-only Sites rollback without damaging external-host support while preparing native Cloudflare runtime composition. **Evidence:** historical commit `3b4064d` remains the labeled Sites/gateway rollback; exact commit `e380eedd37bf` is deployed to the staging web Worker with its disabled-economy service binding and narrow API smoke recorded. Production deployment, public access, and remaining release gates stay separate. (Req. 89, 139, 140, 141)
+- [x] `[PROD]` Preserve a stable owner-only Sites rollback without damaging external-host support while preparing native Cloudflare runtime composition. **Evidence:** historical commit `3b4064d` remains the labeled Sites/gateway rollback; exact application commit `75659fb2f3d6` is deployed to the staging web Worker with its disabled-economy service binding and narrow API/browser smoke recorded. Production deployment, public access, and remaining release gates stay separate. (Req. 89, 139, 140, 141)
 - [ ] `[EXTERNAL]` Activate public hosting, production database/cache/storage, replacement secrets, auth providers, and domain when owner credentials/accounts are available. (Req. 3, 89, 99, 139, 147)
 - [ ] `[EXTERNAL]` Activate AI only with a replacement OpenAI secret stored server-side and verified server-side dependency egress/production controls; the profile-save receipt is not an AI transport. Otherwise keep AI in its graceful unavailable state. (Req. 3, 65, 99, 135, 147)
 - [ ] `[EXTERNAL]` Before public live Hypixel access, confirm Production approval, install the rotated shared credential only as native Worker secrets, and complete public abuse/capacity and final release gates. **Current evidence:** native lookup uses KV, a route-bound actor filter, an authenticated-Hypixel-call filter, and atomic reservations in the shared `PROVIDER_BUDGET_DB`; the recorded exact-commit staging smoke proves PlayerDB egress/schema and safe errors, but its configured key is invalid. Public access still requires a valid credential, successful live lookup, quota/load evidence, monitoring, browser/release QA, and production deployment. (Req. 3, 77, 80, 99, 147)

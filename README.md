@@ -14,10 +14,19 @@ dedicated provider-budget D1 binding, and a server-only Hypixel secret; each web
 its matching economy Worker through the `ECONOMY_SERVICE` service binding. The
 older owner-only Sites deployment remains a historical rollback target; it is
 not the preferred runtime or evidence of a public launch. Exact commit
-`e380eedd37bf` is deployed to the staging web Worker as version prefix
-`51f5f3e6` at
+`75659fb2f3d6` is deployed to the staging web Worker as version prefix
+`ef2f930b` at
 `https://skypilot-staging.ptravis022.workers.dev`; production deployment,
 domain cutover, and public access are not claimed.
+
+That exact staging version serves both `/favicon.ico` and `/favicon.svg`; the
+previous favicon console 404 is fixed. Direct HTTP smoke returned 200 for all
+28 current navigation destinations. Exact Playwright homepage checks at
+1440x1000 and 390x844 returned 200, found the configured title and favicon
+link, found no horizontal overflow (`innerWidth == scrollWidth`), and reported
+zero console or page errors. This is narrow route/homepage evidence, not full
+interactive route E2E, an accessibility audit, broad visual/performance/load
+QA, or any production/public-launch evidence.
 
 Implemented today:
 
@@ -67,7 +76,8 @@ Still incomplete or inactive:
 - optional public-account sign-in is unresolved; the Access verifier is useful
   for a private hostname, but protecting the whole public hostname would break
   account-free tools;
-- public economy requires Workers Paid, all remote migrations, usage/cost and
+- public economy requires Workers Paid, verification of remaining database
+  roles plus usage/cost and
   capacity evidence, replacement of the current non-incremental active-Auction
   crawl with a reviewed incremental/compacted ingestion design, and
   exactly one reviewed production Cron on the private economy Worker before
@@ -202,9 +212,13 @@ See [API reference](docs/api.md). SkyPilot does not expose an unrestricted Hypix
 - [Migration plan](docs/deployment/migration.md): moving data, auth, workers, secrets, and domain without rewriting SkyBlock logic.
 
 The exact staging web deployment above and its disabled-economy service binding
-are verified. Production deployment, a valid rotated credential, production
-secrets/migrations, GitHub Workers Builds connections, optional economy
-activation, and the final domain remain external activation items.
+are verified. All five application migrations are also applied to production
+`DB`; the remote migration list is empty, 39 SQLite tables are present (37 app
+plus two migration-bookkeeping tables), and `PRAGMA foreign_key_check` is clean.
+Production Worker deployment/traffic, a valid rotated credential, remaining
+database roles and backup/restore, production secrets, GitHub Workers Builds
+connections, optional economy activation, and the final domain remain external
+activation items.
 
 ## Operations and security
 

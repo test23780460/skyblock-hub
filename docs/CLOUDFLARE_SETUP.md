@@ -189,6 +189,13 @@ staging bindings point at the same database, so the production web Worker must
 see that already-migrated table. A Worker rollback does not roll back D1 data or
 schema.
 
+Recorded production application-D1 evidence on 2026-08-22: all five migrations
+applied successfully to `skypilot-production`; a follow-up remote migration
+listing reported nothing pending; read-only verification found 39 SQLite tables
+(37 application plus two migration-bookkeeping tables); and
+`PRAGMA foreign_key_check` returned no rows. This does not prove backup/restore,
+production traffic, or the state of another database role.
+
 ### Existing Sites data
 
 The old Sites-managed D1 database and the new native D1 database are different
@@ -288,7 +295,7 @@ behavior before activation. The
 response must match PlayerDB's expected success code and requested username,
 contain a valid Java UUID, and then match the authenticated Hypixel player UUID and display name.
 Only the normalized latest mapping enters the existing identity cache. Focused
-tests and the public privacy disclosure pass. Exact commit `e380eedd37bf` also
+tests and the public privacy disclosure pass. Exact application commit `75659fb2f3d6` also
 passes staging egress/schema and safe-error smoke, but its configured Hypixel
 credential is invalid; public activation still requires a valid rotated key and
 a successful response with final UUID/display-name agreement.
@@ -409,9 +416,9 @@ separately.
 
 ## Initial smoke test
 
-Recorded narrow staging evidence: application commit `e380eedd37bf` is deployed
+Recorded narrow staging evidence: application commit `75659fb2f3d6` is deployed
 at `https://skypilot-staging.ptravis022.workers.dev` as web Worker version
-prefix `51f5f3e6`. Health returned 200 with player
+prefix `ef2f930b`. Health returned 200 with player
 configured and economy disabled, and the private-economy service binding
 resolved. Blank input returned `400 invalid_input`; `NoSuchPilotzzzz` returned
 `404 player_not_found`; and `Justiwantdreams` traversed the PlayerDB path to
@@ -419,10 +426,17 @@ Hypixel. That username and a known UUID then returned `503 forbidden` because
 the configured Hypixel credential was invalid; direct provider validation
 returned HTTP 403 `Invalid API key` without recording the credential value.
 
+That exact staging version also serves `/favicon.ico` and `/favicon.svg`, fixing
+the prior favicon console 404. Direct HTTP smoke returned 200 for all 28 current
+navigation destinations. Playwright homepage checks at 1440x1000 and 390x844
+returned 200, found the configured title and favicon link, confirmed
+`innerWidth == scrollWidth`, and reported zero console/page errors.
+
 This evidence does not complete the sequence below: successful live player
 data, final identity agreement, valid credential, production deploy/public
-launch, domain, browser/accessibility/performance, load/multi-region behavior,
-remote migrations/backups, and GitHub Workers Builds remain unverified.
+launch, domain, full interactive route E2E, accessibility, broad visual/
+performance/load or multi-region behavior, remaining remote database roles,
+backups, and GitHub Workers Builds remain unverified.
 
 Run this sequence against staging first, then production:
 
@@ -430,11 +444,11 @@ Run this sequence against staging first, then production:
    or preview URL, and is the web Worker's `ECONOMY_SERVICE` target. Then verify
    `GET /api/health` returns HTTP 200, reports the intended safe feature posture,
    and exposes no secrets or internal binding IDs.
-2. Open `/`, `/dashboard`, `/progression`, `/gear`, `/accessories`, `/economy`,
-   `/money-making`, `/items`, `/skills`, `/garden`, `/dungeons`, `/minions`,
-   `/calculators`, `/status`, `/privacy`, and `/terms` directly in a fresh tab.
-3. Refresh nested routes and verify HTML, JavaScript, CSS, and `og.png` load
-   from the Cloudflare origin with no request to `chatgpt.site`.
+2. Open every current navigation destination directly in a fresh tab, including
+   core tools, status, privacy, and terms.
+3. Refresh nested routes and verify HTML, JavaScript, CSS, `og.png`,
+   `/favicon.ico`, and `/favicon.svg` load from the Cloudflare origin with no
+   request to `chatgpt.site`.
 4. With the approved shared key, look up `Justiwantdreams` and a Java UUID.
    Confirm each request passes the route actor filter; the first authenticated
    Hypixel transport performs one coarse shared check and atomically reserves

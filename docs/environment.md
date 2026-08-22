@@ -28,7 +28,7 @@ Hypixel credential in both web environments and one shared provider-budget D1.
 | `ENABLE_PLAYER_LOOKUP` | `false` | Named native web environments set this on only with their Hypixel secret, shared `PROVIDER_BUDGET_DB`, KV, and both coarse rate bindings. |
 | `ENABLE_BROWSER_PLAYER_GATEWAY` | `false` | Legacy owner-only Sites rollback compatibility; native environments keep it off. |
 | `REQUIRE_PLAYER_GATEWAY` | `false` | Legacy rollback transport policy; native environments keep it off. |
-| `ENABLE_PUBLIC_ECONOMY` | `false` | Initial web and private economy Workers keep it off. The current active-Auction crawl is non-incremental; enable both copies only after Workers Paid, remote migrations, usage/capacity monitoring, a reviewed incremental or compacted replacement, and one reviewed production Cron on the private Worker are ready. |
+| `ENABLE_PUBLIC_ECONOMY` | `false` | Initial web and private economy Workers keep it off. The current active-Auction crawl is non-incremental; enable both copies only after Workers Paid, current migrations for every bound database role, usage/capacity monitoring, a reviewed incremental or compacted replacement, and one reviewed production Cron on the private Worker are ready. |
 | `ENABLE_ADS` | `false` | Parsed only; advertising is not activated. |
 | `ENABLE_PREMIUM` | `false` | Parsed only; premium is not activated. |
 | `ENABLE_PUBLIC_PROFILES` | `false` | Public profile sharing is not implemented. |
@@ -72,6 +72,12 @@ checked on player endpoints. Mojang identity calls do not consume Hypixel
 quota; only an authenticated Hypixel transport attempt performs one
 `PLAYER_GLOBAL_LIMITER` check and one two-token D1 reservation.
 
+Recorded production application-D1 state on 2026-08-22: all five migrations are
+applied to `skypilot-production`, the remote migration list is empty, 39 SQLite
+tables are present (37 application plus two migration-bookkeeping tables), and
+`PRAGMA foreign_key_check` returns no rows. This does not verify backup/restore
+or production traffic.
+
 Production and staging web Workers both enable player lookup and therefore each
 require an encrypted copy of the one approved `HYPIXEL_API_KEY`. The private economy Workers
 use keyless public feeds and must not receive that secret. Web Workers keep
@@ -83,7 +89,7 @@ client-side variable. Its fixed server request supplies SkyPilot's identifying
 service user agent and a normalized username. Cloudflare may add network headers,
 including visitor-IP metadata depending on destination routing. Do not add a
 browser-exposed PlayerDB URL or proxy setting. Source support and the public
-privacy disclosure pass focused tests. Exact commit `e380eedd37bf` also passes a
+privacy disclosure pass focused tests. Exact application commit `75659fb2f3d6` also passes a
 staging egress/schema/error smoke, but the configured staging Hypixel credential
 is invalid; health reports configuration presence, not credential validity.
 Production activation still requires a valid rotated credential and a

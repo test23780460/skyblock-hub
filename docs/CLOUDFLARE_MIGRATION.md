@@ -13,16 +13,16 @@ pair passes every cutover gate.
 This is an implementation and evidence audit, not proof of a production or
 public deployment. It records one narrow staging web deployment/API smoke, but
 does not confirm account plan, production resources, a valid provider secret,
-remote migrations, GitHub App installation, Access policy, DNS, production
+remaining remote database roles or backups, GitHub App installation, Access policy, DNS, production
 logs, or Hypixel approval.
 
 | Migration boundary | Audit status |
 | --- | --- |
-| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; application commit `e380eedd37bf` is deployed as staging web version prefix `51f5f3e6`, while production deployment remains unverified |
+| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; application commit `75659fb2f3d6` is deployed as staging web version prefix `ef2f930b`, while production deployment remains unverified |
 | Private economy Workers | `skypilot-economy` and `skypilot-economy-staging` are separately configured with matching D1, `workers_dev=false`, preview URLs off, economy disabled, and no Cron; staging service-binding smoke passes, while its exact private-Worker version and production deployment remain unrecorded |
 | Sites rollback | Retained in source, but native build scripts exclude `dist/.openai` |
 | Production/staging resource isolation | App D1/KV/rate IDs are distinct; one dedicated provider-budget D1 is deliberately shared because both environments use one Hypixel key. Remote ownership and actual account bindings still require operator verification. |
-| Public economy runtime | Implemented only in the private Worker but disabled with no Cron because the active-Auction crawl is non-incremental; remote migrations, Workers Paid, capacity evidence, an incremental/compacted replacement, a reviewed single-Cron activation, first publication, and usage monitoring are external gates |
+| Public economy runtime | Implemented only in the private Worker but disabled with no Cron because the active-Auction crawl is non-incremental; production application D1 is fully migrated, while remaining database-role/backup verification, Workers Paid, capacity evidence, an incremental/compacted replacement, a reviewed single-Cron activation, first publication, and usage monitoring are external gates |
 | Native player lookup | KV-backed cache, route actor filtering, authenticated-Hypixel-call filtering, and a globally consistent shared D1 provider budget are wired; Mojang calls do not spend Hypixel quota. Prior local lookup/cache smoke exists, while production load/monitoring evidence remains. |
 | Identity | Cloudflare Access JWT verifier implemented and all account features off; optional public-account sign-in remains unresolved |
 | GitHub Workers Builds | Repository commands are ready; the GitHub App and web/private-economy Worker connections are one-time dashboard work |
@@ -203,7 +203,7 @@ request retains another invocation's binding or fetch promise.
 
 The conditional [PlayerDB API](https://playerdb.co/) fallback is implemented in
 source to address the observed official-host Worker egress failures. Focused
-tests and the public privacy disclosure pass. Exact commit `e380eedd37bf` also
+tests and the public privacy disclosure pass. Exact application commit `75659fb2f3d6` also
 verified staging PlayerDB egress/schema and classified not-found/error handling;
 its configured Hypixel credential was invalid, so no successful live player
 response or final identity agreement is claimed. PlayerDB remains part of the
@@ -252,8 +252,8 @@ All initial web and private economy Workers have no Cron Trigger and
 
 1. the Cloudflare account is on Workers Paid with an approved usage/cost
    budget and D1 monitoring;
-2. all five app migrations are applied to the native production `DB`, and the
-   provider-budget database's one additive migration is applied once;
+2. the recorded five production app migrations remain current, and the
+   provider-budget database's one additive migration is verified;
 3. the old Sites schedule is confirmed absent or disabled;
 4. production capacity/soak evidence validates replacement of the current
    non-incremental active-Auction crawl with a reviewed incremental or compacted
@@ -410,9 +410,9 @@ repository economy script/configuration.
 
 ### Recorded staging evidence
 
-Application commit `e380eedd37bf` is deployed at
+Application commit `75659fb2f3d6` is deployed at
 `https://skypilot-staging.ptravis022.workers.dev` as web Worker version
-prefix `51f5f3e6`. Health returned 200 with player
+prefix `ef2f930b`. Health returned 200 with player
 configured and economy disabled, confirming the intended safe posture and the
 matching private-economy service binding. Blank input returned
 `400 invalid_input`; `NoSuchPilotzzzz` returned `404 player_not_found`; and
@@ -421,11 +421,25 @@ UUID then returned the designed `503 forbidden` because the configured Hypixel
 credential was invalid; direct provider validation returned HTTP 403
 `Invalid API key` without recording its value.
 
+The same exact version serves conventional `/favicon.ico` and `/favicon.svg`
+assets, fixing the prior favicon console 404. Direct HTTP smoke returned 200 for
+all 28 current navigation destinations. Playwright homepage checks at 1440x1000
+and 390x844 returned 200, found the configured title and favicon link, confirmed
+`innerWidth == scrollWidth`, and reported zero console/page errors.
+
 This proves the staging PlayerDB egress/schema, input/not-found/safe-error, and
-web-to-economy service paths only. It does not prove a valid credential,
-successful live player data or final UUID/display-name agreement, production
-deployment/public launch, domain cutover, browser/accessibility/performance,
-load/multi-region behavior, remote migrations/backups, or GitHub Workers Builds.
+web-to-economy service paths plus narrow route/homepage invariants only. It does
+not prove a valid credential, successful live player data or final UUID/display-
+name agreement, production deployment/public launch, domain cutover, full
+interactive route E2E, an accessibility audit, broad visual/performance/load or
+multi-region behavior, remaining remote database roles/backups, or GitHub
+Workers Builds.
+
+Recorded production application-D1 evidence on 2026-08-22 is separate: all five
+migrations applied successfully to `skypilot-production`, the follow-up remote
+migration list had nothing pending, 39 SQLite tables were present (37 app plus
+two migration-bookkeeping tables), and `PRAGMA foreign_key_check` returned no
+rows. This does not prove backup/restore or production traffic.
 
 ## Cutover and rollback
 
@@ -442,7 +456,8 @@ load/multi-region behavior, remote migrations/backups, or GitHub Workers Builds.
 4. Export old D1 data and import/verify it if durable data must be preserved.
    Quiesce old writers during the final copy window.
 5. Create/verify production app D1/KV/rate/service bindings plus the existing
-   shared `PROVIDER_BUDGET_DB`, apply all five production app migrations, and
+   shared `PROVIDER_BUDGET_DB`, confirm the recorded five production app
+   migrations remain current, and
    install only rotated production web secrets, including the same coordinated
    Hypixel credential.
    Deploy private `skypilot-economy` first, then the `skypilot` web Worker, with

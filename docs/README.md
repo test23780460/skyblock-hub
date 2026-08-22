@@ -37,4 +37,7 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 - [Implementation checklist](../TODO.md)
 - [Full product specification](../PROJECT_SPEC.md)
 
-The current build task has not activated production credentials, a production database, a scheduler, a domain, or a public deployment.
+The production application D1 has all five migrations applied and verified, but
+this does not activate production traffic. Production credentials, remaining
+database roles and backup/restore, a scheduler, a domain, and a public
+deployment are not activated.

@@ -60,7 +60,7 @@ player polling.
 
 The conditional [PlayerDB API](https://playerdb.co/) path is implemented in
 source because both official identity hosts currently fail from Cloudflare
-Worker egress. Focused tests pass; exact commit `e380eedd37bf` also verified the
+Worker egress. Focused tests pass; exact application commit `75659fb2f3d6` also verifies the
 fallback's staging egress/schema and classified error path.
 SkyPilot's application-supplied fields are only the normalized requested
 username and an identifying service user agent; it does not copy browser

@@ -80,7 +80,7 @@ bodies. Origin checks are not a replacement for verified identity.
   it stores no PlayerDB avatar, metadata, raw response, or lookup history. Review
   the [PlayerDB API](https://playerdb.co/) and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy)
   before activation. Focused tests and the public `/privacy` disclosure pass;
-  exact commit `e380eedd37bf` also passes a staging egress/schema and safe-error
+  exact application commit `75659fb2f3d6` also passes a staging egress/schema and safe-error
   smoke. Production activation and successful live player data are not claimed.
 - Canonical users are independent of auth-provider IDs.
 - Demo data is explicitly labeled and never silently substituted for live production data.
@@ -100,8 +100,10 @@ These are release blockers or scale limitations, not hidden assurances:
   tests and staging egress/schema/error smoke, but the invalid staging Hypixel
   credential prevented a successful live response, and production
   monitoring/incident validation remains incomplete;
-- no production database migration, backup/retention policy, economy schedule,
-  alerting, or remote observability verification has been activated;
+- all five production application-D1 migrations and the remote foreign-key
+  check pass, but backup/restore/retention, the separate provider-budget role,
+  economy schedule, alerting, and remote observability still need release
+  verification;
 - the mutation origin guard still needs deployment-specific proxy/origin
   validation before any optional cookie-backed public-account launch;
 - bounded live item decoding covers five supported containers and discards raw base64, NBT trees, lore, and unsupported fields before caching, but full modifier/pet/storage analysis and a release-level parser audit remain incomplete;
@@ -116,9 +118,9 @@ See [Known limitations](docs/limitations.md), [operations](docs/operations.md), 
 Before a public launch:
 
 1. Rotate every credential previously shared outside a secret manager.
-2. Apply all five app migrations to the isolated production `DB`, apply the one
-   provider-budget migration to the shared `PROVIDER_BUDGET_DB`, and verify
-   backup/restore for both database roles.
+2. Confirm the recorded five production app migrations remain current, apply
+   and verify the one provider-budget migration on the shared
+   `PROVIDER_BUDGET_DB`, and verify backup/restore for both database roles.
 3. Keep accounts off or configure a verified optional-session design, admin
    allowlists, CSRF/origin protection, and secure cookies.
 4. Verify native KV caching, the route-bound actor filter, authenticated-call

@@ -22,6 +22,9 @@ recorded narrow staging evidence and still-unverified production evidence:
 - `npm run db:check`;
 - `npm run db:smoke` (5 migrations, 37 tables, with the foreign-key check as a
   required gate);
+- production application D1 `skypilot-production`: all five migrations applied
+  on 2026-08-22, no remote migration pending, 39 SQLite tables (37 app plus two
+  bookkeeping), and no `PRAGMA foreign_key_check` rows;
 - `npm run cf:types:check`;
 - `npm run security:secrets`;
 - `npm test`, including the default production build and 40 engine, 16 service,
@@ -35,16 +38,19 @@ economy-service topology delta. Commit `3b4064d`, GitHub
 Actions run `31775265691`, and its owner-only lookup/save smoke are historical
 Sites rollback evidence only.
 
-Application commit `e380eedd37bf` is deployed to staging web Worker version
-prefix `51f5f3e6` at
+Application commit `75659fb2f3d6` is deployed to staging web Worker version
+prefix `ef2f930b` at
 `https://skypilot-staging.ptravis022.workers.dev`. Health returned 200 with
 player configured and economy disabled; the private-economy service binding,
 PlayerDB egress/schema, blank-input validation, not-found classification, and
 safe Hypixel error path were exercised. The configured Hypixel credential was
 invalid, so username and UUID requests returned `503 forbidden` and no
-successful live player response is claimed. This is not production deployment,
-public launch, domain, browser/accessibility/performance, or Workers Builds CI
-evidence.
+successful live player response is claimed. Both favicon asset paths are live,
+all 28 current navigation destinations returned 200 to direct HTTP smoke, and
+exact Playwright homepage checks at 1440x1000 and 390x844 confirmed the title,
+favicon link, no horizontal overflow, and zero console/page errors. This is not
+full interactive route E2E, an accessibility audit, broad visual/performance/
+load QA, production/public/domain evidence, or Workers Builds CI evidence.
 
 ## Requirement-by-requirement map
 
@@ -53,7 +59,7 @@ evidence.
 | 1 | Primary product vision | **Partial** | A coherent shell now joins profile analysis, saved state, goals, current/history economy views, money-making, optimizers, calculators, and grounded AI; several deep profile/domain replacements remain incomplete. |
 | 2 | Autonomous build requirement | **Complete** | `PROJECT_SPEC.md`, `TODO.md`, this audit, and repeatable validation commands preserve scope and evidence. |
 | 3 | External blocker rule | **Complete** | Safe-default feature gates and classified unavailable states isolate missing Hypixel, OpenAI, auth, D1, and deployment activation. |
-| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 203 automated tests, migration smoke, secret scanning, a prior local lookup/cache pass, and narrow exact-commit staging API/service smoke exist; production deployment plus full browser, accessibility, visual, performance, and broader live-integration loops do not. |
+| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 203 automated tests, migration smoke, secret scanning, a prior local lookup/cache pass, and narrow exact-commit staging API/service/route/homepage smoke exist; production deployment plus interactive route E2E, accessibility, broad visual/performance/load, and broader live-integration loops do not. |
 | 5 | Final completion loop | **Deferred** | The release gate cannot pass while the end-to-end gaps below remain. |
 | 6 | Product name and centralized branding | **Complete** | `lib/config.ts`, root metadata, sitemap, About content, and `public/og.png` use SkyPilot centrally. |
 | 7 | Design quality | **Partial** | `app/globals.css` and the shared shell are cohesive, but no complete cross-page visual acceptance pass exists. |
@@ -136,15 +142,15 @@ evidence.
 | 84 | API adapters | **Complete** | Native UI requests use same-origin product APIs; bounded Minecraft/Mojang/PlayerDB/Hypixel adapters normalize and validate upstream data, and the PlayerDB fallback still requires final Hypixel UUID/display-name agreement. The fixed signed gateway/capability and save receipts are legacy Sites rollback only. |
 | 85 | Data ingestion | **Partial** | A separately deployable private, lease-fenced economy Worker can ingest Bazaar, complete active Auctions, and ended sales into D1; it exposes no public/preview URL, but both flags and every Cron are off because the active-Auction crawl is non-incremental and Paid-plan/capacity/incremental-design gates remain open. Items/Collections/skills/resources are not ingested. |
 | 86 | Historical economy data | **Partial** | Worker-built idempotent Bazaar OHLC/average-volume buckets retain hourly evidence for 90 days and daily evidence for three years, while ended sales remain bounded/deduplicated; auction/item valuation summaries and broader compaction remain absent. |
-| 87 | Database | **Complete** | `db/schema/**`, five checked app migrations, 37 normalized tables including the portable provider-budget table shape, constraints/indexes/FKs, repositories, and clean migration smoke coverage cover the specified durable domains. Native credential admission uses a dedicated shared D1 with its own one additive migration. |
+| 87 | Database | **Complete** | `db/schema/**`, five checked app migrations, 37 normalized tables including the portable provider-budget table shape, constraints/indexes/FKs, repositories, and clean migration smoke coverage cover the specified durable domains. Production application D1 has all five migrations applied, no pending migration, 37 app plus two bookkeeping tables, and a clean foreign-key check. Native credential admission uses a dedicated shared D1 with its own one additive migration. |
 | 88 | Data-model flexibility | **Partial** | Stable relations are normalized and evolving fragments use bounded JSON, but complete resource/version update ingestion is absent. |
-| 89 | Initial hosting target | **Partial** | Native production/staging web Workers and matching private economy Workers exist with isolated app D1/KV/rate bindings, a shared `PROVIDER_BUDGET_DB`, and `ECONOMY_SERVICE`. Exact commit `e380eedd37bf` has a recorded staging web version plus disabled-economy service-binding/API smoke; production deployment, Workers Builds, domain, remote migration/backup evidence, a recorded private-Worker version, and broader production QA remain. The Sites deployment is rollback history. |
+| 89 | Initial hosting target | **Partial** | Native production/staging web Workers and matching private economy Workers exist with isolated app D1/KV/rate bindings, a shared `PROVIDER_BUDGET_DB`, and `ECONOMY_SERVICE`. Exact application commit `75659fb2f3d6` has a recorded staging web version plus disabled-economy service-binding/API/browser smoke, and production application D1 is fully migrated. Production Worker deployment, Workers Builds, domain, remaining database-role/backup evidence, a recorded private-Worker version, and broader production QA remain. The Sites deployment is rollback history. |
 | 90 | Zero hosting lock-in | **Partial** | Engines/contracts/jobs are portable; vinext/Workers, D1, KV/rate bindings, the disabled Access adapter, and runtime composition remain provider-specific. |
 | 91 | Infrastructure abstractions | **Partial** | Repository, economy store/sink, provider, and scheduler-independent job boundaries exist; cache/rate/queue/auth/storage/analytics/secrets adapters are incomplete. |
 | 92 | Database portability | **Partial** | Canonical repository contracts, app-generated IDs, SQLite-safe normalized schema, and D1-to-PostgreSQL docs exist; no PostgreSQL adapter/import test exists. |
 | 93 | Storage portability | **Deferred** | No object storage is currently used, so no lock-in was introduced; a storage adapter is not implemented. |
 | 94 | Auth portability | **Partial** | Business records use canonical user IDs and external identity mapping; a cryptographic Cloudflare Access verifier exists but is disabled, optional public sessions and non-Cloudflare composition are absent, and old identities require explicit relinking. |
-| 95 | Background workers | **Partial** | The separate private public-economy Worker covers three feeds plus idempotent Bazaar hour/day aggregation and retention pruning under one lease, but initial flags/Crons are off because the active-Auction crawl is non-incremental and Workers Paid, migrations, capacity evidence, monitoring, and incremental-design gates remain open; valuation, item/resource, auction aggregate, and broader maintenance jobs are missing. |
+| 95 | Background workers | **Partial** | The separate private public-economy Worker covers three feeds plus idempotent Bazaar hour/day aggregation and retention pruning under one lease, but initial flags/Crons are off because the active-Auction crawl is non-incremental and Workers Paid, capacity evidence, monitoring, remaining database-role verification, and incremental-design gates remain open; valuation, item/resource, auction aggregate, and broader maintenance jobs are missing. |
 | 96 | Scheduler portability | **Complete** | `runPublicEconomyCycle` and feed jobs are scheduler-independent; only the private Cloudflare economy Worker composes the `scheduled` handler, while the web Worker reaches it through a bounded service binding. |
 | 97 | Docker | **Partial** | Dockerfile/Compose build the web runtime; database/cache/worker/scheduler/auth are not composed. |
 | 98 | Local development | **Partial** | Setup/build/test/five-migration docs exist; a one-command local D1/auth/web-plus-private-worker full-stack flow and seed/import path do not. |
@@ -168,15 +174,15 @@ evidence.
 | 116 | SEO | **Complete** | Metadata, Open Graph image, sitemap, robots rules, and private-route exclusion are implemented/tested. |
 | 117 | Documentation | **Complete** | README, architecture, security, API, database, setup, operations, testing, portability, deployment, limitations, spec, checklist, and this audit exist. |
 | 118 | Deployment documentation | **Complete** | Native Cloudflare setup/migration, labeled Sites/gateway rollback, external hosting, database portability, auth, workers, secrets, domain, and rollback steps are documented honestly. |
-| 119 | Testing | **Partial** | 203 tests cover engines, services, provider/security boundaries including the conditional PlayerDB resolver, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes. Deployed staging PlayerDB egress/schema and safe errors are smoked, but a valid-key successful response, automated browser E2E, full authz, and many deep feature flows remain untested. |
-| 120 | End-to-end tests | **Deferred** | Rendered HTML is server smoke coverage, not Playwright/browser E2E for the required flows. |
+| 119 | Testing | **Partial** | 203 tests cover engines, services, provider/security boundaries including the conditional PlayerDB resolver, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes. Deployed staging PlayerDB egress/schema/errors, all current navigation destinations by direct HTTP, and exact homepage Playwright invariants are smoked, but a valid-key successful response, interactive route E2E, full authz, and many deep feature flows remain untested. |
+| 120 | End-to-end tests | **Deferred** | Exact staging Playwright homepage checks pass at 1440x1000 and 390x844, but they exercise no required interactive search/profile/planning/account flow and are not full browser E2E. |
 | 121 | Mock data rule | **Complete** | Demo/illustrative data is visibly labeled and safe-default live failures never silently fall back to demo. |
 | 122 | No dead UI | **Partial** | Saved-state/build, market history, economy labs, money-making, skills, readiness, slot, and AI controls are wired; several deep module pages still present feature maps or narrow planning surfaces rather than complete capabilities. |
 | 123 | No giant monolith components | **Complete** | UI is split by experience; current components remain under the specified practical ceiling. |
 | 124 | No giant service files | **Complete** | Providers, engines, analyzers, repositories, lifecycle, and jobs are separated by responsibility. |
 | 125 | Central game configuration | **Partial** | Central catalogs/config/nav plus one versioned standard skill-XP curve and per-skill caps are shared by profile normalization and calculators; some rarity/item/domain constants remain local. |
 | 126 | Future SkyBlock updates | **Partial** | Stable IDs/catalogs, provider normalizers, versioned item summaries, and centralized skill XP improve update tolerance; several modules still use static local lists/reference assumptions. |
-| 127 | Home page | **Complete** | Search-first homepage, concise positioning, no-account message, labeled previews, module links, and non-affiliation render and test successfully. |
+| 127 | Home page | **Complete** | Search-first homepage, concise positioning, no-account message, labeled previews, module links, and non-affiliation render and test successfully; exact staging desktop/mobile checks also confirm title/favicon, no horizontal overflow, and zero console/page errors. |
 | 128 | First profile experience | **Partial** | Empty/loading/error/profile reveal states are polished, and one owner-authenticated `Justiwantdreams` lookup/profile-save flow passed on the historical Sites rollback. Current staging verifies safe API errors but not a valid-key profile response; broad browser timing, failure, device, and complete-analysis coverage remain unverified. |
 | 129 | Profile summary card | **Partial** | A compact dashboard stat summary exists; it is not a share/export card and omits major live fields. |
 | 130 | Progression score | **Complete** | A bounded, tested unofficial score is visibly labeled SkyPilot-specific and not an official metric. |
@@ -188,10 +194,10 @@ evidence.
 | 136 | Monorepo/shared packages | **Complete** | Equivalent `app`/`components`/`lib`/`db`/`worker` separation avoids a forced multi-package scaffold while preserving boundaries. |
 | 137 | CI | **Complete** | `.github/workflows/ci.yml` runs install, lint, typecheck, Drizzle checks, migration smoke, tests/build, and Docker build. |
 | 138 | Git hygiene | **Complete** | Ignore rules, secret scanning, generated-env scrubbing, and native config/type CI gates exist. Historical `3b4064d` Actions evidence is not current native Workers Builds CI evidence. |
-| 139 | Initial public deployment | **Blocked** | An exact application commit is deployed to staging with narrow API/service smoke, but production deployment/domain, a valid approved Hypixel credential, provider-budget load/capacity evidence, migrations/backups, optional auth, and remaining release QA are unresolved. |
+| 139 | Initial public deployment | **Blocked** | An exact application commit is deployed to staging with narrow API/service/browser smoke and production application D1 is fully migrated, but production Worker deployment/domain, a valid approved Hypixel credential, provider-budget load/capacity evidence, remaining database roles/backups, optional auth, and remaining release QA are unresolved. |
 | 140 | Sites limitations | **Partial** | Native Cloudflare removes runtime Sites dependence and retains Sites only as rollback; exact remote cutover/rollback evidence and second-host composition remain incomplete. |
-| 141 | Migration test | **Partial** | The five-migration chain creates all 37 expected SQLite tables and includes the foreign-key smoke gate, but no second-host/PostgreSQL production import/auth/worker migration smoke exists. |
-| 142 | Visual QA | **Partial** | Prior-source desktop/mobile spot checks are documented, but the current saved-state/history/AI/item/planner delta and every major page/state at desktop/tablet/mobile have no captured browser audit. |
+| 141 | Migration test | **Partial** | The five-migration chain creates all 37 expected app tables, and production D1 has all five migrations applied with no pending migration, two expected bookkeeping tables, and a clean foreign-key check. Backup/restore and second-host/PostgreSQL import/auth/worker migration smoke do not exist. |
+| 142 | Visual QA | **Partial** | Exact staging homepage checks at desktop/mobile viewports show no horizontal overflow or console/page errors, but the current saved-state/history/AI/item/planner delta and every major page/state at desktop/tablet/mobile still lack a complete captured browser audit. |
 | 143 | Design consistency | **Partial** | Shared tokens/shell/panels/controls keep new tools cohesive; charts/tooltips and many generic module pages remain unfinished. |
 | 144 | Performance QA | **Deferred** | No load/soak/browser performance measurement covers the specified large data and mobile cases. |
 | 145 | Policy audit | **Partial** | Current architecture respects the documented major boundaries; a final immediately pre-release policy re-read/audit remains. |
@@ -209,7 +215,7 @@ evidence.
 5. **Admin, analytics, and telemetry beyond AI.** Instrument API/Hypixel/economy/user/product events, errors, jobs, and runs; expose redacted system/economy/user views and safe audited controls. Add exact permission, non-admin, same-origin, action-audit, and redaction tests.
 6. **Portable production infrastructure.** Implement PostgreSQL, distributed cache/rate/queue, scheduler/worker, external auth, secrets/observability, and backup/restore adapters; compose the core external stack. Add D1/PostgreSQL repository contract tests, multi-replica rate/cache tests, worker smoke, migration/import, and restore evidence.
 7. **Broader AI grounding and production controls.** Add accessory, money-making, item/valuation, and versioned knowledge context where authoritative; replace per-runtime abuse controls before scale and validate a live-provider graceful-failure/context flow without logging private prompts.
-8. **Release QA gates.** Add Playwright plus automated accessibility and visual snapshots; exercise auth/admin/goal/economy/profile flows; run responsive, keyboard/focus, load/soak, large-payload, production migration, live-provider, security, and final policy audits.
+8. **Release QA gates.** Extend the narrow homepage Playwright smoke with automated accessibility and visual snapshots; exercise auth/admin/goal/economy/profile flows; run responsive, keyboard/focus, load/soak, large-payload, migration/backup, live-provider, security, and final policy audits.
 
 ## External activation prerequisites
 
@@ -221,9 +227,10 @@ These require owner/provider/deployment action and must remain unchecked. They a
 - Keep public player lookup off until a valid rotated credential produces a
   successful staging response with final Hypixel UUID/display-name agreement,
   and rate-limit/load behavior, safe telemetry, and monitoring are verified.
-- Apply all five versioned app migrations to production `DB` and the one additive
-  migration to the shared `PROVIDER_BUDGET_DB`; configure
-  backups/restore/retention and verify both Workers use the intended database roles.
+- Keep the recorded five production application migrations current; verify the
+  shared `PROVIDER_BUDGET_DB` migration and every remaining environment, then
+  configure backups/restore/retention and verify both Workers use the intended
+  database roles.
 - Keep accounts off or implement and verify an optional native identity/session boundary plus exact administrator allowlist; explicitly relink any historical identities.
 - Confirm Workers Paid, D1 usage/capacity monitoring, and replacement of the
   current non-incremental active-Auction crawl with a reviewed incremental or
