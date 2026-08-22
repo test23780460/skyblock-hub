@@ -1,5 +1,5 @@
 /**
- * Browser mutation guard. Cloudflare/Sites exposes the public URL as
+ * Browser mutation guard. Cloudflare exposes the public URL as
  * Request.url, so comparing URL origins avoids trusting forwarded host headers.
  * These account-affecting and spend-capable endpoints are browser-only, so an
  * explicit Origin is required and must exactly match the public request URL.

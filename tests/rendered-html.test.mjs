@@ -267,8 +267,10 @@ test("health remains a successful liveness check with integrations disabled", as
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.data.status, "ok");
-  assert.equal(payload.data.dependencies.hypixelAuthenticated.status, "disabled");
-  assert.equal(payload.data.dependencies.hypixelPublicEconomy.status, "disabled");
+  assert.equal(payload.data.dependencies.playerAnalysis.status, "disabled");
+  assert.equal(payload.data.dependencies.publicEconomy.status, "disabled");
+  assert.equal(payload.data.dependencies.database.configured, false);
+  assert.doesNotMatch(JSON.stringify(payload), /HYPIXEL_API_KEY|PLAYER_CACHE|PLAYER_ACTOR_LIMITER/);
 });
 
 test("robots and sitemap metadata routes render", async () => {

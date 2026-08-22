@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { ensureCanonicalUser } from "@/lib/auth/canonical-user";
 import { featureUnavailableResponse } from "@/lib/feature-access";
 import { decodeGoalTarget, progressPercent } from "@/lib/goals/lifecycle";
@@ -16,9 +16,9 @@ type GoalContext = {
 type GoalContextFailure = { ok: false; response: Response };
 
 export async function authenticatedGoalContext(): Promise<GoalContext | GoalContextFailure> {
-  const unavailable = featureUnavailableResponse("chatGptAuth");
+  const unavailable = featureUnavailableResponse("accountAuth");
   if (unavailable) return { ok: false, response: unavailable };
-  const identity = await getChatGPTUser();
+  const identity = await getCurrentUser();
   if (!identity) {
     return {
       ok: false,

@@ -1,6 +1,6 @@
 /**
  * Account deletion is browser-only and destructive, so require an explicit
- * Origin header that exactly matches the public Request URL exposed by Sites.
+ * canonical Origin header that exactly matches the public Request URL.
  * This deliberately does not trust Host or forwarded-host headers.
  */
 export function hasExactRequestOrigin(request: Request): boolean {
@@ -8,7 +8,8 @@ export function hasExactRequestOrigin(request: Request): boolean {
   if (!origin) return false;
 
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const parsed = new URL(origin);
+    return origin === parsed.origin && origin === new URL(request.url).origin;
   } catch {
     return false;
   }

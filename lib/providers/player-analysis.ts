@@ -86,8 +86,16 @@ async function resolvePlayer(
   try {
     identity = await mojang.lookupUsername(selector.username);
   } catch (error) {
-    if (!isUsernameFallbackEligible(error)) throw error;
-    return resolveUsernameThroughHypixel(selector.username, hypixel);
+    if (!isUsernameResolutionUnavailable(error)) throw error;
+    throw new ProviderError({
+      code: error.code === "forbidden" ? "upstream_unavailable" : error.code,
+      message: "Player identity services could not be reached.",
+      status: error.code === "upstream_timeout" ? 504 : 503,
+      action:
+        "Try again after a short wait. If username resolution remains unavailable, enter the player's Java UUID.",
+      retryable: true,
+      cause: error,
+    });
   }
 
   const [player, profiles] = await Promise.all([
@@ -97,36 +105,6 @@ async function resolvePlayer(
   return { identity: identity.data, player, profiles };
 }
 
-async function resolveUsernameThroughHypixel(
-  username: string,
-  hypixel: HypixelProvider,
-) {
-  let player;
-  try {
-    player = await hypixel.getPlayerByUsername(username);
-  } catch (error) {
-    if (!isTransportFailure(error)) throw error;
-    throw new ProviderError({
-      code: error.code,
-      message: "Player identity services could not be reached.",
-      status: error.status,
-      action:
-        "Try again after a short wait. If username resolution remains unavailable, enter the player's Java UUID.",
-      retryable: true,
-      cause: error,
-    });
-  }
-  const profiles = await hypixel.getSkyBlockProfiles(player.data.uuid);
-  return {
-    identity: {
-      uuid: player.data.uuid,
-      username: player.data.displayName,
-    },
-    player,
-    profiles,
-  };
-}
-
 function isTransportFailure(error: unknown): error is ProviderError {
   return error instanceof ProviderError &&
     (error.code === "network_error" ||
@@ -134,7 +112,7 @@ function isTransportFailure(error: unknown): error is ProviderError {
       error.code === "upstream_unavailable");
 }
 
-function isUsernameFallbackEligible(error: unknown): error is ProviderError {
+function isUsernameResolutionUnavailable(error: unknown): error is ProviderError {
   return isTransportFailure(error) ||
     (error instanceof ProviderError && error.code === "forbidden");
 }

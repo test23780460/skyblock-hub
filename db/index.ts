@@ -9,11 +9,11 @@ export function createDb(binding: AnyD1Database) {
   return drizzle(binding, { schema });
 }
 
-/** Sites convenience composition; portable services should receive repositories instead. */
+/** Cloudflare runtime composition; portable services receive repositories instead. */
 export function getDb() {
   if (!env.DB) {
     throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
+      "Cloudflare D1 binding `DB` is unavailable. Configure the environment-specific `DB` binding in wrangler.jsonc before using durable features."
     );
   }
 

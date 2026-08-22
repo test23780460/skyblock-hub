@@ -4,7 +4,7 @@
   "main": "./index.ts",
   "workers_dev": true,
   "preview_urls": false,
-  "compatibility_date": "2026-08-12",
+  "compatibility_date": "2026-08-21",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"

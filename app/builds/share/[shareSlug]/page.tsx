@@ -12,5 +12,5 @@ type SharedBuildPageProps = { params: Promise<{ shareSlug: string }> };
 
 export default async function SharedBuildPage({ params }: SharedBuildPageProps) {
   const { shareSlug } = await params;
-  return <SharedBuildExperience shareSlug={shareSlug} enabled={featureFlags.chatGptAuth} />;
+  return <SharedBuildExperience shareSlug={shareSlug} enabled={featureFlags.accountAuth} />;
 }

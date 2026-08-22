@@ -59,7 +59,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           ) : <Link className="text-link" href="/dashboard?demo=1">Explore the labeled demo</Link>}
           <div className="topbar-actions">
             <Link className="text-link" href="/more">Tool directory</Link>
-            {featureFlags.chatGptAuth ? <Link className="avatar-button" href="/account" aria-label="Account">P</Link> : null}
+            {featureFlags.accountAuth ? <Link className="avatar-button" href="/account" aria-label="Account">P</Link> : null}
           </div>
         </header>
         <main id="main-content" tabIndex={-1}>{children}</main>

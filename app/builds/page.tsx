@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
+import { accountSignInPath, getCurrentUser } from "@/lib/auth/current-user";
 import { BuildsExperience } from "@/components/BuildsExperience";
 import { featureFlags } from "@/lib/config";
 
@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default async function BuildsPage() {
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   return <BuildsExperience
-    authEnabled={featureFlags.chatGptAuth}
+    authEnabled={featureFlags.accountAuth}
     signedIn={Boolean(user)}
-    signInHref={chatGPTSignInPath("/builds")}
+    signInHref={accountSignInPath("/builds")}
   />;
 }

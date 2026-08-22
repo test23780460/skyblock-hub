@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "What SkyPilot collects, why it is used, where it is sent, and how to delete it.",
 };
 
-const effectiveDate = "August 12, 2026";
+const effectiveDate = "August 15, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             provider and subject reconnect your sign-in to the right SkyPilot owner; the email and
             display name identify the account in its own workspace; and the login time records the
             latest authentication. The provider supplies those fields to the server. SkyPilot does
-            not store your ChatGPT password or authentication token.
+            not store your Cloudflare Access credentials or assertion token.
           </p>
         </article>
 
@@ -95,15 +95,15 @@ export default function PrivacyPage() {
           <span>06</span>
           <h2>Service providers and disclosures</h2>
           <p>
-            Depending on the enabled feature, data is processed by OpenAI/ChatGPT Sites for hosting
-            and sign-in, Cloudflare for the private player gateway, cache, database, and security
-            controls, Minecraft Services or Mojang for username resolution, Hypixel for game data,
-            and OpenAI for optional AI answers. Hosting and security infrastructure can process the
-            request IP address and standard request headers; the player gateway receives a one-way
-            actor token for rate limiting, and the gateway code logs only the request event,
-            response status, and duration. The application code sends data to these services only
-            for the requested feature. It may also disclose data when required by law or to protect
-            the service and its users.
+            Depending on the enabled feature, data is processed by Cloudflare for hosting, verified
+            Access sign-in, caching, database storage, admission limits, and security controls;
+            Minecraft Services or Mojang for username resolution; Hypixel for game data; and OpenAI
+            for optional AI answers. Hosting and security infrastructure can process the request IP
+            address and standard request headers. Player admission uses a one-way actor key, and
+            structured application logs contain bounded event, status, duration, and error-category
+            fields rather than raw profile or NBT payloads. The application sends data to these
+            services only for the requested feature. It may also disclose data when required by law
+            or to protect the service and its users.
           </p>
         </article>
 
@@ -115,7 +115,8 @@ export default function PrivacyPage() {
             it or it is removed by the operator. From the <Link href="/account">Account page</Link>,
             a signed-in user can permanently delete the canonical SkyPilot user, external identity,
             preferences, saved links, goals, recommendation state, builds, favorites, and linked
-            analytics. This does not delete the user&apos;s ChatGPT account. Shared Minecraft identity
+            analytics. This does not delete the user&apos;s Cloudflare Access identity or end that
+            provider session. Shared Minecraft identity
             and minimal profile records can remain without the user link; aggregate metrics and
             security or administrator records with the canonical user reference removed can also
             remain. A final

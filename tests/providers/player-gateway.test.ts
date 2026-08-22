@@ -67,7 +67,7 @@ test("player gateway deployment flags are parsed explicitly and independently", 
   }), true, "a direct key must not disable the gateway-required deployment policy");
 });
 
-test("capability issuer accepts only the configured canonical Sites origin", () => {
+test("capability issuer accepts only the configured canonical application origin", () => {
   const previous = process.env.SITE_URL;
   process.env.SITE_URL = "https://skypilot.example";
   try {
@@ -85,7 +85,7 @@ test("capability issuer accepts only the configured canonical Sites origin", () 
       (error: unknown) => error instanceof ProviderError && error.code === "missing_credentials",
     );
   } finally {
-    if (previous === undefined) delete process.env.SITE_URL;
+    if (previous === undefined) Reflect.deleteProperty(process.env, "SITE_URL");
     else process.env.SITE_URL = previous;
   }
 });

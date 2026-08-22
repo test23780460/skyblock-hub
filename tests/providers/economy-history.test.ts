@@ -255,6 +255,30 @@ class SqliteD1Statement {
       .map((row) => Object.values(row));
   }
 
+  executeForBatch() {
+    const normalized = this.query.trim().toLowerCase();
+    if (
+      normalized.startsWith("select") ||
+      normalized.startsWith("pragma") ||
+      /\breturning\b/.test(normalized)
+    ) {
+      return {
+        success: true,
+        results: this.statement().all(...this.parameters),
+        meta: {},
+      };
+    }
+    const result = this.statement().run(...this.parameters);
+    return {
+      success: true,
+      results: [],
+      meta: {
+        changes: Number(result.changes),
+        last_row_id: Number(result.lastInsertRowid),
+      },
+    };
+  }
+
   private statement(): StatementSync {
     return this.database.prepare(this.query);
   }
@@ -270,8 +294,7 @@ class SqliteD1 {
   async batch(statements: SqliteD1Statement[]) {
     this.database.exec("BEGIN");
     try {
-      const results = [];
-      for (const statement of statements) results.push(await statement.run());
+      const results = statements.map((statement) => statement.executeForBatch());
       this.database.exec("COMMIT");
       return results;
     } catch (error) {

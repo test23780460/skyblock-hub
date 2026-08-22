@@ -134,7 +134,7 @@ export async function loadPlayerAnalysisResultForBrowser(
         code: "forbidden",
         message: "This SkyPilot origin is not allowed to use the player service.",
         status: 403,
-        action: "An administrator must verify the Sites and gateway origin settings.",
+        action: "An administrator must verify the application and gateway origin settings.",
       });
     }
     const gatewayBody = await readBoundedResponse(

@@ -1,10 +1,10 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { hasExactRequestOrigin } from "@/app/api/account/origin";
 import { featureUnavailableResponse } from "@/lib/feature-access";
 import { createDrizzleRepositoryProvider } from "@/lib/repositories/drizzle";
 
 export async function DELETE(request: Request): Promise<Response> {
-  const unavailable = featureUnavailableResponse("chatGptAuth");
+  const unavailable = featureUnavailableResponse("accountAuth");
   if (unavailable) return withPrivateNoStore(unavailable);
   if (!hasExactRequestOrigin(request)) {
     return privateJson({
@@ -14,13 +14,13 @@ export async function DELETE(request: Request): Promise<Response> {
       },
     }, 403);
   }
-  const identity = await getChatGPTUser();
+  const identity = await getCurrentUser();
   if (!identity) {
     return privateJson({
       error: { code: "authentication_required", message: "Sign in to delete SkyPilot account data." },
     }, 401);
   }
-  const providerSubject = identity.userId;
+  const providerSubject = identity.providerSubject;
   if (!providerSubject.trim() || providerSubject.length > 512) {
     return privateJson({
       error: { code: "invalid_identity", message: "The authenticated identity could not be validated." },
@@ -30,14 +30,14 @@ export async function DELETE(request: Request): Promise<Response> {
   try {
     const { getDb } = await import("@/db");
     const repositories = createDrizzleRepositoryProvider(getDb());
-    const deleted = await repositories.identity.deleteUserByExternalIdentity("chatgpt", providerSubject);
+    const deleted = await repositories.identity.deleteUserByExternalIdentity(identity.provider, providerSubject);
     return privateJson({
       data: {
         deleted,
         alreadyAbsent: !deleted,
         scope: "skypilot-application-account",
         message: deleted
-          ? "SkyPilot application account data was deleted. Your ChatGPT sign-in session was not changed."
+          ? "SkyPilot application account data was deleted. Your Cloudflare Access session was not changed."
           : "No SkyPilot application account data existed for this signed-in identity.",
       },
     });

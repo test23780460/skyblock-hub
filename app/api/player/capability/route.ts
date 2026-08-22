@@ -12,6 +12,15 @@ import {
 const MAX_CAPABILITY_REQUEST_BYTES = 2_048;
 
 export async function POST(request: Request): Promise<Response> {
+  return playerCapabilityResponse(request);
+}
+
+export async function playerCapabilityResponse(
+  request: Request,
+  dependencies: {
+    limitRequest?: typeof playerRequestLimitFailure;
+  } = {},
+): Promise<Response> {
   const crossOrigin = sameOriginMutationFailure(request);
   if (crossOrigin) return privateResponse(crossOrigin);
 
@@ -33,7 +42,7 @@ export async function POST(request: Request): Promise<Response> {
     return privateResponse(providerErrorResponse(error));
   }
 
-  const rateLimited = playerRequestLimitFailure(request);
+  const rateLimited = await (dependencies.limitRequest ?? playerRequestLimitFailure)(request);
   if (rateLimited) return privateResponse(rateLimited);
   const parsed = await readBoundedJson<unknown>(
     request,

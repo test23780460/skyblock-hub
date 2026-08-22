@@ -26,18 +26,22 @@ export class HypixelRateLimitRegistry {
   assertAvailable(scope: HypixelRateScope): void {
     const state = this.scopes[scope];
     const now = this.now();
-    if (state.blockedUntil === null || state.blockedUntil <= now) {
-      if (state.resetAt !== null && state.resetAt <= now) {
-        state.remaining = null;
-        state.resetAt = null;
-        state.blockedUntil = null;
-      }
-      return;
+    if (state.resetAt !== null && state.resetAt <= now) {
+      state.remaining = null;
+      state.resetAt = null;
+      state.blockedUntil = null;
     }
+
+    const locallyExhaustedUntil = state.remaining === 0 ? state.resetAt : null;
+    const blockedUntil = Math.max(
+      state.blockedUntil ?? 0,
+      locallyExhaustedUntil ?? 0,
+    );
+    if (blockedUntil <= now) return;
 
     const retryAfterSeconds = Math.max(
       1,
-      Math.ceil((state.blockedUntil - now) / 1_000),
+      Math.ceil((blockedUntil - now) / 1_000),
     );
     throw new ProviderError({
       code: "rate_limited",
@@ -68,8 +72,11 @@ export class HypixelRateLimitRegistry {
     if (remaining !== null) state.remaining = remaining;
     if (resetSeconds !== null) state.resetAt = now + resetSeconds * 1_000;
 
-    if (remaining === 0 && state.resetAt !== null) {
-      state.blockedUntil = Math.max(state.blockedUntil ?? 0, state.resetAt);
+    if (remaining === 0) {
+      state.blockedUntil = Math.max(
+        state.blockedUntil ?? 0,
+        state.resetAt ?? now + 60_000,
+      );
     }
 
     if (status === 429) {

@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import type { AiAdminMetricsSnapshot } from "@/lib/ai/admin-metrics";
 
 type AdminSnapshot = {
-  cache: { entries: number; hits: number; staleHits: number; misses: number; writes: number; evictions: number };
-  hypixelConfigured: boolean;
+  playerTransportConfigured: boolean;
+  playerCacheConfigured: boolean;
+  playerAdmissionConfigured: boolean;
+  databaseConfigured: boolean;
+  economyEnabled: boolean;
   aiConfigured: boolean;
-  rateLimit: { authenticatedRemaining: number | null; publicRemaining: number | null };
   checkedAt: string;
 };
 
 const actions = [
-  { key: "refresh-economy", title: "Request economy cycle", copy: "Ask the durable elected worker to refresh ended sales, Bazaar, and active auctions. Existing leases and global backoff remain authoritative.", confirm: false },
-  { key: "clear-economy-cache", title: "Clear economy cache", copy: "Invalidate only economy entries in this runtime. The next permitted request may refill them.", confirm: true },
+  { key: "refresh-economy", title: "Request economy cycle", copy: "Ask the durable elected worker to refresh ended sales, Bazaar, and active auctions. Existing leases and global backoff remain authoritative." },
 ];
 
 export function AdminExperience({ snapshot }: { snapshot: AdminSnapshot }) {
@@ -39,7 +40,6 @@ export function AdminExperience({ snapshot }: { snapshot: AdminSnapshot }) {
   }, []);
 
   async function runAction(action: typeof actions[number]) {
-    if (action.confirm && !window.confirm("Confirm targeted economy-cache invalidation?")) return;
     setBusy(action.key);
     setMessage("");
     try {
@@ -56,15 +56,15 @@ export function AdminExperience({ snapshot }: { snapshot: AdminSnapshot }) {
 
   const serviceCards = [
     { label: "Web runtime", value: "Operational", note: "Checked " + new Date(snapshot.checkedAt).toLocaleTimeString(), tone: "mint" },
-    { label: "Player transport", value: snapshot.hypixelConfigured ? "Configured" : "Disabled", note: "Private server boundary", tone: snapshot.hypixelConfigured ? "mint" : "amber" },
+    { label: "Player transport", value: snapshot.playerTransportConfigured ? "Configured" : "Disabled", note: "Worker-only credential boundary", tone: snapshot.playerTransportConfigured ? "mint" : "amber" },
     { label: "AI assistant", value: snapshot.aiConfigured ? "Configured" : "Optional offline", note: "Responses API", tone: snapshot.aiConfigured ? "violet" : "amber" },
-    { label: "Cache entries", value: String(snapshot.cache.entries), note: snapshot.cache.hits + " hits · " + snapshot.cache.misses + " misses", tone: "cyan" },
+    { label: "Player cache", value: snapshot.playerCacheConfigured ? "Workers KV" : "Unavailable", note: "Shared latest snapshots", tone: snapshot.playerCacheConfigured ? "cyan" : "amber" },
   ];
 
   return <>
     <section className="stat-grid admin-stats">{serviceCards.map((card) => <article className="stat-card" key={card.label}><small>{card.label}</small><strong className={card.tone}>{card.value}</strong><span>{card.note}</span></article>)}</section>
     <section className="two-column admin-grid">
-      <div className="panel"><div className="panel-header"><div><h2>Provider health</h2><small>No raw payloads or keys</small></div><span className="account-chip"><i /> LIVE RUNTIME</span></div><div className="admin-health-list"><div><span>Authenticated limit remaining</span><strong>{snapshot.rateLimit.authenticatedRemaining ?? "Not reported"}</strong></div><div><span>Public feed limit remaining</span><strong>{snapshot.rateLimit.publicRemaining ?? "Not reported"}</strong></div><div><span>Cache stale hits</span><strong>{snapshot.cache.staleHits}</strong></div><div><span>Cache evictions</span><strong>{snapshot.cache.evictions}</strong></div><div><span>Worker scheduler</span><strong>Externally deployable</strong></div><div><span>Database</span><strong>D1 binding declared</strong></div></div></div>
+      <div className="panel"><div className="panel-header"><div><h2>Provider health</h2><small>No raw payloads or keys</small></div><span className="account-chip"><i /> LIVE RUNTIME</span></div><div className="admin-health-list"><div><span>Player admission</span><strong>{snapshot.playerAdmissionConfigured ? "Cloudflare rate bindings" : "Unavailable"}</strong></div><div><span>Player cache</span><strong>{snapshot.playerCacheConfigured ? "Workers KV" : "Unavailable"}</strong></div><div><span>Economy scheduler</span><strong>{snapshot.economyEnabled ? "Enabled" : "Disabled"}</strong></div><div><span>Database</span><strong>{snapshot.databaseConfigured ? "D1 bound" : "Unavailable"}</strong></div></div></div>
       <div className="panel"><div className="panel-header"><div><h2>Safe controls</h2><small>Allowlisted administrators only</small></div><span className="lab-symbol">⚙</span></div><div className="admin-action-list">{actions.map((action) => <div key={action.key}><div><strong>{action.title}</strong><small>{action.copy}</small></div><button type="button" disabled={Boolean(busy)} onClick={() => runAction(action)}>{busy === action.key ? "Running…" : "Run"}</button></div>)}</div><div className="admin-message" aria-live="polite">{message}</div></div>
     </section>
     <section className="panel"><div className="panel-header"><div><h2>AI aggregate metrics</h2><small>Counts, tokens, configured cost estimate, latency, and categories only — no prompts or answers</small></div><span className="account-chip">AGGREGATE ONLY</span></div>

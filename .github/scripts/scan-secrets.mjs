@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const trackedFiles = execFileSync(
   "git",
@@ -18,6 +18,10 @@ function lineNumber(text, index) {
 }
 
 for (const file of trackedFiles) {
+  // `git ls-files --cached` includes an unstaged deletion until the migration
+  // is committed. Skip paths that no longer exist in the worktree so the
+  // pre-commit scan still checks every file that could actually be staged.
+  if (!existsSync(file)) continue;
   const bytes = readFileSync(file);
   if (bytes.includes(0)) continue;
   const text = bytes.toString("utf8");

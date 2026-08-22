@@ -1,12 +1,24 @@
-# Private Player Gateway
+# Private player gateway (legacy rollback transport)
 
-SkyPilot isolates authenticated Minecraft/Hypixel player lookup in a dedicated Cloudflare Worker. The Worker owns the Hypixel key, accepts only the fixed `/v1/player-analysis` product route, and returns a bounded normalized `PlayerAnalysis` model rather than raw upstream payloads.
+> **Historical rollback guide:** the native SkyPilot Worker performs same-origin
+> player composition with its own KV/rate bindings and does not use this
+> gateway, `PLAYER_GATEWAY_URL`, or `PLAYER_GATEWAY_SECRET`. Retain the details
+> below only to operate the owner-only Sites rollback deployment.
 
-The preferred transport is a signed server-to-server request from SkyPilot's `/api/player` route. For an owner-only Sites deployment whose server runtime cannot reach the Worker, SkyPilot also has an explicitly gated browser-capability transport. The same-origin Sites route mints a short-lived signature for one exact request body; the browser then sends those exact bytes to the fixed Worker route. Neither transport exposes `HYPIXEL_API_KEY` or `PLAYER_GATEWAY_SECRET` to browser code.
+The rollback architecture isolates authenticated Minecraft/Hypixel player
+lookup in a dedicated Cloudflare Worker. It owns the Hypixel key, accepts only
+the fixed `/v1/player-analysis` route, and returns bounded normalized analysis
+rather than raw upstream payloads.
+
+Within that rollback only, the first-choice transport is a signed
+server-to-server request from SkyPilot's `/api/player` route. If the Sites
+runtime cannot reach the gateway, the historical deployment also has an
+explicitly gated owner-only browser capability. Neither rollback transport
+exposes `HYPIXEL_API_KEY` or `PLAYER_GATEWAY_SECRET` to browser code.
 
 This gateway is for request-driven player lookup only. It must not become a raw Hypixel proxy, a scheduled player refresher, or a player-history collector.
 
-## Runtime boundaries
+## Historical runtime boundaries
 
 Preferred server transport:
 
@@ -48,7 +60,7 @@ This receipt is deliberately narrow. It is not gateway access, account authentic
 
 Workers KV stores only normalized provider values with fresh/stale expiry metadata. A small per-isolate L0 cache reduces repeated KV reads. Cloudflare Rate Limiting bindings provide per-actor and shared abuse headroom, but they are not an exact global Hypixel quota ledger; continue honoring Hypixel rate headers and monitor the approved production allocation.
 
-## Required Worker bindings and configuration
+## Required rollback Worker bindings and configuration
 
 - `PLAYER_CACHE`: Workers KV namespace.
 - `PLAYER_ACTOR_LIMITER`: per-opaque-actor rate limiter.
@@ -66,7 +78,7 @@ npx wrangler deploy --config cloudflare/player-gateway/wrangler.jsonc --dry-run
 
 Install production secrets through the Cloudflare secret manager. Do not pass secret values as command-line arguments, write them to generated configuration, or copy them into deployment logs. The ignored local `.env` is an input source for an operator-controlled installation step, not a deploy artifact.
 
-## Required Sites configuration
+## Required legacy Sites configuration
 
 Set these on the SkyPilot server deployment:
 
@@ -83,7 +95,7 @@ After cutover, remove `HYPIXEL_API_KEY` from Sites. It belongs only in the gatew
 
 `ENABLE_BROWSER_PLAYER_GATEWAY` changes the dashboard and money-making browser lookup transport. The receipt path also lets the dashboard save a selected live profile without Sites-to-gateway egress, provided trusted account storage is enabled. `/api/player` and AI player context still need working server-to-server gateway egress; keep AI disabled in an egress-limited Sites deployment.
 
-## Deployment order
+## Rollback deployment order
 
 1. Revoke every key previously exposed outside a secret manager and create a replacement tied to SkyPilot's own approved Hypixel application.
 2. Create or verify the KV and rate-limit bindings; set the exact `SKYPILOT_SITE_ORIGIN`.

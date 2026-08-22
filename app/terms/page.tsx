@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "The rules and limitations that apply when using SkyPilot.",
 };
 
-const effectiveDate = "August 12, 2026";
+const effectiveDate = "August 15, 2026";
 
 export default function TermsPage() {
   return (
@@ -29,8 +29,9 @@ export default function TermsPage() {
           <h2>Independent, unofficial project</h2>
           <p>
             SkyPilot is an independently operated community project, not an official product of or
-            endorsed by Hypixel Inc., Mojang Studios, Microsoft, or OpenAI. Its use of OpenAI and
-            ChatGPT Sites services does not make it an OpenAI product. Product, game, and company
+            endorsed by Hypixel Inc., Mojang Studios, Microsoft, Cloudflare, or OpenAI. Its use of
+            Cloudflare hosting and optional OpenAI services does not make it a product of either
+            company. Product, game, and company
             names belong to their respective owners. Their terms and policies continue to apply
             when you use their games, accounts, APIs, or services.
           </p>
@@ -121,7 +122,7 @@ export default function TermsPage() {
       <div className="notice independence-note">
         <strong>THIRD-PARTY RULES STILL APPLY</strong>
         <span>
-          SkyPilot never authorizes conduct prohibited by Hypixel, Minecraft, ChatGPT, OpenAI, or
+          SkyPilot never authorizes conduct prohibited by Hypixel, Minecraft, Cloudflare, OpenAI, or
           another service you use. Check their current rules before relying on a feature.
         </span>
       </div>

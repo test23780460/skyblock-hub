@@ -21,7 +21,7 @@ export const primaryNavigation: NavigationItem[] = [
   { label: "Gear", href: "/gear", icon: "◇", description: "Armor, weapons, tools, and pets" },
   { label: "Accessories", href: "/accessories", icon: "✦", description: "Magical Power optimizer" },
   { label: "Economy", href: "/economy", icon: "◫", description: "Editable craft and market planning labs" },
-  { label: "Goals", href: "/goals", icon: "◎", description: "Plan and track milestones", feature: "chatGptAuth" },
+  { label: "Goals", href: "/goals", icon: "◎", description: "Plan and track milestones", feature: "accountAuth" },
 ];
 
 export const navigationGroups: NavigationGroup[] = [
@@ -62,8 +62,8 @@ export const navigationGroups: NavigationGroup[] = [
       { label: "Calculators", href: "/calculators", icon: "#", description: "XP, profit, and upgrade math" },
       { label: "Builds", href: "/builds", icon: "+", description: "Save and share loadout plans" },
       { label: "AI Assistant", href: "/ai", icon: "✣", description: "Profile-aware explanations", badge: "AI", feature: "aiAssistant" },
-      { label: "Account", href: "/account", icon: "○", description: "Saved profiles and preferences", feature: "chatGptAuth" },
-      { label: "Admin", href: "/admin", icon: "⚙", description: "Allowlisted operations and health", feature: "chatGptAuth", audience: "operations" },
+      { label: "Account", href: "/account", icon: "○", description: "Saved profiles and preferences", feature: "accountAuth" },
+      { label: "Admin", href: "/admin", icon: "⚙", description: "Allowlisted operations and health", feature: "accountAuth", audience: "operations" },
     ],
   },
 ];

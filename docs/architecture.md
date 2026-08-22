@@ -10,37 +10,55 @@ SkyPilot separates user-facing routes, deterministic SkyBlock logic, external pr
 | Application services | `lib/services/`, `lib/analysis/` | Convert normalized profiles into calculator/recommendation inputs and response models. |
 | Deterministic domain | `lib/engines/`, `lib/game-data/` | Progression, recommendations, accessories, economy scoring, valuation, net worth, and activity calculations. |
 | Upstream providers | `lib/providers/` | Minecraft/Hypixel HTTP, validation, normalization, caching, backoff, and safe errors. |
-| Player gateway | `cloudflare/player-gateway/` | Signed fixed-route player transport, Worker-only Hypixel key, normalized KV cache, and abuse guards. |
+| Native player runtime | `worker/player-runtime.ts`, `lib/platform/cloudflare/` | Web-Worker-only Hypixel key, normalized KV/L0 cache composition, route-bound actor filtering, authenticated-Hypixel-call filtering, and atomic admission through the shared `PROVIDER_BUDGET_DB`. |
 | Persistence contracts | `lib/repositories/contracts.ts` | Provider-neutral records and interfaces used by business services. |
 | D1 adapter | `db/`, `lib/repositories/drizzle/` | D1-compatible Drizzle schema, connection composition, and repository implementation. |
-| Background jobs | `worker/jobs/` | Scheduler-independent elected public-economy cycle and normalized feed jobs. |
-| Runtime edge | `worker/index.ts`, `vite.config.ts` | vinext/Cloudflare request handling, bindings, and image transformation. |
+| Background jobs | `worker/jobs/`, `worker/economy.ts` | Scheduler-independent elected public-economy jobs composed only by a private economy Worker. |
+| Web runtime edge | `worker/index.ts`, `vite.config.ts`, `wrangler.jsonc` | vinext/Cloudflare request handling, Static Assets, environment bindings, and `ECONOMY_SERVICE`; it has no scheduled ingestion handler. |
+| Economy runtime edge | `worker/economy.ts`, `wrangler.economy.jsonc` | Private service-binding/admin dispatch and optional future scheduled dispatch; `workers_dev` and preview URLs are disabled. |
 
-The generated Worker enables Cloudflare's `global_fetch_strictly_public`
-compatibility flag because Hypixel's public API is itself Cloudflare-fronted.
-This keeps outbound provider requests on the public route instead of treating
-them as implicit same-zone Worker calls.
+Both generated Workers use compatibility date `2026-08-21` and enable
+Cloudflare's `global_fetch_strictly_public` compatibility flag because
+Hypixel's public API is itself Cloudflare-fronted. This keeps outbound provider
+requests on the public route instead of treating them as implicit same-zone
+Worker calls.
 
 ## Data paths
 
 ### Player lookup
 
 ```text
-User request -> product API -> validated Minecraft username or Java UUID
-  -> signed body-bound server request to the private player gateway
-  -> username: Minecraft identity lookup; authenticated Hypixel name fallback
-     only after bounded transport failure
+User request -> product API -> route-bound PLAYER_ACTOR_LIMITER coarse abuse check
+  -> validated Minecraft username or Java UUID
+  -> native web Worker player composition
+  -> KV fresh/stale lookup
+  -> username: Minecraft Services identity lookup with bounded Mojang fallback;
+     if both are unavailable, return an actionable direct-Java-UUID path
+     (no unsupported Hypixel name query and no Hypixel quota spent)
   -> UUID: skip identity lookup and validate against Hypixel player data
+  -> on an authenticated Hypixel transport only: one coarse
+     PLAYER_GLOBAL_LIMITER check + one two-token PROVIDER_BUDGET_DB reservation
   -> authenticated Hypixel player/profile calls
   -> bounded normalization -> deterministic analysis -> safe response
 ```
 
-Hosted player requests use a shared normalized Workers KV cache with one-hour fresh TTL and up to 24 hours stale-on-error, plus per-isolate L0 caching/in-flight coalescing. The browser never receives the Hypixel key or gateway signing secret. No timer, saved profile, account, goal, or worker triggers player polling. Local development can still use the direct provider composition when `REQUIRE_PLAYER_GATEWAY=false`.
+Hosted player requests use environment-isolated normalized Workers KV with a
+one-hour fresh TTL and up to 24 hours stale-on-error, plus bounded per-isolate
+L0 caching. Request-bound I/O promises are not retained for cross-request
+single-flight. Cloudflare actor/shared rate bindings are coarse per-location
+abuse filters. The actor binding is route-bound; Mojang calls do not spend
+Hypixel quota. A fixed-window reservation in the dedicated
+`PROVIDER_BUDGET_DB`, shared by staging and production, is the globally
+consistent guard for the one shared Hypixel key. Each admitted authenticated
+analysis reserves two tokens, and failure to reserve fails closed. The browser never
+receives the key. No timer, saved profile, account, goal, or worker triggers
+player polling.
 
 ### Public economy
 
 ```text
-Scheduled trigger or allowlisted admin request
+Cron Trigger -> private skypilot-economy Worker
+Allowlisted admin request -> web Worker -> ECONOMY_SERVICE -> private economy Worker
   -> durable D1 lease + fencing token + global backoff
   -> public Hypixel feeds -> bounded normalizers
   -> complete Bazaar/active-Auction snapshot + deduplicated ended sales
@@ -48,7 +66,18 @@ Scheduled trigger or allowlisted admin request
   -> product API reads D1 only -> bounded browser view
 ```
 
-`worker/jobs/economy.ts` coordinates ended sales, Bazaar, and the complete active-Auction page set. The Bazaar job also aggregates each newer source timestamp into OHLC/average-volume hour/day buckets and prunes the configured 90-day/three-year windows. Mixed/stale/older cycles are not published, and stale workers cannot overwrite a newer lease. Public web routes never call Hypixel directly. The Cloudflare scheduled handler is implemented, but production migration and schedule registration remain external activation work.
+`worker/jobs/economy.ts` coordinates ended sales, Bazaar, and the complete
+active-Auction page set. `worker/economy.ts` is the only native composition that
+may invoke those jobs. The web Worker reads D1 snapshots and can only request a
+bounded refresh through its environment-matched `ECONOMY_SERVICE` binding. The
+private production and staging economy Workers expose neither `workers.dev` nor
+preview URLs. Mixed/stale/older cycles are not published, and stale workers
+cannot overwrite a newer lease. Every initial environment keeps both copies of
+`ENABLE_PUBLIC_ECONOMY=false` and has no Cron. Workers Paid, all remote
+migrations, capacity/usage monitoring, replacement of the current
+non-incremental active-Auction crawl with a reviewed incremental or compacted
+ingestion design, and exactly one reviewed production trigger are required
+before activation.
 
 ### AI
 
@@ -56,7 +85,14 @@ The AI route receives a bounded question, detail mode, and selectors/scenario in
 
 ## Persistence
 
-The schema has 36 normalized tables for canonical users and auth identities, Minecraft accounts/profiles, goals and recommendation state, builds/favorites/preferences, items and economy history, durable public-economy feeds/worker state/history buckets, cache metadata, feature overrides, analytics/audits, jobs/runs, and aggregate API/AI/error metrics.
+The schema has 37 normalized tables for canonical users and auth identities,
+Minecraft accounts/profiles, goals and recommendation state,
+builds/favorites/preferences, items and economy history, durable public-economy
+feeds/worker state/history buckets, a portable provider-request budget table, cache
+metadata, feature overrides, analytics/audits, jobs/runs, and aggregate
+API/AI/error metrics. The active native credential reservation uses the same
+table shape in a separate one-table `PROVIDER_BUDGET_DB`, not either
+environment's application `DB`.
 
 Application-generated text IDs, integer epoch-millisecond timestamps, explicit foreign keys, uniqueness, indexes, and checks keep the SQLite/D1 model migration-friendly. JSON is limited to evolving game/provider fragments and opaque settings/evidence.
 
@@ -64,12 +100,25 @@ See the [detailed architecture](../ARCHITECTURE.md) and [database guide](databas
 
 ## Portability boundary
 
-Deterministic engines and repository contracts are host-neutral. The current executable web edge is not: it uses vinext, Cloudflare bindings, Sites identity headers, D1, and Cloudflare image services. External hosting therefore needs runtime/auth/database/cache/worker adapters described in [External hosting](deployment/external-hosting.md).
+Deterministic engines and repository contracts are host-neutral. The current
+executable edges use vinext, Workers Static Assets, D1, KV/rate/service
+bindings, a separate private economy Worker, and a disabled Cloudflare Access
+adapter. External hosting therefore needs
+runtime/auth/database/cache/worker adapters described in [External
+hosting](deployment/external-hosting.md). Sites metadata and the separate player
+gateway remain rollback code, not active native dependencies.
 
 ## Known architectural gaps
 
-- cache, single-flight, Hypixel rate state, and AI request limiting are per-runtime memory;
+- Cloudflare abuse filtering is per location and Hypixel response-header backoff
+  and AI request limiting remain per-isolate; the dedicated shared
+  `PROVIDER_BUDGET_DB` is the global credential guard, but its configured
+  capacity still needs production load/monitoring evidence;
 - the feature-flag definitions/repository exist, but route/UI enforcement is incomplete;
-- production scheduled-trigger registration, Auction/item aggregation, and valuation/compaction workers are not activated;
+- public-economy activation/monitoring remains off because the active-Auction
+  crawl is non-incremental; a capacity-safe incremental replacement and
+  Auction/item valuation/compaction workers are not activated;
 - the PostgreSQL adapter and full external worker/runtime composition are documented but not implemented;
-- authenticated browser writes require an explicit exact Origin and trusted Sites identity boundary; E2E permission tests and external-host CSRF/proxy composition remain incomplete.
+- authenticated browser writes require an explicit exact Origin plus a verified
+  identity/session boundary; optional public accounts, E2E permission tests,
+  and external-host CSRF/proxy composition remain incomplete.

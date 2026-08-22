@@ -49,6 +49,9 @@ export async function requestJson(
       : await globalThis.fetch(options.url, init);
   } catch (error) {
     clearTimeout(timeout);
+    // Deployment admission adapters intentionally reject with the public,
+    // classified provider contract before an outbound request is made.
+    if (error instanceof ProviderError) throw error;
     if (controller.signal.aborted || isAbortError(error)) {
       throw new ProviderError({
         code: "upstream_timeout",

@@ -13,7 +13,7 @@ import {
   verifyPlayerGatewayBrowserRequest,
   verifyPlayerGatewayRequest,
 } from "../../lib/providers/player-gateway-auth";
-import { KvTtlCache } from "./kv-cache";
+import { KvTtlCache } from "../../lib/platform/cloudflare/kv-ttl-cache";
 
 const MAX_REQUEST_BYTES = 4_096;
 const localCacheByNamespace = new WeakMap<KVNamespace, MemoryTtlCache>();
@@ -24,7 +24,13 @@ export interface PlayerGatewaySecrets {
   PLAYER_GATEWAY_SECRET: string;
 }
 
-export type PlayerGatewayEnv = Env & PlayerGatewaySecrets;
+export type PlayerGatewayEnv = Pick<
+  Env,
+  "PLAYER_CACHE" | "PLAYER_ACTOR_LIMITER" | "PLAYER_GLOBAL_LIMITER"
+> & PlayerGatewaySecrets & {
+  SKYPILOT_GATEWAY_VERSION: string;
+  SKYPILOT_SITE_ORIGIN: string;
+};
 
 type PlayerGatewayDependencies = {
   fetchImplementation?: FetchImplementation;

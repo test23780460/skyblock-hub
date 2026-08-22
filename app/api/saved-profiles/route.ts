@@ -4,10 +4,9 @@ import { featureUnavailableResponse } from "@/lib/feature-access";
 import { readBoundedJson } from "@/lib/http/bounded-json";
 import { ProviderError, providerErrorResponse } from "@/lib/providers/errors";
 import {
-  getPlayerAnalysisWithNegativeCache,
-  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "@/lib/providers/player-request-policy";
+import { getCloudflarePlayerAnalysis } from "@/worker/player-runtime";
 import {
   MAX_LINKED_ACCOUNTS,
   MAX_SAVED_PROFILES,
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
   if (!parsedBody.ok) return withPrivateNoStore(parsedBody.response);
   const parsed = parseSavedProfileCreate(parsedBody.value);
   if (!parsed.ok) return invalidSavedState(parsed.message);
-  const rateLimited = playerRequestLimitFailure(request);
+  const rateLimited = await playerRequestLimitFailure(request);
   if (rateLimited) return withPrivateNoStore(rateLimited);
 
   try {
@@ -57,7 +56,7 @@ export async function POST(request: Request) {
 
     const verified = featureFlags.browserPlayerGateway
       ? await verifiedProfileFromReceipt(parsed.value)
-      : await verifiedProfileFromLookup(request, parsed.value);
+      : await verifiedProfileFromLookup(parsed.value);
     const minecraftUuid = verified.minecraftUuid;
     const accountId = `minecraft_${minecraftUuid}`;
     const alreadyLinked = linkedAccounts.find((account) => account.minecraftUuid === minecraftUuid);
@@ -112,13 +111,11 @@ type SavedProfileCreate = Extract<
 >["value"];
 
 async function verifiedProfileFromLookup(
-  request: Request,
   input: SavedProfileCreate,
 ): Promise<VerifiedProfileSave> {
-  const analysis = await getPlayerAnalysisWithNegativeCache(
+  const analysis = await getCloudflarePlayerAnalysis(
     input.username,
     input.profileId,
-    { actorSubject: playerRequestActorSubject(request) },
   );
   const profile = analysis.profiles.find((candidate) => candidate.id === input.profileId);
   if (analysis.source !== "hypixel" || !profile) {

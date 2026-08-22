@@ -66,11 +66,15 @@ Because the official overview describes both a five-minute maximum and minute-or
 
 SkyPilot's Hypixel transport must:
 
-- route every authenticated request through one distributed rate-budget service shared by the web app and workers;
+- route every authenticated request through one server-only provider
+  composition with shared normalized cache/admission; public economy feeds stay
+  in their separate keyless worker path;
 - record the three rate-limit headers as metrics without logging the key or full user payload;
 - reserve headroom for interactive requests instead of consuming the full advertised limit with background work;
 - stop dispatching when `RateLimit-Remaining` reaches zero and wait at least `RateLimit-Reset` seconds;
-- coalesce concurrent identical requests (single-flight) and serve the shared cache to all waiting callers;
+- reuse an invocation-local result when the same bounded operation asks for it,
+  but never retain request-bound I/O promises in module-global state across
+  Worker requests; use KV plus admission to bound duplicate cold misses;
 - queue bounded work instead of spawning unbounded parallel requests;
 - treat HTTP `429` as a hard signal to pause, use reset-aware exponential backoff with jitter, and surface a friendly stale-data/rate-limit state;
 - remember that the reference says `429` can also be caused by a global throttle, not only the application's key limit;
@@ -242,7 +246,9 @@ Authorization below follows the current [API reference](https://api.hypixel.net/
 - [ ] Add a shared distributed limiter that consumes all three `RateLimit-*` headers.
 - [ ] Add reset-aware `429` handling, jittered backoff, bounded retries, and a circuit breaker.
 - [ ] Add bounded `503` backoff for public economy endpoints.
-- [ ] Add shared cache keys, single-flight request coalescing, negative caching, and stale labels.
+- [ ] Add shared cache keys, negative caching, and stale labels; keep any
+  in-invocation reuse request-local and never use a module-global cross-request
+  I/O Promise map.
 - [ ] Reserve rate-limit headroom for user-triggered requests.
 - [ ] Add admin metrics for request count, cache hit rate, latency, `403`, `429`, `503`, remaining limit, and reset time without sensitive payloads.
 

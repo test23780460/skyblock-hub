@@ -365,7 +365,7 @@ test("AI persistence schema and adapter contain aggregates, never private prompt
   assert.match(aiSchema, /estimatedCostUsd/);
   assert.doesNotMatch(aiSchema, /prompt|answer|question|userId|profileId|ip/i);
   assert.match(repository, /getAiMetricSummary/);
-  assert.match(route, /getChatGPTUser/);
+  assert.match(route, /getCurrentUser/);
   assert.match(route, /isAdminUserId/);
 });
 

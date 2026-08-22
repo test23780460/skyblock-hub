@@ -1,14 +1,17 @@
-# Local Setup
+# Local setup
 
 ## Prerequisites
 
 - Node.js 22.13 or newer
 - npm
-- Optional: Docker for the web-only container path
+- Optional: Docker for the web-image smoke path
+- Optional: a **rotated** Hypixel key for an intentional live player lookup
 
-No credential is required to build, test, view the labeled demo, or use deterministic planning surfaces. Local direct-provider player lookup requires a replacement Hypixel key. Hosted production lookup uses the signed private player gateway described below. AI requires a replacement OpenAI key.
+No credential is required to build, test, use the labeled demo, or use the
+deterministic planning surfaces. Never reuse a key that appeared in chat, a
+screenshot, a log, an issue, or a commit.
 
-## Install and run
+## Ordinary application development
 
 ```powershell
 npm install
@@ -16,33 +19,77 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. The ignored `.env` is for the ordinary vinext
+development path. Keep secret values blank unless the corresponding feature is
+being tested deliberately.
 
-The local Vite configuration declares a D1 binding named `DB` through the Cloudflare plugin. The schema is not automatically migrated by `npm run dev`; saved account state, goals, aggregate AI metrics, and public-economy snapshots/history can return unavailable/not-ready responses until all four repository migrations are applied to the selected D1 environment.
+The Vite configuration exposes a local D1 binding named `DB`, but `npm run dev`
+does not apply the schema. Apply all five repository migrations before testing
+saved state, goals, aggregate AI metrics, or economy snapshots/history.
+
+## Native Worker development
+
+Use the native path when testing the web Worker entry and binding composition
+prepared for Cloudflare. The private economy Worker uses
+`wrangler.economy.jsonc` and the `cf:economy:*` scripts:
+
+```powershell
+Copy-Item .dev.vars.example .dev.vars
+npx wrangler d1 migrations apply DB --local
+npx wrangler d1 migrations apply PROVIDER_BUDGET_DB --local
+npm run cf:dev
+```
+
+Put a local Hypixel key only in the ignored `.dev.vars`. Do not populate both
+`.env` and `.dev.vars` for the same Wrangler session. Local workerd storage is
+separate from remote staging and production resources.
+
+`npm run cf:dev` selects the staging-shaped configuration locally: Static
+Assets, local app D1/KV, local rate-limit emulation, the dedicated
+`PROVIDER_BUDGET_DB`, player
+lookup composition, and no economy Cron. Account auth, AI, the legacy browser
+gateway, and public economy remain off. Remote deployment must create the
+matching private economy Worker before the web Worker so `ECONOMY_SERVICE`
+resolves.
 
 ## Safe local modes
 
 - `/dashboard?demo=1` uses an explicitly labeled fixture.
-- `/dashboard?player=<username-or-java-uuid>` makes a request-driven live lookup. Local direct-provider mode needs `HYPIXEL_API_KEY`; hosted production uses `PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`. A UUID bypasses Minecraft username resolution when that separate service is unavailable.
-- `/bazaar` and `/auctions` read durable D1 snapshots and do not call Hypixel from web requests. Bazaar history begins collecting only after elected worker cycles run; public Hypixel feeds do not use the profile key.
-- `/money-making`, `/skills`, `/economy`, `/dungeons`, `/minions`, and `/calculators` expose labeled manual deterministic scenarios without credentials.
-- `/ai?demo=1` asks the server to resolve bounded labeled demo context when AI is enabled. The AI page may instead request a user-triggered live profile and fresh D1 Bazaar selectors when their separate gates are enabled; the browser never supplies those facts or prices.
-- account, saved-state, build, goal, and admin identity behavior depends on Sites-injected headers; ordinary local requests are anonymous unless a supported local identity harness is provided.
+- `/dashboard?player=<username-or-java-uuid>` performs a request-driven lookup
+  only when `ENABLE_PLAYER_LOOKUP=true` and the native key/cache/admission
+  dependencies are configured. Username resolution uses Minecraft Services
+  with a bounded Mojang fallback; Mojang-only traffic does not spend Hypixel
+  quota. A UUID skips both identity services and is the actionable recovery path
+  during an identity-service outage.
+- `/bazaar` and `/auctions` read D1 snapshots; page requests never call Hypixel.
+  With public economy off or before a real first publication, they show a
+  designed unavailable state rather than fixture data.
+- `/money-making`, `/skills`, `/economy`, `/dungeons`, `/minions`, and
+  `/calculators` provide labeled deterministic/manual scenarios without an
+  account.
+- `/ai?demo=1` remains unavailable unless AI is explicitly enabled with its own
+  server secret and controls.
+- account, saved-state, goal, build, and admin routes remain anonymous while
+  `ENABLE_ACCOUNT_AUTH=false`. Native account auth does not use Sites headers.
 
-Production code never silently falls back from failed live data to the demo.
+Production code never silently substitutes the demo after a live-data failure.
 
 ## Validate changes
 
 ```powershell
 npm run lint
 npm run typecheck
+npm run cf:types:check
 npm run db:check
 npm run db:smoke
 npm run security:secrets
 npm test
+npm run cf:build:staging
+npm run cf:build:production
 ```
 
-`npm test` builds first, then runs engine, service, provider, and rendered-HTML tests. See [Testing](testing.md).
+`npm test` builds first, then runs engine, service, provider/security, native
+Cloudflare-configuration, and rendered-HTML tests. See [Testing](testing.md).
 
 After a schema change:
 
@@ -52,7 +99,8 @@ npm run db:check
 npm run db:smoke
 ```
 
-Review generated SQL before applying it. See [Database migrations](database/migrations.md).
+Review generated SQL before applying it. Never edit an already-applied
+migration. See [Database migrations](database/migrations.md).
 
 ## Docker
 
@@ -60,19 +108,22 @@ Review generated SQL before applying it. See [Database migrations](database/migr
 docker compose up --build
 ```
 
-The current Compose file starts only the web image on port 3000 and optionally reads `.env`. It does not provision D1/PostgreSQL, Redis, a scheduled economy trigger, or external auth. Treat it as a web-runtime smoke path, not the complete production stack.
+The Compose file starts only the web image on port 3000 and may read `.env`. It
+does not provision D1/PostgreSQL, KV/Redis, rate bindings, a scheduler, or
+external auth. Treat it as a web-runtime smoke path, not a production stack.
 
 ## Common failures
 
 | Symptom | Meaning/action |
 | --- | --- |
-| Live player analysis returns `missing_credentials` | For local direct-provider mode, install a replacement `HYPIXEL_API_KEY`. For hosted production, verify both gateway secrets, `PLAYER_GATEWAY_URL`, and `REQUIRE_PLAYER_GATEWAY=true`; keep the Hypixel key only on the gateway. |
-| AI returns `ai_not_configured` | AI is optional; install a replacement `OPENAI_API_KEY` or use deterministic tools. |
-| Goals return `authentication_required` | The request lacks verified Sites/ChatGPT identity headers. |
-| Saved state or goals return `persistence_not_ready` | Configure the `DB` binding and apply all four migrations. |
-| Economy returns `upstream_unavailable` before any rows | Apply all four migrations, register exactly one worker schedule (or request an allowlisted admin cycle), and wait for a complete snapshot publish. |
-| Bazaar history says it is collecting | Run later elected worker cycles. History is created from newer source timestamps and no prior prices are fabricated. |
-| Health JSON shows a disabled/degraded dependency | Liveness remains HTTP 200; inspect the dependency state and activate only the intended integration. |
-| Economy worker reports leased/backing off | Do not bypass the D1 lease/circuit. Respect `Retry-After` and continue serving the last complete stale-labeled snapshot when available. |
+| Player analysis returns `missing_credentials` or a binding error | Enable lookup only in the intended environment, install its rotated `HYPIXEL_API_KEY` as a web-Worker secret, apply the one provider-budget migration, and verify `PROVIDER_BUDGET_DB`, `PLAYER_CACHE`, and both coarse rate bindings. The app `DB` is not the active credential budget, and native lookup does not require gateway variables. |
+| AI returns `ai_not_configured` | AI is optional and safe-default off; deterministic tools remain available. |
+| Goals return `authentication_required` | Account auth is off or the configured native identity assertion failed verification. |
+| Saved state or goals return `persistence_not_ready` | Configure `DB` and apply all five migrations to the selected environment. |
+| Economy is unavailable before any rows | This is the expected initial posture. Keep both flags and every Cron off while the active-Auction crawl is non-incremental and until Workers Paid, remote app migrations, capacity/usage monitoring, and a reviewed incremental replacement are ready on the private economy Worker. |
+| Bazaar history says it is collecting | History begins only from newer real source timestamps; no earlier prices are fabricated. |
+| Health JSON shows a disabled/degraded dependency | Liveness remains HTTP 200; inspect the safe dependency state and enable only the intended integration. |
 
-See [Private player gateway](deployment/player-gateway.md) for the production deployment order and trust boundary.
+For remote resources, Builds, secrets, smoke tests, and rollback, use the
+[native Cloudflare setup](CLOUDFLARE_SETUP.md). The [separate player gateway](deployment/player-gateway.md)
+is retained only for rollback of the historical Sites deployment.

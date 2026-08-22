@@ -8,7 +8,10 @@ import {
   ProviderError,
   providerErrorResponse,
 } from "../../lib/providers/errors";
-import { HypixelProvider } from "../../lib/providers/hypixel";
+import {
+  BAZAAR_MAX_RESPONSE_CHARACTERS,
+  HypixelProvider,
+} from "../../lib/providers/hypixel";
 import { normalizeMinecraftPlayerInput } from "../../lib/providers/guards";
 import { MojangProvider } from "../../lib/providers/mojang";
 import { getPlayerAnalysis } from "../../lib/providers/player-analysis";
@@ -50,59 +53,6 @@ test("authenticated Hypixel requests use the header and shared cache", async () 
   assert.equal(new URL(calls[0]?.url ?? "https://invalid").searchParams.has("key"), false);
 });
 
-test("authenticated Hypixel username lookup is case-insensitively cached and identity-bound", async () => {
-  const calls: { url: URL; headers: Headers }[] = [];
-  const provider = new HypixelProvider({
-    apiKey: "fixture-credential",
-    cache: new MemoryTtlCache(),
-    fetchImplementation: async (input, init) => {
-      calls.push({
-        url: new URL(String(input)),
-        headers: new Headers(init?.headers),
-      });
-      return jsonResponse({
-        success: true,
-        player: {
-          uuid: "00000000000000000000000000000001",
-          displayname: "PilotFixture",
-        },
-      });
-    },
-  });
-
-  const first = await provider.getPlayerByUsername("PilotFixture");
-  const second = await provider.getPlayerByUsername("pilotfixture");
-
-  assert.equal(first.data.uuid, "00000000000000000000000000000001");
-  assert.equal(second.cacheStatus, "cached");
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0]?.url.pathname, "/v2/player");
-  assert.equal(calls[0]?.url.searchParams.get("name"), "PilotFixture");
-  assert.equal(calls[0]?.url.searchParams.has("uuid"), false);
-  assert.equal(calls[0]?.url.searchParams.has("key"), false);
-  assert.equal(calls[0]?.headers.get("API-Key"), "fixture-credential");
-});
-
-test("Hypixel username lookup rejects a different returned display name", async () => {
-  const provider = new HypixelProvider({
-    apiKey: "fixture-credential",
-    cache: new MemoryTtlCache(),
-    fetchImplementation: async () => jsonResponse({
-      success: true,
-      player: {
-        uuid: "00000000000000000000000000000001",
-        displayname: "DifferentPilot",
-      },
-    }),
-  });
-
-  await assert.rejects(
-    () => provider.getPlayerByUsername("PilotFixture"),
-    (error: unknown) =>
-      error instanceof ProviderError && error.code === "invalid_response",
-  );
-});
-
 test("public Bazaar normalization never sends a configured API key", async () => {
   let observedHeaders = new Headers();
   const provider = new HypixelProvider({
@@ -137,6 +87,26 @@ test("public Bazaar normalization never sends a configured API key", async () =>
   assert.equal(result.data.products[0]?.productId, "ENCHANTED_CARROT");
   assert.equal(result.data.products[0]?.spread, 5.75);
   assert.equal("quick_status" in (result.data.products[0] ?? {}), false);
+});
+
+test("public Bazaar responses are rejected before buffering past their endpoint bound", async () => {
+  const provider = new HypixelProvider({
+    apiKey: null,
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async () =>
+      new Response('{"success":true}', {
+        headers: {
+          "Content-Length": String(BAZAAR_MAX_RESPONSE_CHARACTERS + 1),
+          "Content-Type": "application/json",
+        },
+      }),
+  });
+
+  await assert.rejects(
+    () => provider.getBazaar(),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "invalid_response",
+  );
 });
 
 test("missing credentials and invalid usernames fail explicitly", async () => {
@@ -260,8 +230,8 @@ test("player analysis never bypasses authoritative Mojang 404 or 429 responses",
   }
 });
 
-test("Mojang 403 falls back to an identity-bound Hypixel username lookup", async () => {
-  const hypixelCalls: URL[] = [];
+test("Mojang 403 retains the direct UUID recovery path without calling Hypixel by name", async () => {
+  let hypixelCalls = 0;
   const mojang = new MojangProvider({
     cache: new MemoryTtlCache(),
     fetchImplementation: async () => new Response(null, { status: 403 }),
@@ -269,45 +239,20 @@ test("Mojang 403 falls back to an identity-bound Hypixel username lookup", async
   const hypixel = new HypixelProvider({
     apiKey: "fixture-credential",
     cache: new MemoryTtlCache(),
-    fetchImplementation: async (input) => {
-      const url = new URL(String(input));
-      hypixelCalls.push(url);
-      if (url.pathname.endsWith("/player")) {
-        return jsonResponse({
-          success: true,
-          player: {
-            uuid: "00000000000000000000000000000001",
-            displayname: "PilotFixture",
-          },
-        });
-      }
-      return jsonResponse({
-        success: true,
-        profiles: [{
-          profile_id: "00000000000000000000000000000002",
-          cute_name: "Pineapple",
-          selected: true,
-          members: {
-            "00000000000000000000000000000001": {
-              currencies: { coin_purse: 1_250_000 },
-            },
-          },
-        }],
-      });
+    fetchImplementation: async () => {
+      hypixelCalls += 1;
+      return jsonResponse({ success: true });
     },
   });
 
-  const analysis = await getPlayerAnalysis(
-    "PilotFixture",
-    null,
-    { mojang, hypixel },
+  await assert.rejects(
+    () => getPlayerAnalysis("PilotFixture", null, { mojang, hypixel }),
+    (error: unknown) =>
+      error instanceof ProviderError &&
+      error.code === "upstream_unavailable" &&
+      /Java UUID/i.test(error.action || ""),
   );
-
-  assert.equal(analysis.player.username, "PilotFixture");
-  assert.equal(analysis.player.uuid, "00000000000000000000000000000001");
-  assert.equal(hypixelCalls.length, 2);
-  assert.equal(hypixelCalls[0]?.searchParams.get("name"), "PilotFixture");
-  assert.equal(hypixelCalls[0]?.searchParams.has("uuid"), false);
+  assert.equal(hypixelCalls, 0);
 });
 
 test("direct UUID player analysis skips Minecraft Services and trusts only the matching Hypixel identity", async () => {
@@ -399,9 +344,9 @@ test("direct UUID player analysis rejects a mismatched Hypixel identity", async 
   );
 });
 
-test("username transport failures resolve through Hypixel name lookup without a duplicate player call", async () => {
+test("username transport failures retain direct UUID recovery without unsupported Hypixel calls", async () => {
   let mojangCalls = 0;
-  const hypixelCalls: URL[] = [];
+  let hypixelCalls = 0;
   const mojang = new MojangProvider({
     cache: new MemoryTtlCache(),
     fetchImplementation: async () => {
@@ -412,59 +357,27 @@ test("username transport failures resolve through Hypixel name lookup without a 
   const hypixel = new HypixelProvider({
     apiKey: "fixture-credential",
     cache: new MemoryTtlCache(),
-    fetchImplementation: async (input) => {
-      const url = new URL(String(input));
-      hypixelCalls.push(url);
-      if (url.pathname.endsWith("/player")) {
-        return jsonResponse({
-          success: true,
-          player: {
-            uuid: "00000000000000000000000000000001",
-            displayname: "PilotFixture",
-          },
-        });
-      }
-      return jsonResponse({
-        success: true,
-        profiles: [{
-          profile_id: "00000000000000000000000000000002",
-          cute_name: "Pineapple",
-          selected: true,
-          members: {
-            "00000000000000000000000000000001": {
-              currencies: { coin_purse: 1_250_000 },
-            },
-          },
-        }],
-      });
+    fetchImplementation: async () => {
+      hypixelCalls += 1;
+      return jsonResponse({ success: true });
     },
   });
 
-  const analysis = await getPlayerAnalysis(
-    "PilotFixture",
-    null,
-    { mojang, hypixel },
+  await assert.rejects(
+    () => getPlayerAnalysis("PilotFixture", null, { mojang, hypixel }),
+    (error: unknown) =>
+      error instanceof ProviderError &&
+      error.code === "network_error" &&
+      /Java UUID/i.test(error.action || ""),
   );
 
   assert.equal(mojangCalls, 2);
-  assert.equal(analysis.player.uuid, "00000000000000000000000000000001");
-  assert.equal(analysis.player.username, "PilotFixture");
-  assert.equal(hypixelCalls.length, 2);
-  assert.equal(
-    hypixelCalls.filter((url) => url.pathname.endsWith("/player")).length,
-    1,
-  );
-  assert.equal(hypixelCalls[0]?.searchParams.get("name"), "PilotFixture");
-  assert.equal(hypixelCalls[0]?.searchParams.has("uuid"), false);
-  assert.equal(
-    hypixelCalls[1]?.searchParams.get("uuid"),
-    "00000000000000000000000000000001",
-  );
+  assert.equal(hypixelCalls, 0);
 });
 
-test("Mojang timeouts and upstream outages also use the bounded Hypixel username fallback", async () => {
+test("Mojang timeouts and upstream outages preserve the direct UUID recovery action", async () => {
   for (const failure of ["timeout", "unavailable"] as const) {
-    const hypixelCalls: URL[] = [];
+    let hypixelCalls = 0;
     const mojang = new MojangProvider({
       cache: new MemoryTtlCache(),
       timeoutMs: 1,
@@ -487,53 +400,21 @@ test("Mojang timeouts and upstream outages also use the bounded Hypixel username
     const hypixel = new HypixelProvider({
       apiKey: "fixture-credential",
       cache: new MemoryTtlCache(),
-      fetchImplementation: async (input) => {
-        const url = new URL(String(input));
-        hypixelCalls.push(url);
-        return url.pathname.endsWith("/player")
-          ? jsonResponse({
-            success: true,
-            player: {
-              uuid: "00000000000000000000000000000001",
-              displayname: "PilotFixture",
-            },
-          })
-          : jsonResponse({ success: true, profiles: null });
+      fetchImplementation: async () => {
+        hypixelCalls += 1;
+        return jsonResponse({ success: true });
       },
     });
 
     await assert.rejects(
       () => getPlayerAnalysis("PilotFixture", null, { mojang, hypixel }),
       (error: unknown) =>
-        error instanceof ProviderError && error.code === "no_skyblock_profiles",
+        error instanceof ProviderError &&
+        error.code === (failure === "timeout" ? "upstream_timeout" : "upstream_unavailable") &&
+        /Java UUID/i.test(error.action || ""),
     );
-    assert.equal(hypixelCalls.length, 2);
-    assert.equal(hypixelCalls[0]?.searchParams.get("name"), "PilotFixture");
+    assert.equal(hypixelCalls, 0);
   }
-});
-
-test("failed first-party username transports retain the direct UUID recovery action", async () => {
-  const mojang = new MojangProvider({
-    cache: new MemoryTtlCache(),
-    fetchImplementation: async () => {
-      throw new TypeError("simulated blocked Minecraft transport");
-    },
-  });
-  const hypixel = new HypixelProvider({
-    apiKey: "fixture-credential",
-    cache: new MemoryTtlCache(),
-    fetchImplementation: async () => {
-      throw new TypeError("simulated blocked Hypixel name transport");
-    },
-  });
-
-  await assert.rejects(
-    () => getPlayerAnalysis("PilotFixture", null, { mojang, hypixel }),
-    (error: unknown) =>
-      error instanceof ProviderError &&
-      error.code === "network_error" &&
-      /Java UUID/i.test(error.action || ""),
-  );
 });
 
 test("player analysis is normalized and never exposes upstream member data", async () => {
@@ -644,6 +525,28 @@ test("rate-limit state blocks until the observed reset", () => {
   );
   now += 30_000;
   assert.doesNotThrow(() => limits.assertAvailable("authenticated"));
+});
+
+test("local reservations cannot oversubscribe the last observed Hypixel token", () => {
+  const now = 2_000_000;
+  const limits = new HypixelRateLimitRegistry(() => now, () => 0);
+  limits.observe(
+    "authenticated",
+    new Headers({
+      "RateLimit-Limit": "120",
+      "RateLimit-Remaining": "1",
+      "RateLimit-Reset": "20",
+    }),
+    200,
+  );
+  limits.reserve("authenticated");
+  assert.throws(
+    () => limits.reserve("authenticated"),
+    (error: unknown) =>
+      error instanceof ProviderError &&
+      error.code === "rate_limited" &&
+      error.retryAfterSeconds === 20,
+  );
 });
 
 test("classified failures use the public API error contract", async () => {

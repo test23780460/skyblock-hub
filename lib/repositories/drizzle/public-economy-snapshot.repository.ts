@@ -8,7 +8,6 @@ import {
   isNull,
   like,
   lte,
-  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -39,14 +38,20 @@ const ENDED_AUCTION_FRESH_MS = 3 * 60_000;
 const ENDED_AUCTION_RETENTION_MS = 180 * 24 * 60 * 60_000;
 export const BAZAAR_HOURLY_HISTORY_RETENTION_MS = 90 * 24 * 60 * 60_000;
 export const BAZAAR_DAILY_HISTORY_RETENTION_MS = 3 * 365 * 24 * 60 * 60_000;
-const DEFAULT_WRITE_CHUNK_SIZE = 30;
+// D1 permits at most 100 bound parameters per query and 2 MB per string.
+// Passing bounded JSON arrays through json_each(?) uses one parameter per
+// chunk and sharply reduces snapshot-publication query count.
+const DEFAULT_JSON_WRITE_CHUNK_BYTES = 1_000_000;
+// Leave two bytes for the surrounding contains-search wildcards.
+const D1_LIKE_QUERY_BYTES = 48;
+const UTF8_ENCODER = new TextEncoder();
 
 type StoreOptions = {
   now?: () => Date;
   endedAuctionRetentionMs?: number;
   bazaarHourlyHistoryRetentionMs?: number;
   bazaarDailyHistoryRetentionMs?: number;
-  writeChunkSize?: number;
+  jsonWriteChunkBytes?: number;
 };
 
 export class DrizzlePublicEconomySnapshotStore
@@ -56,7 +61,7 @@ export class DrizzlePublicEconomySnapshotStore
   private readonly endedAuctionRetentionMs: number;
   private readonly bazaarHourlyHistoryRetentionMs: number;
   private readonly bazaarDailyHistoryRetentionMs: number;
-  private readonly writeChunkSize: number;
+  private readonly jsonWriteChunkBytes: number;
 
   constructor(
     private readonly db: AppDatabase,
@@ -74,9 +79,11 @@ export class DrizzlePublicEconomySnapshotStore
       options.bazaarDailyHistoryRetentionMs ??
         BAZAAR_DAILY_HISTORY_RETENTION_MS,
     );
-    this.writeChunkSize = Math.min(
-      50,
-      positiveInteger(options.writeChunkSize ?? DEFAULT_WRITE_CHUNK_SIZE),
+    this.jsonWriteChunkBytes = Math.min(
+      DEFAULT_JSON_WRITE_CHUNK_BYTES,
+      positiveInteger(
+        options.jsonWriteChunkBytes ?? DEFAULT_JSON_WRITE_CHUNK_BYTES,
+      ),
     );
   }
 
@@ -217,27 +224,41 @@ export class DrizzlePublicEconomySnapshotStore
     const products = [...new Map(
       snapshot.products.map((product) => [product.productId, product]),
     ).values()];
-    const rows = products.map((product) => ({
-      sourceUpdatedAt,
-      productId: product.productId,
-      capturedAt,
-      buyPrice: product.buyPrice,
-      sellPrice: product.sellPrice,
-      buyVolume: integerOrNull(product.buyVolume),
-      sellVolume: integerOrNull(product.sellVolume),
-      buyMovingWeek: integerOrNull(product.buyMovingWeek),
-      sellMovingWeek: integerOrNull(product.sellMovingWeek),
-      buyOrders: integerOrNull(product.buyOrders),
-      sellOrders: integerOrNull(product.sellOrders),
-      spread: product.spread,
-      spreadPercent: product.spreadPercent,
-    }));
+    const rows = products.map((product) => [
+      sourceUpdatedAt.getTime(),
+      product.productId,
+      capturedAt.getTime(),
+      product.buyPrice,
+      product.sellPrice,
+      integerOrNull(product.buyVolume),
+      integerOrNull(product.sellVolume),
+      integerOrNull(product.buyMovingWeek),
+      integerOrNull(product.sellMovingWeek),
+      integerOrNull(product.buyOrders),
+      integerOrNull(product.sellOrders),
+      product.spread,
+      product.spreadPercent,
+    ]);
 
-    for (const chunk of chunks(rows, this.writeChunkSize)) {
-      await this.db
-        .insert(publicBazaarSnapshotRows)
-        .values(chunk)
-        .onConflictDoNothing();
+    for (const payload of jsonArrayChunks(rows, this.jsonWriteChunkBytes)) {
+      await this.db.run(sql`
+        insert into public_bazaar_snapshot_rows (
+          source_updated_at, product_id, captured_at, buy_price, sell_price,
+          buy_volume, sell_volume, buy_moving_week, sell_moving_week,
+          buy_orders, sell_orders, spread, spread_percent
+        )
+        select
+          json_extract(value, '$[0]'), json_extract(value, '$[1]'),
+          json_extract(value, '$[2]'), json_extract(value, '$[3]'),
+          json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+          json_extract(value, '$[6]'), json_extract(value, '$[7]'),
+          json_extract(value, '$[8]'), json_extract(value, '$[9]'),
+          json_extract(value, '$[10]'), json_extract(value, '$[11]'),
+          json_extract(value, '$[12]')
+        from json_each(${payload})
+        where true
+        on conflict do nothing
+      `);
     }
 
     await this.publishFeed({
@@ -248,9 +269,23 @@ export class DrizzlePublicEconomySnapshotStore
       recordCount: rows.length,
       skippedMalformed: snapshot.skippedProducts,
     }, lease);
-    await this.db
-      .delete(publicBazaarSnapshotRows)
-      .where(ne(publicBazaarSnapshotRows.sourceUpdatedAt, sourceUpdatedAt));
+    const cleanupAt = this.now().getTime();
+    await this.db.run(sql`
+      delete from public_bazaar_snapshot_rows
+      where source_updated_at <> ${sourceUpdatedAt.getTime()}
+        and exists (
+          select 1
+          from public_economy_feed_state feed
+          join public_economy_worker_state worker
+            on worker.provider = ${PUBLIC_ECONOMY_PROVIDER}
+          where feed.feed = 'bazaar'
+            and feed.source_updated_at = ${sourceUpdatedAt.getTime()}
+            and feed.published_lease_token = ${lease.token}
+            and worker.lease_owner = ${lease.owner}
+            and worker.lease_token = ${lease.token}
+            and worker.lease_until > ${cleanupAt}
+        )
+    `);
   }
 
   async aggregateBazaarHistory(
@@ -302,27 +337,41 @@ export class DrizzlePublicEconomySnapshotStore
     const auctions = [...new Map(
       snapshot.auctions.map((auction) => [auction.id, auction]),
     ).values()];
-    const rows = auctions.map((auction) => ({
-      sourceUpdatedAt,
-      auctionUuid: auction.id,
-      capturedAt,
-      itemName: auction.itemName,
-      itemNameNormalized: auction.itemName.toLowerCase(),
-      category: auction.category,
-      tier: auction.tier,
-      startingBid: integerOrNull(auction.startingBid),
-      highestBidAmount: integerOrNull(auction.highestBidAmount),
-      isBin: auction.bin,
-      startsAt: dateOrNull(auction.startAt),
-      endsAt: dateOrNull(auction.endAt),
-      bidCount: Math.max(0, Math.floor(auction.bidCount)),
-    }));
+    const rows = auctions.map((auction) => [
+      sourceUpdatedAt.getTime(),
+      auction.id,
+      capturedAt.getTime(),
+      auction.itemName,
+      auction.itemName.toLowerCase(),
+      auction.category,
+      auction.tier,
+      integerOrNull(auction.startingBid),
+      integerOrNull(auction.highestBidAmount),
+      auction.bin,
+      timestampOrNull(auction.startAt),
+      timestampOrNull(auction.endAt),
+      Math.max(0, Math.floor(auction.bidCount)),
+    ]);
 
-    for (const chunk of chunks(rows, this.writeChunkSize)) {
-      await this.db
-        .insert(publicActiveAuctionSnapshotRows)
-        .values(chunk)
-        .onConflictDoNothing();
+    for (const payload of jsonArrayChunks(rows, this.jsonWriteChunkBytes)) {
+      await this.db.run(sql`
+        insert into public_active_auction_snapshot_rows (
+          source_updated_at, auction_uuid, captured_at, item_name,
+          item_name_normalized, category, tier, starting_bid,
+          highest_bid_amount, is_bin, starts_at, ends_at, bid_count
+        )
+        select
+          json_extract(value, '$[0]'), json_extract(value, '$[1]'),
+          json_extract(value, '$[2]'), json_extract(value, '$[3]'),
+          json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+          json_extract(value, '$[6]'), json_extract(value, '$[7]'),
+          json_extract(value, '$[8]'), json_extract(value, '$[9]'),
+          json_extract(value, '$[10]'), json_extract(value, '$[11]'),
+          json_extract(value, '$[12]')
+        from json_each(${payload})
+        where true
+        on conflict do nothing
+      `);
     }
 
     await this.publishFeed({
@@ -333,9 +382,23 @@ export class DrizzlePublicEconomySnapshotStore
       recordCount: rows.length,
       skippedMalformed: snapshot.skippedAuctions ?? 0,
     }, lease);
-    await this.db
-      .delete(publicActiveAuctionSnapshotRows)
-      .where(ne(publicActiveAuctionSnapshotRows.sourceUpdatedAt, sourceUpdatedAt));
+    const cleanupAt = this.now().getTime();
+    await this.db.run(sql`
+      delete from public_active_auction_snapshot_rows
+      where source_updated_at <> ${sourceUpdatedAt.getTime()}
+        and exists (
+          select 1
+          from public_economy_feed_state feed
+          join public_economy_worker_state worker
+            on worker.provider = ${PUBLIC_ECONOMY_PROVIDER}
+          where feed.feed = 'active-auctions'
+            and feed.source_updated_at = ${sourceUpdatedAt.getTime()}
+            and feed.published_lease_token = ${lease.token}
+            and worker.lease_owner = ${lease.owner}
+            and worker.lease_token = ${lease.token}
+            and worker.lease_until > ${cleanupAt}
+        )
+    `);
   }
 
   async saveEndedAuctionSnapshot(
@@ -350,20 +413,28 @@ export class DrizzlePublicEconomySnapshotStore
     const usable = deduplicated.filter(
       (auction) => auction.endedAt !== null && auction.price !== null,
     );
-    const rows = usable.map((auction) => ({
-      auctionUuid: auction.id,
-      sourceUpdatedAt,
-      capturedAt,
-      endedAt: dateOrNull(auction.endedAt),
-      price: integerOrNull(auction.price),
-      isBin: auction.bin,
-    }));
+    const rows = usable.map((auction) => [
+      auction.id,
+      sourceUpdatedAt.getTime(),
+      capturedAt.getTime(),
+      timestampOrNull(auction.endedAt),
+      integerOrNull(auction.price),
+      auction.bin,
+    ]);
 
-    for (const chunk of chunks(rows, this.writeChunkSize)) {
-      await this.db
-        .insert(publicEndedAuctionSales)
-        .values(chunk)
-        .onConflictDoNothing({ target: publicEndedAuctionSales.auctionUuid });
+    for (const payload of jsonArrayChunks(rows, this.jsonWriteChunkBytes)) {
+      await this.db.run(sql`
+        insert into public_ended_auction_sales (
+          auction_uuid, source_updated_at, captured_at, ended_at, price, is_bin
+        )
+        select
+          json_extract(value, '$[0]'), json_extract(value, '$[1]'),
+          json_extract(value, '$[2]'), json_extract(value, '$[3]'),
+          json_extract(value, '$[4]'), json_extract(value, '$[5]')
+        from json_each(${payload})
+        where true
+        on conflict(auction_uuid) do nothing
+      `);
     }
 
     await this.db
@@ -391,18 +462,12 @@ export class DrizzlePublicEconomySnapshotStore
   }
 
   async readBazaarSnapshot(input: { query: string; limit: number }) {
-    const state = await this.getFeedState("bazaar");
-    if (!state) return null;
-    const condition = input.query
-      ? and(
-          eq(publicBazaarSnapshotRows.sourceUpdatedAt, state.sourceUpdatedAt),
-          like(
-            publicBazaarSnapshotRows.productId,
-            `%${input.query.toUpperCase()}%`,
-          ),
-        )
-      : eq(publicBazaarSnapshotRows.sourceUpdatedAt, state.sourceUpdatedAt);
-    const products = await this.db
+    const stateQuery = this.db
+      .select()
+      .from(publicEconomyFeedState)
+      .where(eq(publicEconomyFeedState.feed, "bazaar"))
+      .limit(1);
+    const productsQuery = this.db
       .select({
         productId: publicBazaarSnapshotRows.productId,
         buyPrice: publicBazaarSnapshotRows.buyPrice,
@@ -417,10 +482,35 @@ export class DrizzlePublicEconomySnapshotStore
         spreadPercent: publicBazaarSnapshotRows.spreadPercent,
       })
       .from(publicBazaarSnapshotRows)
-      .where(condition)
+      .innerJoin(
+        publicEconomyFeedState,
+        and(
+          eq(publicEconomyFeedState.feed, "bazaar"),
+          eq(
+            publicBazaarSnapshotRows.sourceUpdatedAt,
+            publicEconomyFeedState.sourceUpdatedAt,
+          ),
+        ),
+      )
+      .where(
+        input.query
+          ? like(
+              publicBazaarSnapshotRows.productId,
+              containsPattern(input.query.toUpperCase()),
+            )
+          : undefined,
+      )
       .orderBy(asc(publicBazaarSnapshotRows.productId))
       .limit(input.limit);
-    return { state, products };
+    // D1 batch() is a transaction. Reading the publication marker and its
+    // versioned rows together prevents cleanup from interleaving between the
+    // two reads and returning an empty mixed-generation response.
+    const [states, products] = await this.db.batch([
+      stateQuery,
+      productsQuery,
+    ]);
+    const state = states[0];
+    return state ? { state: publishedFeed(state), products } : null;
   }
 
   async readBazaarHistory(input: {
@@ -428,9 +518,12 @@ export class DrizzlePublicEconomySnapshotStore
     resolution: BazaarHistoryResolution;
     limit: number;
   }) {
-    const state = await this.getFeedState("bazaar");
-    if (!state) return null;
-    const rows = await this.db
+    const stateQuery = this.db
+      .select()
+      .from(publicEconomyFeedState)
+      .where(eq(publicEconomyFeedState.feed, "bazaar"))
+      .limit(1);
+    const historyQuery = this.db
       .select()
       .from(publicBazaarHistoryBuckets)
       .where(
@@ -441,8 +534,11 @@ export class DrizzlePublicEconomySnapshotStore
       )
       .orderBy(desc(publicBazaarHistoryBuckets.bucketStartAt))
       .limit(input.limit);
+    const [states, rows] = await this.db.batch([stateQuery, historyQuery]);
+    const state = states[0];
+    if (!state) return null;
     return {
-      state,
+      state: publishedFeed(state),
       buckets: rows.reverse().map((row) => ({
         productId: row.productId,
         resolution: row.resolution,
@@ -475,40 +571,64 @@ export class DrizzlePublicEconomySnapshotStore
     page: number;
     limit: number;
   }) {
-    const state = await this.getFeedState("active-auctions");
-    if (!state) return null;
-    const condition = input.query
-      ? and(
-          eq(
-            publicActiveAuctionSnapshotRows.sourceUpdatedAt,
-            state.sourceUpdatedAt,
-          ),
-          like(
-            publicActiveAuctionSnapshotRows.itemNameNormalized,
-            `%${input.query}%`,
-          ),
+    const stateQuery = this.db
+      .select()
+      .from(publicEconomyFeedState)
+      .where(eq(publicEconomyFeedState.feed, "active-auctions"))
+      .limit(1);
+    const currentVersionJoin = and(
+      eq(publicEconomyFeedState.feed, "active-auctions"),
+      eq(
+        publicActiveAuctionSnapshotRows.sourceUpdatedAt,
+        publicEconomyFeedState.sourceUpdatedAt,
+      ),
+    );
+    const search = input.query
+      ? like(
+          publicActiveAuctionSnapshotRows.itemNameNormalized,
+          containsPattern(input.query),
         )
-      : eq(
-          publicActiveAuctionSnapshotRows.sourceUpdatedAt,
-          state.sourceUpdatedAt,
-        );
-    const [matching] = await this.db
+      : undefined;
+    const countQuery = this.db
       .select({ value: count() })
       .from(publicActiveAuctionSnapshotRows)
-      .where(condition);
-    const rows = await this.db
-      .select()
+      .innerJoin(publicEconomyFeedState, currentVersionJoin)
+      .where(search);
+    const rowsQuery = this.db
+      .select({
+        auctionUuid: publicActiveAuctionSnapshotRows.auctionUuid,
+        itemName: publicActiveAuctionSnapshotRows.itemName,
+        category: publicActiveAuctionSnapshotRows.category,
+        tier: publicActiveAuctionSnapshotRows.tier,
+        startingBid: publicActiveAuctionSnapshotRows.startingBid,
+        highestBidAmount: publicActiveAuctionSnapshotRows.highestBidAmount,
+        isBin: publicActiveAuctionSnapshotRows.isBin,
+        startsAt: publicActiveAuctionSnapshotRows.startsAt,
+        endsAt: publicActiveAuctionSnapshotRows.endsAt,
+        bidCount: publicActiveAuctionSnapshotRows.bidCount,
+      })
       .from(publicActiveAuctionSnapshotRows)
-      .where(condition)
+      .innerJoin(publicEconomyFeedState, currentVersionJoin)
+      .where(search)
       .orderBy(
         asc(publicActiveAuctionSnapshotRows.endsAt),
         asc(publicActiveAuctionSnapshotRows.auctionUuid),
       )
       .limit(input.limit)
       .offset(input.page * input.limit);
+    // The marker, count, and rows must share one D1 read transaction. A writer
+    // publishes the new marker before deleting the old version, so separate
+    // calls could otherwise return a count and page from different versions.
+    const [states, counts, rows] = await this.db.batch([
+      stateQuery,
+      countQuery,
+      rowsQuery,
+    ]);
+    const state = states[0];
+    if (!state) return null;
     return {
-      state,
-      matchingAuctions: matching?.value ?? 0,
+      state: publishedFeed(state),
+      matchingAuctions: counts[0]?.value ?? 0,
       auctions: rows.map((row) => ({
         id: row.auctionUuid,
         itemName: row.itemName,
@@ -741,12 +861,44 @@ function publishedFeed(
   };
 }
 
-function chunks<T>(values: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    result.push(values.slice(index, index + size));
+function* jsonArrayChunks<T>(
+  values: T[],
+  maxBytes: number,
+): Generator<string> {
+  let encodedRows: string[] = [];
+  let encodedBytes = 2;
+
+  for (const value of values) {
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw oversizedJsonRowError();
+    const rowBytes = UTF8_ENCODER.encode(encoded).byteLength;
+    if (rowBytes + 2 > maxBytes) throw oversizedJsonRowError();
+    const separatorBytes = encodedRows.length === 0 ? 0 : 1;
+    if (
+      encodedRows.length > 0 &&
+      encodedBytes + separatorBytes + rowBytes > maxBytes
+    ) {
+      yield `[${encodedRows.join(",")}]`;
+      encodedRows = [];
+      encodedBytes = 2;
+    }
+    encodedRows.push(encoded);
+    encodedBytes += (encodedRows.length === 1 ? 0 : 1) + rowBytes;
   }
-  return result;
+
+  if (encodedRows.length > 0) yield `[${encodedRows.join(",")}]`;
+}
+
+function containsPattern(value: string): string {
+  let bytes = 0;
+  let bounded = "";
+  for (const character of value) {
+    const characterBytes = UTF8_ENCODER.encode(character).byteLength;
+    if (bytes + characterBytes > D1_LIKE_QUERY_BYTES) break;
+    bounded += character;
+    bytes += characterBytes;
+  }
+  return `%${bounded}%`;
 }
 
 function positiveInteger(value: number): number {
@@ -777,8 +929,10 @@ function integerOrNull(value: number | null): number | null {
     : Math.max(0, Math.floor(value));
 }
 
-function dateOrNull(value: number | null): Date | null {
-  return value === null ? null : new Date(value);
+function timestampOrNull(value: number | null): number | null {
+  return value === null || !Number.isSafeInteger(value) || value <= 0
+    ? null
+    : value;
 }
 
 function boundedHttpStatus(value: number): number {
@@ -791,6 +945,16 @@ function expiredLeaseError(): ProviderError {
     message: "The economy worker lease expired before history aggregation.",
     status: 503,
     action: "Let the elected worker retry the idempotent aggregation.",
+    retryable: true,
+  });
+}
+
+function oversizedJsonRowError(): ProviderError {
+  return new ProviderError({
+    code: "invalid_response",
+    message: "A normalized public-economy row exceeds the durable write bound.",
+    status: 502,
+    action: "Keep the current durable snapshot and wait for a bounded refresh.",
     retryable: true,
   });
 }

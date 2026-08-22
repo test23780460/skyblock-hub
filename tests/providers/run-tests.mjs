@@ -18,3 +18,6 @@ await import("./saved-state.test.ts");
 await import("./economy-worker.test.ts");
 await import("./ai-grounding.test.ts");
 await import("./economy-history.test.ts");
+await import("./cloudflare-access.test.ts");
+await import("./cloudflare-player-runtime.test.ts");
+await import("./cloudflare-economy-service.test.ts");

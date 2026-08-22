@@ -34,6 +34,7 @@ const PLAYER_TTL_MS = 60 * 60 * 1_000;
 const PLAYER_STALE_TTL_MS = 24 * 60 * 60 * 1_000;
 const ECONOMY_TTL_MS = 60 * 1_000;
 const ECONOMY_STALE_TTL_MS = 5 * 60 * 1_000;
+export const BAZAAR_MAX_RESPONSE_CHARACTERS = 8_000_000;
 
 export type HypixelPlayer = {
   uuid: string;
@@ -149,29 +150,6 @@ export class HypixelProvider {
     );
   }
 
-  async getPlayerByUsername(
-    usernameInput: string,
-  ): Promise<CachedLoadResult<HypixelPlayer>> {
-    const username = normalizeMinecraftUsername(usernameInput);
-    return cachedLoad(
-      this.cache,
-      `hypixel:player-name:${username.toLowerCase()}`,
-      {
-        ttlMs: PLAYER_TTL_MS,
-        staleTtlMs: PLAYER_STALE_TTL_MS,
-        staleIfError: true,
-      },
-      async () => {
-        const payload = await this.authenticatedRequest("player", { name: username });
-        const player = normalizePlayer(payload);
-        if (player.displayName.toLowerCase() !== username.toLowerCase()) {
-          throw invalidResponse("Hypixel");
-        }
-        return player;
-      },
-    );
-  }
-
   async getSkyBlockProfiles(
     uuidInput: string,
   ): Promise<CachedLoadResult<HypixelSkyBlockProfile[]>> {
@@ -202,7 +180,12 @@ export class HypixelProvider {
         staleTtlMs: ECONOMY_STALE_TTL_MS,
         staleIfError: true,
       },
-      async () => normalizeBazaar(await this.publicRequest("skyblock/bazaar")),
+      async () =>
+        normalizeBazaar(
+          await this.publicRequest("skyblock/bazaar", {
+            maxResponseCharacters: BAZAAR_MAX_RESPONSE_CHARACTERS,
+          }),
+        ),
     );
   }
 
@@ -222,13 +205,15 @@ export class HypixelProvider {
         normalizeActiveAuctions(
           await this.publicRequest(
             "skyblock/auctions",
-            { page: String(page) },
-            new ProviderError({
-              code: "invalid_input",
-              message: "That active-auction page does not exist.",
-              status: 404,
-              action: "Request a page within the current total page count.",
-            }),
+            {
+              query: { page: String(page) },
+              notFoundError: new ProviderError({
+                code: "invalid_input",
+                message: "That active-auction page does not exist.",
+                status: 404,
+                action: "Request a page within the current total page count.",
+              }),
+            },
           ),
         ),
     );
@@ -268,17 +253,20 @@ export class HypixelProvider {
 
   private async publicRequest(
     path: string,
-    query: Record<string, string> = {},
-    notFoundError?: ProviderError,
+    options: {
+      query?: Record<string, string>;
+      notFoundError?: ProviderError;
+      maxResponseCharacters?: number;
+    } = {},
   ): Promise<unknown> {
     return requestJson({
       provider: "Hypixel",
-      url: buildApiUrl(path, query),
+      url: buildApiUrl(path, options.query ?? {}),
       fetchImplementation: this.fetchImplementation,
       timeoutMs: this.timeoutMs,
-      maxResponseCharacters: 24_000_000,
+      maxResponseCharacters: options.maxResponseCharacters ?? 24_000_000,
       hypixelRateScope: "public",
-      notFoundError,
+      notFoundError: options.notFoundError,
     });
   }
 

@@ -1,7 +1,7 @@
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
+import type { AuthenticatedUser } from "./current-user";
 
-export function isAdminUser(user: ChatGPTUser | null): boolean {
-  return isAdminUserId(user?.userId ?? null);
+export function isAdminUser(user: AuthenticatedUser | null): boolean {
+  return isAdminUserId(user?.providerSubject ?? null);
 }
 
 export function isAdminUserId(userId: string | null): boolean {

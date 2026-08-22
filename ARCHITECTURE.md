@@ -18,16 +18,24 @@ The architecture follows these rules:
 ```text
 Browser
   ↓ product-specific route/API
-Web runtime
+Web Worker (`worker/index.ts`)
   ↓ application service contracts
 Domain services (profile, progression, economy, valuation, calculators, AI context)
   ↓ repository/external-provider interfaces
 Adapters (Drizzle/D1, Hypixel, cache, queue, AI, analytics)
-  ↓
-D1/SQLite, workers, permitted external services
+  ↓ isolated application D1/SQLite, KV, shared provider-budget D1, permitted external services
+  ↓ `ECONOMY_SERVICE`
+Private economy Worker (`worker/economy.ts`)
+  ↓ scheduler-independent public-resource jobs and D1 publications
 ```
 
-Heavy ingestion, aggregation, valuation, and cleanup belong in the worker runtime. Jobs are scheduler-independent functions; cron/Sites/Cloudflare/GitHub Actions or another scheduler merely invokes them. If a frontend host cannot execute workers reliably, the worker is deployed separately without removing product capabilities.
+Heavy ingestion, aggregation, valuation, and cleanup belong in worker jobs. Only
+the separately deployed private Cloudflare economy Worker may invoke those
+scheduler-independent functions from a Cron Trigger or a bounded internal
+service request. The web Worker can request that fixed action through
+`ECONOMY_SERVICE`; it cannot execute ingestion itself. Another host can bind its
+own independent worker/scheduler without changing the jobs. Player lookup is
+never scheduled.
 
 ## Persistence boundaries
 
@@ -81,13 +89,31 @@ Analytics stores optional canonical user IDs or one-way anonymous hashes, never 
 
 `minecraft_accounts` and `skyblock_profiles` identify data fetched because a visitor requested it. Their freshness fields support request-driven caching; they are not permission to poll players or build automated session history.
 
-Bazaar, active Auctions, and ended sales use centralized ingestion today. The elected worker publishes the latest complete Bazaar/active versions and bounded deduplicated ended sales, then idempotently folds newer Bazaar summaries into 90-day hourly and three-year daily OHLC/average-volume buckets; web routes read only those D1 views. Auction/item aggregation, broader long-term compaction, valuation jobs, items, and other permitted resources remain planned. Player and public-economy pipelines stay operationally and logically separate.
+Bazaar, active Auctions, and ended sales have centralized ingestion code. The
+private Worker can publish the latest complete Bazaar/active versions and
+bounded deduplicated ended sales, then idempotently fold newer Bazaar summaries
+into 90-day hourly and three-year daily OHLC/average-volume buckets; web routes
+read only those D1 views. Runtime flags and every Cron remain off because the
+active-Auction crawl is non-incremental and its Paid-plan/capacity gates remain
+open. Auction/item aggregation, broader long-term compaction, valuation jobs,
+items, and other permitted resources remain planned. Player and public-economy
+pipelines stay operationally and logically separate.
 
 ## Cache architecture
 
 `cache_metadata` tracks ownership, freshness, expiry, ETag, size, hits/misses, and safe error codes. It deliberately does not force cache payloads into D1. A `CacheProvider` may store values in memory, KV, Redis, D1, or another backend while updating shared metadata for visibility and invalidation.
 
 TTL policy belongs in centralized configuration by data class. Profile data is request-driven; static metadata can have a long TTL; Bazaar uses a short shared TTL; Auction data comes from ingestion.
+
+The native player composition stores bounded normalized latest values in an
+environment-isolated Workers KV namespace and keeps a small per-isolate L0
+cache. It does not retain request-bound I/O promises for cross-request
+single-flight. Cloudflare rate-limit bindings are coarse per-location abuse
+filters. The route-bound `PLAYER_ACTOR_LIMITER` protects player endpoints.
+Mojang identity traffic does not consume Hypixel quota. Only a cache miss that
+reaches an authenticated Hypixel transport performs one
+`PLAYER_GLOBAL_LIMITER` check and one atomic two-token reservation in the shared
+`PROVIDER_BUDGET_DB`.
 
 ## Feature flags
 
@@ -105,7 +131,18 @@ Official Hypixel APIs/documentation, permitted collected economy data, and deter
 
 ## Deployment portability
 
-The initial D1 binding is constructed in [`db/index.ts`](db/index.ts). That file is an infrastructure composition edge, not a domain dependency. A non-Sites deployment replaces it with a backend-specific connection factory and provides a matching repository adapter.
+The native web composition lives at [`worker/index.ts`](worker/index.ts) and
+root `wrangler.jsonc`. The private public-resource composition lives at
+[`worker/economy.ts`](worker/economy.ts) and `wrangler.economy.jsonc`; production
+and staging set `workers_dev=false` and `preview_urls=false`. Each web Worker
+uses only its environment-matched `ECONOMY_SERVICE` binding. `db/index.ts`
+constructs the D1 adapter at the web edge, while the private worker receives the
+same environment's D1 binding directly. Both configs use compatibility date
+`2026-08-21`. The app `DB` is isolated by environment; both web environments
+use the same dedicated `PROVIDER_BUDGET_DB` because they share one Hypixel
+credential. Sites metadata and the separate player gateway are rollback-only.
+A non-Cloudflare deployment replaces these composition adapters rather than the
+domain model.
 
 Portability checks before release:
 
@@ -114,6 +151,6 @@ Portability checks before release:
 3. Storage/cache/auth/analytics/secrets use provider interfaces.
 4. Migrations and data export cover every durable table.
 5. No secret or binding value is compiled into browser code.
-6. The complete web and worker stack can run outside Sites without rewriting SkyBlock logic.
+6. The complete web and worker stack can run on a second host without rewriting SkyBlock logic.
 
 See [`docs/database/README.md`](docs/database/README.md), [`docs/database/migrations.md`](docs/database/migrations.md), and [`docs/database/portability.md`](docs/database/portability.md) for operational detail.

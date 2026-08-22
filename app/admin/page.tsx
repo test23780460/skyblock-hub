@@ -1,30 +1,21 @@
 import type { Metadata } from "next";
 import Link from "@/components/AppLink";
-import { getChatGPTUser, chatGPTSignInPath } from "@/app/chatgpt-auth";
 import { AdminExperience } from "@/components/AdminExperience";
 import { isAdminUser } from "@/lib/auth/admin";
-import { sharedProviderCache } from "@/lib/cache/ttl-cache";
+import { accountSignInPath, getCurrentUser } from "@/lib/auth/current-user";
 import { featureFlags } from "@/lib/config";
-import { hypixelProvider } from "@/lib/providers/hypixel";
-import {
-  isPlayerGatewayConfigured,
-  isPlayerGatewayRequired,
-} from "@/lib/providers/player-gateway";
-import { hypixelRateLimits } from "@/lib/providers/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
 
 export default async function AdminPage() {
-  if (!featureFlags.chatGptAuth) return <AdminGate title="Admin authentication is disabled" copy="Enable and verify the platform authentication boundary before exposing operations." href="/status" action="View status" />;
-  const user = await getChatGPTUser();
-  if (!user) return <AdminGate title="Sign in to open operations" copy="The SkyPilot admin surface is protected by server-side identity and an explicit user allowlist." href={chatGPTSignInPath("/admin")} action="Sign in with ChatGPT" />;
+  if (!featureFlags.accountAuth) return <AdminGate title="Admin authentication is disabled" copy="Enable and verify the platform authentication boundary before exposing operations." href="/status" action="View status" />;
+  const user = await getCurrentUser();
+  if (!user) return <AdminGate title="Sign in to open operations" copy="The SkyPilot admin surface is protected by verified Cloudflare Access identity and an explicit user allowlist." href={accountSignInPath("/admin")} action="Sign in" />;
   if (!isAdminUser(user)) return <AdminGate title="Admin access is not enabled" copy="Your identity is valid, but it is not present in the server-side administrator allowlist." href="/" action="Return home" />;
 
-  const limits = hypixelRateLimits.snapshot();
-  const gatewayConfigured = isPlayerGatewayConfigured();
-  const directConfigured = !isPlayerGatewayRequired() && hypixelProvider.isConfigured();
-  return <div className="page-shell admin-page"><header className="page-header"><div className="page-title"><small>ALLOWLISTED OPERATIONS</small><h1>SkyPilot control room</h1><p>System, provider, cache, worker, database, and AI visibility with targeted, confirmed controls.</p></div><span className="account-chip"><i /> ADMIN VERIFIED</span></header><AdminExperience snapshot={{ cache: sharedProviderCache.stats(), hypixelConfigured: gatewayConfigured || directConfigured, aiConfigured: Boolean(process.env.OPENAI_API_KEY), rateLimit: { authenticatedRemaining: limits.authenticated.remaining, publicRemaining: limits.public.remaining }, checkedAt: new Date().toISOString() }} /></div>;
+  const { env } = await import("cloudflare:workers");
+  return <div className="page-shell admin-page"><header className="page-header"><div className="page-title"><small>ALLOWLISTED OPERATIONS</small><h1>SkyPilot control room</h1><p>System, provider, cache, worker, database, and AI visibility with targeted, confirmed controls.</p></div><span className="account-chip"><i /> ADMIN VERIFIED</span></header><AdminExperience snapshot={{ playerTransportConfigured: Boolean(env.HYPIXEL_API_KEY?.trim() && env.PLAYER_CACHE && env.PLAYER_ACTOR_LIMITER && env.PLAYER_GLOBAL_LIMITER && env.PROVIDER_BUDGET_DB), playerCacheConfigured: Boolean(env.PLAYER_CACHE), playerAdmissionConfigured: Boolean(env.PLAYER_ACTOR_LIMITER && env.PLAYER_GLOBAL_LIMITER && env.PROVIDER_BUDGET_DB), databaseConfigured: Boolean(env.DB), economyEnabled: featureFlags.publicEconomy, aiConfigured: Boolean(process.env.OPENAI_API_KEY), checkedAt: new Date().toISOString() }} /></div>;
 }
 
 function AdminGate({ title, copy, href, action }: { title: string; copy: string; href: string; action: string }) {

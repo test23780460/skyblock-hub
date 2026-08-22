@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { chatGPTSignInPath, getChatGPTUser } from "@/app/chatgpt-auth";
 import { DashboardExperience } from "@/components/DashboardExperience";
+import { accountSignInPath, getCurrentUser } from "@/lib/auth/current-user";
 import { featureFlags } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const username = (params.player || "").trim();
   const requestedProfileId = (params.profile || "").trim();
   const demo = params.demo === "1";
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   const returnTo = demo
     ? "/dashboard?demo=1"
     : username
@@ -31,9 +31,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     username={username}
     requestedProfileId={requestedProfileId}
     demo={demo}
-    accountSavingEnabled={featureFlags.chatGptAuth}
+    accountSavingEnabled={featureFlags.accountAuth}
     signedIn={Boolean(user)}
-    signInHref={chatGPTSignInPath(returnTo)}
+    signInHref={accountSignInPath(returnTo)}
     browserCapability={featureFlags.browserPlayerGateway}
   />;
 }

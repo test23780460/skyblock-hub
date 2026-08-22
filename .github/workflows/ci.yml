@@ -23,9 +23,14 @@ jobs:
         run: npm run security:secrets
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run cf:types:check
+      - run: npm run cf:economy:types:check
       - run: npm run db:check
       - run: npm run db:smoke
       - run: npm test
+      - run: npm run security:artifacts
+      - run: npm run cf:dry-run
+      - run: npm run cf:economy:dry-run
 
   docker:
     runs-on: ubuntu-latest

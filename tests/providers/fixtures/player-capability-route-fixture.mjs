@@ -19,7 +19,10 @@ process.env.SITE_URL = siteOrigin;
 process.env.PLAYER_GATEWAY_URL = "https://gateway.example";
 process.env.PLAYER_GATEWAY_SECRET = gatewaySecret;
 
-const { POST } = await import("../../../app/api/player/capability/route.ts");
+const { playerCapabilityResponse } = await import("../../../app/api/player/capability/route.ts");
+const POST = (request) => playerCapabilityResponse(request, {
+  limitRequest: async () => null,
+});
 
 function capabilityRequest(body, options = {}) {
   const requestOrigin = options.requestOrigin ?? siteOrigin;

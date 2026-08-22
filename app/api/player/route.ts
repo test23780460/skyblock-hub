@@ -2,15 +2,14 @@ import { optionalProfileId } from "../../../lib/providers/guards";
 import { ProviderError, providerErrorResponse } from "../../../lib/providers/errors";
 import { featureUnavailableResponse } from "../../../lib/feature-access";
 import {
-  getPlayerAnalysisWithNegativeCache,
-  playerRequestActorSubject,
   playerRequestLimitFailure,
 } from "../../../lib/providers/player-request-policy";
+import { getCloudflarePlayerAnalysis } from "../../../worker/player-runtime";
 
 export async function GET(request: Request): Promise<Response> {
   const unavailable = featureUnavailableResponse("playerLookup");
   if (unavailable) return unavailable;
-  const rateLimited = playerRequestLimitFailure(request);
+  const rateLimited = await playerRequestLimitFailure(request);
   if (rateLimited) return rateLimited;
   try {
     const url = new URL(request.url);
@@ -24,16 +23,17 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
     const profileId = optionalProfileId(url.searchParams.get("profile"));
-    const data = await getPlayerAnalysisWithNegativeCache(username, profileId, {
-      actorSubject: playerRequestActorSubject(request),
-    });
+    const data = await getCloudflarePlayerAnalysis(
+      username,
+      profileId,
+    );
     return playerResponse(data);
   } catch (error) {
     return providerErrorResponse(error);
   }
 }
 
-function playerResponse(data: Awaited<ReturnType<typeof getPlayerAnalysisWithNegativeCache>>): Response {
+function playerResponse(data: Awaited<ReturnType<typeof getCloudflarePlayerAnalysis>>): Response {
   return new Response(JSON.stringify({ data }), {
     status: 200,
     headers: {

@@ -59,6 +59,10 @@ test("account deletion accepts only an explicit exact request origin", () => {
     method: "DELETE",
     headers: { origin: "not a valid origin" },
   })), false);
+  assert.equal(hasExactRequestOrigin(new Request("https://skypilot.example/api/account", {
+    method: "DELETE",
+    headers: { origin: "https://skypilot.example/path" },
+  })), false);
 });
 
 function onDeleteAction(table: SQLiteTable, sourceColumn: string) {

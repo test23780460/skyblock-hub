@@ -6,23 +6,57 @@ All APIs are product-specific; SkyPilot does not expose a raw or unrestricted Hy
 
 ### `GET /api/health`
 
-Reports local configuration, cache counters, and Hypixel backoff state without probing upstream services. It is a web-process liveness endpoint; inspect its JSON dependency fields rather than treating an intentionally disabled optional integration as a universal outage.
+Reports the safe environment label and whether D1, player KV/admission, and the
+Hypixel credential are configured, without exposing binding IDs/names or probing
+upstreams. It returns HTTP 200 for liveness; inspect `status` and dependency
+fields for a feature-enabled misconfiguration.
 
 ### `GET /api/player?username=<name-or-uuid>&profile=<profile-id>`
 
 ### `GET /api/player/<name-or-uuid>?profile=<profile-id>`
 
-Accepts either a Java Minecraft username or a dashed/undashed Java UUID. Username requests first resolve the UUID through Minecraft Services; if both official name endpoints fail at the transport layer, SkyPilot makes one authenticated Hypixel player lookup by name and verifies the returned name before using its UUID. Authoritative not-found, access-denied, and rate-limit responses are never bypassed. UUID requests skip name resolution and validate the identifier against the authenticated Hypixel player response. Both paths fetch available SkyBlock profiles, normalize only the requested member's supported fields, and return deterministic analysis. `profile` is optional.
+Accepts either a Java Minecraft username or a dashed/undashed Java UUID.
+Username requests resolve the UUID through Minecraft Services with the Mojang
+session profile service as a bounded fallback. If both identity services are
+unavailable, the response gives an actionable direct-Java-UUID recovery path;
+it never bypasses the outage with an unsupported Hypixel name query. UUID
+requests skip name resolution and are validated against the authenticated
+Hypixel player response. Both paths fetch available SkyBlock profiles,
+normalize only the requested member's supported fields, and return
+deterministic analysis. `profile` is optional.
 
-Requires `ENABLE_PLAYER_LOOKUP=true`. Hosted production also requires the signed private player gateway (`PLAYER_GATEWAY_URL`, `PLAYER_GATEWAY_SECRET`, and `REQUIRE_PLAYER_GATEWAY=true`); only that Worker holds `HYPIXEL_API_KEY`. This endpoint and AI player-context resolution still rely on the server-to-server gateway composition. Responses are `no-store`, while normalized provider values use the gateway's bounded shared KV cache. Common failures include invalid input, player/profile not found, no profiles, missing gateway configuration, rate limit, timeout, and upstream invalid/unavailable response.
+Requires `ENABLE_PLAYER_LOOKUP=true`, `PLAYER_CACHE`, `PROVIDER_BUDGET_DB`,
+`PLAYER_ACTOR_LIMITER`, `PLAYER_GLOBAL_LIMITER`, and the web-Worker-only
+`HYPIXEL_API_KEY`. Both route forms use the native web composition. The
+route-bound actor filter runs before lookup work, and positive/negative
+normalized provider values use the environment's KV/L0 cache. Mojang identity
+calls do not consume Hypixel quota. Only when a cache miss reaches an
+authenticated Hypixel transport does SkyPilot perform one coarse
+`PLAYER_GLOBAL_LIMITER` check and one atomic two-token reservation in the shared
+provider-budget D1. Responses are `no-store`. Common failures include invalid
+input, player/profile not found, no profiles, missing binding/credential, rate
+limit, timeout, budget-storage failure, and invalid or unavailable upstream
+response.
 
-### `POST /api/player/capability`
+### `POST /api/player/capability` (legacy rollback only)
 
-Owner-only compatibility endpoint for deployments that deliberately set `ENABLE_BROWSER_PLAYER_GATEWAY=true`. It accepts an exact JSON object containing `player` and optional `profileId`, requires an explicit request `Origin` matching the exact HTTPS `SITE_URL`, applies the ordinary player-request guard, and returns a private/no-store capability containing a fixed gateway URL, `POST` method, required headers, exact serialized body, and expiry.
+Legacy owner-only Sites rollback endpoint for deployments that deliberately set
+`ENABLE_BROWSER_PLAYER_GATEWAY=true`. Native staging/production keep it off and
+do not configure gateway variables. It accepts an exact JSON object containing
+`player` and optional `profileId`, requires an explicit request `Origin`
+matching `SITE_URL`, and returns a private/no-store fixed-route capability.
 
-The capability lasts 30 seconds and is bound to the exact body, opaque actor, timestamp, nonce, fixed Worker path, and configured Sites origin. It does not expose either gateway secret. The client validates its bounded shape, reuses the exact body, omits credentials, rejects redirects, and calls the gateway under exact-origin CORS. A successful gateway result also carries one ten-minute HMAC save receipt per returned profile; the capability issuer itself does not fetch or return those receipts.
+In that historical rollback path, the capability lasts 30 seconds and is bound
+to the exact body, opaque actor, timestamp, nonce, fixed Worker path, and
+configured Sites origin. It does not expose either gateway secret. A successful
+gateway result also carries one ten-minute HMAC save receipt per returned
+profile; the capability issuer itself does not fetch or return those receipts.
 
-This capability is not one-time or globally replay-proof: any holder may replay its exact request and signed origin header during the short validity window. Keep the feature off for public access until authoritative consume-once/global credential coordination is implemented or the residual risk is explicitly reviewed and accepted. The endpoint only issues a capability; it is not a raw upstream proxy and does not replace the server transport for AI context.
+The rollback capability is not one-time or globally replay-proof: any holder may
+replay its exact request and signed origin header during the short validity
+window. Keep it off in native and public deployments. The endpoint issues only
+a rollback capability; it is not a raw upstream proxy and does not replace the
+native server transport.
 
 ### `GET /api/economy/bazaar?q=<term>&limit=<1..250>`
 
@@ -40,7 +74,15 @@ Reads one bounded page from the latest complete D1 active-Auction snapshot. `q` 
 
 Returns a bounded retained ended-sale feed from D1, sorted by end time. Buyer, seller, profile, and raw item data are omitted. Default limit: 100.
 
-All economy reads require `ENABLE_PUBLIC_ECONOMY=true` and a published worker snapshot. Before the first publish they return a retryable unavailable response rather than calling upstream from a request.
+All economy reads require the web Worker's `ENABLE_PUBLIC_ECONOMY=true` and a
+published private-worker snapshot. The initial web and private economy
+configurations keep both flags off and register no Cron. Before enabling them,
+confirm Workers Paid, all five remote app migrations, D1 usage/cost and capacity
+monitoring, replacement of the current non-incremental active-Auction crawl with
+a reviewed incremental or compacted ingestion design, exactly one
+reviewed production trigger on `skypilot-economy`, and the first complete
+publication. Disabled or pre-first-publish routes return a safe unavailable
+response rather than crawling Hypixel or substituting fixtures.
 
 ## Optional AI
 
@@ -68,13 +110,23 @@ Request:
 - `context.source`: `none`, `demo`, or `player`; a player source accepts only a username and optional profile selector;
 - `context`: may also include a bounded budget, up to five goal categories, up to eight Bazaar product IDs, and one validated Farming/Garden/Pet/Minion/Dungeon/Slayer calculator scenario. The server resolves profile and market facts; client-supplied facts/prices are rejected.
 
-Requires `ENABLE_AI_ASSISTANT=true`, `OPENAI_API_KEY`, and an explicit request `Origin` exactly matching the API URL. When Sites auth is enabled, a verified identity is also required. The route resolves selected profile, progression/roadmap, non-stale Bazaar, and deterministic calculator context; it uses a 25-second timeout, `store: false`, strict structured output, and post-validation that rejects uncited/conflicting numeric claims. Its eight-request-per-minute limiter is in-memory per runtime and is not a distributed production abuse-control system.
+Requires `ENABLE_AI_ASSISTANT=true`, `OPENAI_API_KEY`, and an explicit request
+`Origin` exactly matching the API URL. When native account auth is enabled, a
+verified identity is also required. The route resolves selected profile,
+progression/roadmap, non-stale Bazaar, and deterministic calculator context; it
+uses a 25-second timeout, `store: false`, strict structured output, and
+post-validation that rejects uncited/conflicting numeric claims. Its limiter is
+in-memory per runtime and is not a distributed production abuse control.
 
 Successful responses include the validated answer, cited server evidence, assumptions, missing data, category, and a bounded context summary. Hour/day metric buckets persist aggregate counts, failures, tokens, configured cost estimates, latency, model, and category only—never prompts, answers, users, profiles, or IPs.
 
 ## Authenticated saved state
 
-Saved-state APIs require `ENABLE_CHATGPT_AUTH=true`, trusted Sites/ChatGPT identity, the D1 `DB` binding, and all four migrations. Reads and writes are private/no-store; every mutation also requires an explicit exact request Origin. Owner IDs are derived from authentication and cannot be supplied in request JSON.
+Saved-state APIs require `ENABLE_ACCOUNT_AUTH=true`, a cryptographically
+verified native identity, the D1 `DB` binding, and all five migrations. The
+initial deployment keeps them disabled because optional public sign-in/session
+behavior is unresolved. Reads/writes are private/no-store; mutations require an
+explicit exact Origin. Owner IDs come only from verified identity.
 
 ### `GET /api/saved-state`
 
@@ -82,9 +134,17 @@ Returns the signed-in owner's linked Minecraft accounts, saved profile links, sa
 
 ### `POST /api/saved-profiles`
 
-Accepts a bounded Minecraft username plus profile ID and optional alias/pinned/primary choices. In the normal server transport, the server performs the ordinary request-driven current lookup before linking. When `ENABLE_BROWSER_PLAYER_GATEWAY=true`, the request must instead include the chosen receipt returned with the live gateway analysis. Sites verifies its HMAC, ten-minute expiry, exact player selector, and profile ID, then persists only the receipt's signed UUID, canonical username, profile name, game mode, selected state, complete/partial state, and lookup timestamp under the authenticated owner.
+Accepts a bounded Minecraft username plus profile ID and optional
+alias/pinned/primary choices. Native mode performs the ordinary current
+KV/admission-backed lookup before linking. The legacy browser-gateway rollback
+mode instead requires its ten-minute signed receipt. Only bounded identity and
+profile-link metadata are persisted under the authenticated owner.
 
-The receipt is not account authentication, Minecraft ownership proof, or permission to access another owner's state. It is not owner-, actor-, or origin-bound and may be reused until expiry, so the route accepts it only with verified Sites identity and the ordinary exact-origin mutation check. Missing, expired, tampered, or mismatched receipts fail without a fallback lookup in browser-capability mode. Saving a link never schedules player refreshes.
+The legacy receipt is not account authentication, Minecraft ownership proof,
+or permission to access another owner's state. It may be reused until expiry,
+so the route accepts it only with verified identity and the exact-origin
+mutation check. Missing, expired, tampered, or mismatched receipts fail in that
+mode. Saving a link never schedules player refreshes.
 
 ### `PATCH|DELETE /api/saved-profiles/<profile-id>`
 
@@ -112,7 +172,9 @@ Return bounded public gallery entries or one non-private shared build, respectiv
 
 ## Authenticated goals
 
-Goal APIs require `ENABLE_CHATGPT_AUTH=true`, verified Sites/ChatGPT identity headers, an active D1 `DB` binding, applied migrations, and an explicit exact Origin for every mutation.
+Goal APIs require `ENABLE_ACCOUNT_AUTH=true`, verified native identity, an
+active D1 `DB` binding, applied migrations, and an explicit exact Origin for
+every mutation.
 
 ### `GET /api/goals?status=<active|paused|completed|archived>`
 
@@ -161,17 +223,25 @@ Permanently deletes the owner-scoped goal.
 
 ### `DELETE /api/account`
 
-Requires enabled trusted Sites/ChatGPT identity and an explicit exact request Origin. It deletes the canonical SkyPilot application user found by provider plus provider subject. Owned links, preferences, goals, recommendation state, builds, and favorites cascade; retained operational/audit records lose the canonical user reference. It does not delete the ChatGPT account or shared Minecraft/profile facts. An already-absent account returns a safe idempotent result.
+Requires enabled verified native identity and an explicit exact Origin. It
+deletes the canonical SkyPilot application user found by provider plus subject.
+Owned links, preferences, goals, recommendation state, builds, and favorites
+cascade; retained operational/audit records lose user attribution. It does not
+delete the external identity-provider account or shared Minecraft/profile
+facts. An already-absent account returns a safe idempotent result.
 
 ## Allowlisted administration
 
 ### `GET /api/admin/ai-metrics`
 
-Requires verified Sites/ChatGPT identity in `ADMIN_USER_IDS`. Returns private/no-store aggregate AI summaries for the last 24 hours and 30 days: request/failure counts, tokens, configured cost estimates, average/maximum latency, and categories. It never returns prompts, answers, player selectors, user IDs, or IPs.
+Requires a verified native identity in `ADMIN_USER_IDS`. Returns
+private/no-store aggregate AI summaries for the last 24 hours and 30 days. It
+never returns prompts, answers, player selectors, user IDs, or IPs.
 
 ### `POST /api/admin/actions`
 
-Requires a verified Sites/ChatGPT identity whose user ID appears in `ADMIN_USER_IDS`, plus an explicit exact request Origin.
+Requires a verified native identity whose subject appears in `ADMIN_USER_IDS`,
+plus an explicit exact request Origin.
 
 Allowed action payloads:
 
@@ -179,11 +249,13 @@ Allowed action payloads:
 { "action": "refresh-economy" }
 ```
 
-```json
-{ "action": "clear-economy-cache" }
-```
-
-`refresh-economy` asks the same D1-elected, lease-fenced worker cycle to refresh ended sales, Bazaar, and the complete active-Auction snapshot. Existing leases and global backoff remain authoritative. Cache invalidation clears only economy keys in the current runtime. No arbitrary job name, cache prefix, endpoint, or SQL is accepted.
+`refresh-economy` does not execute ingestion in the web Worker. It forwards one
+fixed `POST /internal/economy/refresh` request through the environment-matched
+`ECONOMY_SERVICE` binding to the private economy Worker. That Worker accepts no
+other public path and returns `economy_disabled` while its feature flag is off.
+When deliberately activated, the same D1 lease, fencing token, and durable
+backoff remain authoritative. No arbitrary job name, cache prefix, endpoint,
+URL, or SQL is accepted; targeted cache invalidation is not implemented.
 
 ## Caching and retries
 
@@ -192,4 +264,16 @@ Allowed action payloads:
 - Published Bazaar/active-Auction snapshots: five-minute freshness marker; product responses use a 30-second public cache.
 - Published ended-sale feed: three-minute freshness marker; retained sale rows are bounded by worker policy.
 
-Hosted player/Minecraft provider values use shared normalized Workers KV plus a per-isolate L0 cache; single-flight and Hypixel header backoff remain local to an isolate. Cloudflare's rate bindings are abuse/headroom guards, not an exact global Hypixel quota ledger. The public-economy worker lease, fencing token, backoff, feed markers, and snapshots are durable in D1. Clients must honor HTTP status and `Retry-After`; they must not retry tightly or supply additional keys.
+Native player/Minecraft provider values use environment-isolated Workers KV
+plus a bounded per-isolate L0 cache. Cross-request I/O Promise single-flight was
+removed; Hypixel header backoff remains local to an isolate. Cloudflare rate
+bindings are coarse per-location abuse filters: `PLAYER_ACTOR_LIMITER` protects
+the player routes, while `PLAYER_GLOBAL_LIMITER` runs only before an actual
+authenticated Hypixel transport. Mojang calls do not spend Hypixel quota. The
+`provider_request_budgets` reservation in the shared `PROVIDER_BUDGET_DB` is the
+globally consistent fixed-window guard for the shared Hypixel key; each admitted
+analysis reserves two tokens and fails closed if D1 admission is unavailable.
+Economy lease/fencing/backoff/feed state is durable in D1 and writable only by
+the private economy Worker when the feature is deliberately activated. Clients
+must honor HTTP status and `Retry-After`; they must not retry tightly or supply
+additional keys.

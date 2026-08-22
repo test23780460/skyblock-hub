@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { featureFlags } from "@/lib/config";
 import {
   type AiEconomyContextResult,
@@ -10,16 +10,16 @@ import {
   recordAiMetricAggregates,
 } from "@/lib/ai/metrics";
 import { OpenAiResponsesProvider } from "@/lib/providers/openai";
-import { getPlayerAnalysisWithNegativeCache } from "@/lib/providers/player-request-policy";
+import { getCloudflarePlayerAnalysis } from "@/worker/player-runtime";
 
 const limiter = new AiRequestLimiter();
 
 export const POST = createAiPostHandler({
   enabled: () => featureFlags.aiAssistant,
-  authRequired: () => featureFlags.chatGptAuth,
+  authRequired: () => featureFlags.accountAuth,
   authenticate: async () => {
-    const user = await getChatGPTUser();
-    return user ? { id: user.userId } : null;
+    const user = await getCurrentUser();
+    return user ? { id: user.providerSubject } : null;
   },
   apiKey: () => process.env.OPENAI_API_KEY || "",
   model: () => process.env.OPENAI_MODEL || "gpt-5.6-luna",
@@ -31,7 +31,8 @@ export const POST = createAiPostHandler({
   resolveContext: (selection) => resolveAiContext(selection, {
     playerLookupEnabled: featureFlags.playerLookup,
     economyEnabled: featureFlags.publicEconomy,
-    getPlayerAnalysis: getPlayerAnalysisWithNegativeCache,
+    getPlayerAnalysis: (player, profileId) =>
+      getCloudflarePlayerAnalysis(player, profileId),
     getEconomyProducts: loadEconomyProducts,
   }),
   complete: async ({ apiKey, model, ...input }) => {

@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { ensureCanonicalUser } from "@/lib/auth/canonical-user";
 import { featureUnavailableResponse } from "@/lib/feature-access";
 import { createDrizzleRepositoryProvider } from "@/lib/repositories/drizzle";
@@ -21,15 +21,15 @@ type SavedStateContextFailure = { ok: false; response: Response };
 export async function authenticatedSavedStateContext(
   createUser: boolean,
 ): Promise<SavedStateContext | SavedStateContextFailure> {
-  const unavailable = featureUnavailableResponse("chatGptAuth");
+  const unavailable = featureUnavailableResponse("accountAuth");
   if (unavailable) return { ok: false, response: withPrivateNoStore(unavailable) };
-  const identity = await getChatGPTUser();
+  const identity = await getCurrentUser();
   if (!identity) {
     return { ok: false, response: privateJson({
       error: { code: "authentication_required", message: "Sign in to manage saved SkyPilot data." },
     }, 401) };
   }
-  if (!identity.userId.trim() || identity.userId.length > 512) {
+  if (!identity.providerSubject.trim() || identity.providerSubject.length > 512) {
     return { ok: false, response: privateJson({
       error: { code: "invalid_identity", message: "The authenticated identity could not be validated." },
     }, 401) };
@@ -40,7 +40,7 @@ export async function authenticatedSavedStateContext(
     const repositories = createDrizzleRepositoryProvider(getDb());
     const user = createUser
       ? await ensureCanonicalUser(repositories, identity)
-      : await repositories.identity.findUserByExternalIdentity("chatgpt", identity.userId);
+      : await repositories.identity.findUserByExternalIdentity(identity.provider, identity.providerSubject);
     if (user && user.status !== "active") {
       return { ok: false, response: privateJson({
         error: { code: "account_unavailable", message: "This SkyPilot account cannot manage saved data." },
@@ -55,7 +55,7 @@ export async function authenticatedSavedStateContext(
 export async function publicSavedStateRepositories(): Promise<
   { ok: true; repositories: RepositoryProvider } | SavedStateContextFailure
 > {
-  const unavailable = featureUnavailableResponse("chatGptAuth");
+  const unavailable = featureUnavailableResponse("accountAuth");
   if (unavailable) return { ok: false, response: withPrivateNoStore(unavailable) };
   try {
     const { getDb } = await import("@/db");

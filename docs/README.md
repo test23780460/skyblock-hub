@@ -20,8 +20,10 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 
 ## Deploy and operate
 
-- [ChatGPT/Codex Sites deployment](deployment/chatgpt-sites.md)
-- [Private player gateway](deployment/player-gateway.md)
+- [Native Cloudflare setup](CLOUDFLARE_SETUP.md)
+- [Cloudflare migration audit and cutover](CLOUDFLARE_MIGRATION.md)
+- [ChatGPT/Codex Sites deployment (legacy rollback)](deployment/chatgpt-sites.md)
+- [Private player gateway (legacy rollback transport)](deployment/player-gateway.md)
 - [External hosting](deployment/external-hosting.md)
 - [Hosting migration](deployment/migration.md)
 - [Operations runbook](operations.md)

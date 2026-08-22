@@ -69,7 +69,7 @@ export function AccountExperience({
 
   return (
     <div className="page-shell account-page">
-      <header className="page-header"><div className="page-title"><small>OPTIONAL SKYPILOT ACCOUNT</small><h1>{user ? "Your SkyPilot account" : authEnabled ? "Save the plan, not the gate" : "Account sync is disabled"}</h1><p>{authEnabled ? "Public tools do not require an account. Sign in only when you want durable account data." : "This deployment has not enabled its platform authentication trust boundary. Public tools remain separate from account storage."}</p></div>{user ? <Link className="button-secondary" href={signOutHref}>Sign out</Link> : authEnabled ? <Link className="button-primary" href={signInHref}>Sign in with ChatGPT</Link> : <Link className="button-secondary" href="/status">View status</Link>}</header>
+      <header className="page-header"><div className="page-title"><small>OPTIONAL SKYPILOT ACCOUNT</small><h1>{user ? "Your SkyPilot account" : authEnabled ? "Save the plan, not the gate" : "Account sync is disabled"}</h1><p>{authEnabled ? "Public tools do not require an account. Sign in only when you want durable account data." : "This deployment has not enabled its platform authentication trust boundary. Public tools remain separate from account storage."}</p></div>{user ? <Link className="button-secondary" href={signOutHref}>Sign out</Link> : authEnabled ? <Link className="button-primary" href={signInHref}>Sign in securely</Link> : <Link className="button-secondary" href="/status">View status</Link>}</header>
 
       <section className="account-hero panel">
         <span className="account-avatar">{user?.displayName.slice(0, 1).toUpperCase() || "P"}</span>
@@ -87,13 +87,13 @@ export function AccountExperience({
         onActivated={() => setPersistenceState("active")}
       />
 
-      {user ? <section className="panel" aria-labelledby="delete-account-title"><div className="panel-header"><div><h2 id="delete-account-title">Delete SkyPilot account data</h2><small>Permanent application-data deletion</small></div><span className="unofficial-label">DOES NOT DELETE CHATGPT</span></div>
+      {user ? <section className="panel" aria-labelledby="delete-account-title"><div className="panel-header"><div><h2 id="delete-account-title">Delete SkyPilot account data</h2><small>Permanent application-data deletion</small></div><span className="unofficial-label">ACCESS SESSION UNAFFECTED</span></div>
         {persistenceState === "active" ? <><p>Deletion removes the canonical SkyPilot user and cascades through external identity links, preferences, roles, saved profile links, goals, recommendation state, saved builds, favorites, and linked analytics. Shared Minecraft and SkyBlock records are not account-owned and remain without your user link. Security and administrator records may remain with the user reference removed.</p><form onSubmit={deleteAccount}><label htmlFor="delete-account-confirmation">Type <strong>DELETE SKYPILOT</strong> to confirm</label><input className="control" id="delete-account-confirmation" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" spellCheck={false} /><div className="toolbar"><button className="button-primary" type="submit" disabled={deleting || confirmation !== "DELETE SKYPILOT"}>{deleting ? "Deleting…" : "Delete my SkyPilot data"}</button><span>This cannot be undone.</span></div></form></> : persistenceState === "unavailable" ? <div className="notice" role="alert"><strong>!</strong><span>Persistence is unavailable, so SkyPilot cannot verify or delete account data. No successful deletion is being claimed.</span></div> : <div className="notice"><strong>✓</strong><span>No canonical SkyPilot account data currently exists. Using a saved feature later may create a new SkyPilot application account.</span></div>}
         {error ? <div className="notice" role="alert"><strong>!</strong><span>{error}</span></div> : null}
         {message ? <div className="notice" role="status"><strong>✓</strong><span>{message} You may sign out separately; the platform session remains active.</span></div> : null}
       </section> : null}
 
-      <div className="notice privacy-notice"><strong>PRIVACY</strong><span>SkyPilot uses an internal canonical application user ID. Deleting it does not delete your ChatGPT account or shared public game-data records.</span></div>
+      <div className="notice privacy-notice"><strong>PRIVACY</strong><span>SkyPilot uses an internal canonical application user ID. Deleting it does not delete your Cloudflare Access identity or shared public game-data records.</span></div>
     </div>
   );
 }

@@ -24,7 +24,14 @@ Review generated SQL for:
 - defaults that work in D1 SQLite;
 - data backfills required before a new `NOT NULL` constraint.
 
-`db:smoke` applies every versioned SQL file transactionally to isolated in-memory SQLite, compares the resulting table set with the latest Drizzle snapshot, runs `PRAGMA foreign_key_check`, and requires the durable economy tables. The current four-migration chain creates 36 tables with zero foreign-key findings.
+`db:smoke` applies every versioned SQL file transactionally to isolated
+in-memory SQLite, compares the resulting table set with the latest Drizzle
+snapshot, runs `PRAGMA foreign_key_check`, and requires the durable economy and
+portable provider-budget table shape. The current five-migration app chain
+creates 37 tables with zero foreign-key findings when the gate passes. Native
+credential admission uses a separate shared `PROVIDER_BUDGET_DB`; its one
+additive migration lives in `drizzle-provider-budget/` and must be applied
+independently.
 
 Apply migrations to an isolated local/test database before production. Verify a clean database can apply the full chain, and verify an exported production-shaped fixture can upgrade without data loss. The current smoke is a clean-database check; it is not a production-shaped upgrade, backup, or restore drill.
 
