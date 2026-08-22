@@ -11,7 +11,9 @@ evidence, and externally activated production behavior are different things.
   a recorded staging web deployment and narrow API/service/route/homepage smoke.
   Both favicon paths are live, all 28 current navigation destinations return 200
   to direct HTTP smoke, and exact desktop/mobile homepage checks have no
-  horizontal overflow or console/page errors. Production resources/deployment,
+  horizontal overflow or console/page errors. The private production economy
+  Worker is deployed from commit `4cf0a9708efc` as version prefix `01057fa0`,
+  with economy off, no public target, and no Cron. Production web deployment,
   Builds connections, domain work, and release smoke remain operator work.
 - Commit `3b4064d` at the owner-only Sites URL is historical rollback evidence,
   not the current preferred runtime or exact-head native verification.

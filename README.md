@@ -16,7 +16,7 @@ older owner-only Sites deployment remains a historical rollback target; it is
 not the preferred runtime or evidence of a public launch. Exact commit
 `75659fb2f3d6` is deployed to the staging web Worker as version prefix
 `ef2f930b` at
-`https://skypilot-staging.ptravis022.workers.dev`; production deployment,
+`https://skypilot-staging.ptravis022.workers.dev`; production web deployment,
 domain cutover, and public access are not claimed.
 
 That exact staging version serves both `/favicon.ico` and `/favicon.svg`; the
@@ -27,6 +27,11 @@ link, found no horizontal overflow (`innerWidth == scrollWidth`), and reported
 zero console or page errors. This is narrow route/homepage evidence, not full
 interactive route E2E, an accessibility audit, broad visual/performance/load
 QA, or any production/public-launch evidence.
+
+The private production economy Worker was deployed from commit `4cf0a9708efc`
+as version prefix `01057fa0`. Its deployment record is present, but
+`ENABLE_PUBLIC_ECONOMY=false`, it has no public target, and no Cron is
+registered. This is safe service readiness, not a live Bazaar publication.
 
 Implemented today:
 

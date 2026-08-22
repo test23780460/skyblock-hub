@@ -433,10 +433,15 @@ returned 200, found the configured title and favicon link, confirmed
 `innerWidth == scrollWidth`, and reported zero console/page errors.
 
 This evidence does not complete the sequence below: successful live player
-data, final identity agreement, valid credential, production deploy/public
+data, final identity agreement, valid credential, production web deploy/public
 launch, domain, full interactive route E2E, accessibility, broad visual/
 performance/load or multi-region behavior, remaining remote database roles,
 backups, and GitHub Workers Builds remain unverified.
+
+The private production economy Worker is separately deployed from commit
+`4cf0a9708efc` as version prefix `01057fa0`. It remains private and inert:
+`ENABLE_PUBLIC_ECONOMY=false`, no public target, and no Cron. The production
+web Worker and its `ECONOMY_SERVICE` smoke are still pending.
 
 Run this sequence against staging first, then production:
 

@@ -70,6 +70,10 @@ The current evidence must be read narrowly:
   navigation destinations. Exact Playwright homepage checks at 1440x1000 and
   390x844 returned 200, found the configured title and favicon link, observed
   `innerWidth == scrollWidth`, and reported zero console and page errors;
+- private production economy commit `4cf0a9708efc` is deployed as version
+  prefix `01057fa0`; the deployment record is present, but economy is off and
+  the Worker has no public target or Cron. Production web-to-service smoke is
+  still pending;
 - focused tests prove official transport/access fallback,
   official-not-found short-circuiting, bounded PlayerDB
   schema/username/UUID validation, final Hypixel UUID/display-name matching, no
@@ -99,8 +103,7 @@ permissions. It also lacks documented passing evidence for:
 - automated accessibility and visual-regression testing;
 - staging and provider-budget remote migration evidence plus production/staging
   backup/restore drills;
-- production web/private-economy deployment and versioned service-binding smoke,
-  plus a recorded staging private-economy Worker version;
+- production web deployment and versioned production service-binding smoke;
 - GitHub Workers Builds runs for the connected web and private-economy Workers;
 - optional-account identity/session behavior;
 - multi-region cache/coarse-filter behavior, D1 provider-budget monitoring, and

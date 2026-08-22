@@ -12,14 +12,14 @@ pair passes every cutover gate.
 
 This is an implementation and evidence audit, not proof of a production or
 public deployment. It records one narrow staging web deployment/API smoke, but
-does not confirm account plan, production resources, a valid provider secret,
+does not confirm account plan, production web deployment, a valid provider secret,
 remaining remote database roles or backups, GitHub App installation, Access policy, DNS, production
 logs, or Hypixel approval.
 
 | Migration boundary | Audit status |
 | --- | --- |
-| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; application commit `75659fb2f3d6` is deployed as staging web version prefix `ef2f930b`, while production deployment remains unverified |
-| Private economy Workers | `skypilot-economy` and `skypilot-economy-staging` are separately configured with matching D1, `workers_dev=false`, preview URLs off, economy disabled, and no Cron; staging service-binding smoke passes, while its exact private-Worker version and production deployment remain unrecorded |
+| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; application commit `75659fb2f3d6` is deployed as staging web version prefix `ef2f930b`, while production web deployment remains unverified |
+| Private economy Workers | `skypilot-economy` and `skypilot-economy-staging` are separately configured with matching D1, `workers_dev=false`, preview URLs off, economy disabled, and no Cron. Staging version prefix `9b55a66e` passes service-binding smoke. Production commit `4cf0a9708efc` is deployed as version prefix `01057fa0` with no public target; production web-to-service smoke remains pending. |
 | Sites rollback | Retained in source, but native build scripts exclude `dist/.openai` |
 | Production/staging resource isolation | App D1/KV/rate IDs are distinct; one dedicated provider-budget D1 is deliberately shared because both environments use one Hypixel key. Remote ownership and actual account bindings still require operator verification. |
 | Public economy runtime | Implemented only in the private Worker but disabled with no Cron because the active-Auction crawl is non-incremental; production application D1 is fully migrated, while remaining database-role/backup verification, Workers Paid, capacity evidence, an incremental/compacted replacement, a reviewed single-Cron activation, first publication, and usage monitoring are external gates |
