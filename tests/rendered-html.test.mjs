@@ -18,15 +18,32 @@ async function fetchRoute(path) {
   );
 }
 
+test("production Worker routes Cloudflare-fronted providers through public fetch", async () => {
+  const config = JSON.parse(
+    await readFile(new URL("../dist/server/wrangler.json", import.meta.url), "utf8"),
+  );
+  assert.ok(config.compatibility_flags.includes("nodejs_compat"));
+  assert.ok(config.compatibility_flags.includes("global_fetch_strictly_public"));
+});
+
 test("server-renders the finished SkyPilot homepage", async () => {
   const response = await fetchRoute("/");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /<title>SkyPilot — Know Your Next SkyBlock Move<\/title>/i);
+  assert.match(html, /<link[^>]+rel="(?:shortcut )?icon"[^>]+href="\/favicon\.svg"/i);
+  await access(new URL("../public/favicon.svg", import.meta.url));
+  await access(new URL("../public/favicon.ico", import.meta.url));
   assert.match(html, /Stop guessing/);
   assert.match(html, /Know your next move/);
-  assert.match(html, /Enter Minecraft username/);
+  assert.match(html, /(?:Enter username or UUID|Open calculator lab)/);
+  if (/Enter username or UUID/.test(html)) {
+    assert.match(html, /Minecraft username or Java UUID/);
+    assert.match(html, /maxlength="36"/i);
+  } else {
+    assert.match(html, /Live player lookup is currently disabled/i);
+  }
   assert.match(html, /No account required/);
   assert.match(html, /PRODUCT PREVIEW/);
   assert.match(html, /not affiliated with or endorsed by Hypixel/i);
@@ -45,6 +62,137 @@ test("renders major navigation and profile loading states", async () => {
   assert.match(await dashboard.text(), /Building your flight plan/i);
   assert.equal(bazaar.status, 200);
   assert.match(await bazaar.text(), /Bazaar explorer/i);
+});
+
+test("safe-default navigation hides unavailable integrations and operations", async () => {
+  const [home, more] = await Promise.all([fetchRoute("/"), fetchRoute("/more")]);
+  for (const response of [home, more]) assert.equal(response.status, 200);
+  const homeHtml = await home.text();
+  const moreHtml = await more.text();
+
+  assert.doesNotMatch(homeHtml, /href="\/ai(?:[?"#])/i);
+  assert.doesNotMatch(homeHtml, /href="\/(?:bazaar|auctions|admin|account)(?:[?"#])/i);
+  assert.match(homeHtml, /Transparent calculators/i);
+  assert.match(homeHtml, /Economy planning labs/i);
+  assert.match(homeHtml, /href="\/terms"/i);
+
+  assert.doesNotMatch(moreHtml, />AI Assistant</i);
+  assert.doesNotMatch(moreHtml, />Admin</i);
+  assert.doesNotMatch(moreHtml, />Bazaar</i);
+  assert.doesNotMatch(moreHtml, />Auctions</i);
+  assert.match(moreHtml, /Money Making/i);
+  assert.match(moreHtml, /Calculators/i);
+});
+
+test("player entry points accept a bounded username or Java UUID", async () => {
+  const [home, dashboard, moneyMaking] = await Promise.all([
+    fetchRoute("/"),
+    fetchRoute("/dashboard"),
+    fetchRoute("/money-making"),
+  ]);
+  const entryPoints = [dashboard, moneyMaking];
+  const homeHtml = await home.text();
+  assert.equal(home.status, 200);
+  if (/Minecraft username or Java UUID/i.test(homeHtml)) entryPoints.push(new Response(homeHtml));
+  else assert.match(homeHtml, /Live player lookup is currently disabled/i);
+  for (const response of entryPoints) {
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Minecraft username or Java UUID/i);
+    assert.match(html, /maxlength="36"/i);
+    assert.match(html, /\[0-9A-Fa-f\]\{32\}/);
+    assert.match(html, /\[0-9A-Fa-f\]\{8\}-\[0-9A-Fa-f\]\{4\}/);
+  }
+});
+
+test("calculator lab server-renders six deterministic tools", async () => {
+  const response = await fetchRoute("/calculators");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Six working, deterministic planners/i);
+  assert.match(html, /Farming XP target/i);
+  assert.match(html, /SkyBlock calculators/i);
+  assert.match(html, /Calculated locally/i);
+});
+
+test("accessory page renders the family-aware optimizer", async () => {
+  const response = await fetchRoute("/accessories");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Accessory optimizer/i);
+  assert.match(html, /Editable reference catalog/i);
+  assert.match(html, /Exact budget plan/i);
+  assert.match(html, /not live quotes/i);
+});
+
+test("garden page renders the crop-specific Fortune optimizer", async () => {
+  const response = await fetchRoute("/garden");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Garden optimizer/i);
+  assert.match(html, /Fortune breakdown/i);
+  assert.match(html, /Coins per Fortune/i);
+  assert.match(html, /not live data/i);
+});
+
+test("money-making page renders the personalized deterministic ranker", async () => {
+  const response = await fetchRoute("/money-making");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Money-making flight plan/i);
+  assert.match(html, /Editable method scenarios/i);
+  assert.match(html, /Deterministic ranking/i);
+  assert.match(html, /not live quotes or guarantees/i);
+  assert.match(html, /Username or UUID/i);
+});
+
+test("economy overview renders working craft and NPC comparison labs", async () => {
+  const response = await fetchRoute("/economy");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Economy command center/i);
+  assert.match(html, /Craft flip evaluator/i);
+  assert.match(html, /NPC.*Bazaar comparison/i);
+  assert.match(html, /editable example assumption/i);
+});
+
+test("skills page renders all seven core level-to-time planners", async () => {
+  const response = await fetchRoute("/skills");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Core skill flight plan/i);
+  assert.match(html, /Core skill target summaries/i);
+  assert.match(html, /Target total XP/i);
+  for (const skill of ["Farming", "Mining", "Foraging", "Fishing", "Combat", "Enchanting", "Alchemy"]) {
+    assert.match(html, new RegExp(skill, "i"));
+  }
+});
+
+test("AI page renders selector-only grounding and deterministic authority rules", async () => {
+  const response = await fetchRoute("/ai?demo=1");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /SkyPilot resolves facts on the server and rejects model output that conflicts with them/i);
+  assert.match(html, /Grounding context/i);
+  assert.match(html, /Accepts selectors, never client-supplied player facts or prices/i);
+  assert.match(html, /Stores aggregate usage metrics, never prompts or answers/i);
+});
+
+test("Dungeon, Slayer, and minion destinations open their working focused planners", async () => {
+  const [dungeons, slayers, minions] = await Promise.all([
+    fetchRoute("/dungeons"),
+    fetchRoute("/slayers"),
+    fetchRoute("/minions"),
+  ]);
+  const dungeonHtml = await dungeons.text();
+  assert.match(dungeonHtml, /Dungeon run planner/i);
+  assert.match(dungeonHtml, /Floor readiness check/i);
+  assert.match(dungeonHtml, /UNOFFICIAL SCORE/i);
+  assert.match(await slayers.text(), /Slayer roadmap/i);
+  const minionHtml = await minions.text();
+  assert.match(minionHtml, /Minion production planner/i);
+  assert.match(minionHtml, /Cheapest route to the next minion slot/i);
+  assert.match(minionHtml, /Exact plan/i);
 });
 
 test("every public product destination server-renders", async () => {
@@ -106,13 +254,26 @@ test("safe-default player lookup gate fails clearly without demo fallback", asyn
   assert.doesNotMatch(JSON.stringify(payload), /PilotExample|demo-watermelon/);
 });
 
+test("disabled persistence and economy APIs fail clearly without loading Cloudflare bindings", async () => {
+  const [goals, economy] = await Promise.all([
+    fetchRoute("/api/goals"),
+    fetchRoute("/api/economy/bazaar"),
+  ]);
+  assert.equal(goals.status, 503);
+  assert.equal((await goals.json()).error.code, "feature_disabled");
+  assert.equal(economy.status, 503);
+  assert.equal((await economy.json()).error.code, "feature_disabled");
+});
+
 test("health remains a successful liveness check with integrations disabled", async () => {
   const response = await fetchRoute("/api/health");
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.data.status, "ok");
-  assert.equal(payload.data.dependencies.hypixelAuthenticated.status, "disabled");
-  assert.equal(payload.data.dependencies.hypixelPublicEconomy.status, "disabled");
+  assert.equal(payload.data.dependencies.playerAnalysis.status, "disabled");
+  assert.equal(payload.data.dependencies.publicEconomy.status, "disabled");
+  assert.equal(payload.data.dependencies.database.configured, false);
+  assert.doesNotMatch(JSON.stringify(payload), /HYPIXEL_API_KEY|PLAYER_CACHE|PLAYER_ACTOR_LIMITER/);
 });
 
 test("robots and sitemap metadata routes render", async () => {

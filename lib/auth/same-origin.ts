@@ -1,20 +1,19 @@
 /**
- * Browser mutation guard. Cloudflare/Sites exposes the public URL as
+ * Browser mutation guard. Cloudflare exposes the public URL as
  * Request.url, so comparing URL origins avoids trusting forwarded host headers.
- * Requests without browser provenance remain available to first-party server
- * callers, while an explicit cross-origin signal is rejected.
+ * These account-affecting and spend-capable endpoints are browser-only, so an
+ * explicit Origin is required and must exactly match the public request URL.
  */
 export function sameOriginMutationFailure(request: Request): Response | null {
   const origin = request.headers.get("origin");
   const fetchSite = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
 
-  if (origin) {
-    try {
-      if (new URL(origin).origin !== new URL(request.url).origin) return forbidden();
-    } catch {
-      return forbidden();
-    }
-  } else if (fetchSite === "cross-site") {
+  if (!origin || fetchSite === "cross-site") return forbidden();
+  try {
+    const parsedOrigin = new URL(origin);
+    const requestOrigin = new URL(request.url).origin;
+    if (origin !== parsedOrigin.origin || origin !== requestOrigin) return forbidden();
+  } catch {
     return forbidden();
   }
 

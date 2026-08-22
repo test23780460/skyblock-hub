@@ -6,6 +6,12 @@ export type JsonObject = Record<string, unknown>;
 // Minecraft Services remains the authority on whether the account exists.
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{1,16}$/;
 const UUID_PATTERN = /^[0-9a-f]{32}$/;
+const UUID_INPUT_PATTERN =
+  /^(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+export type MinecraftPlayerInput =
+  | { kind: "username"; username: string }
+  | { kind: "uuid"; uuid: string };
 
 export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,6 +62,25 @@ export function normalizeMinecraftUsername(value: string): string {
   return username;
 }
 
+export function normalizeMinecraftPlayerInput(
+  value: string,
+): MinecraftPlayerInput {
+  const player = value.trim();
+  if (UUID_INPUT_PATTERN.test(player)) {
+    return { kind: "uuid", uuid: normalizeUuid(player) };
+  }
+  if (player.length <= 16) {
+    return { kind: "username", username: normalizeMinecraftUsername(player) };
+  }
+  throw new ProviderError({
+    code: "invalid_input",
+    message: "Enter a valid Minecraft username or Java UUID.",
+    status: 400,
+    action:
+      "Use a 1-16 character username or a 32-character UUID, with or without dashes.",
+  });
+}
+
 export function normalizeUuid(value: string): string {
   const uuid = value.trim().replaceAll("-", "").toLowerCase();
   if (!UUID_PATTERN.test(uuid)) {
@@ -63,7 +88,7 @@ export function normalizeUuid(value: string): string {
       code: "invalid_uuid",
       message: "The player identifier is invalid.",
       status: 400,
-      action: "Search again with a valid Minecraft username.",
+      action: "Search again with a valid Minecraft username or Java UUID.",
     });
   }
   return uuid;

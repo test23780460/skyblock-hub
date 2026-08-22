@@ -38,6 +38,10 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: siteConfig.description,
     applicationName: siteConfig.name,
+    icons: {
+      icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+      shortcut: "/favicon.svg",
+    },
     keywords: ["Hypixel SkyBlock", "SkyBlock profile", "SkyBlock progression", "Bazaar", "Magical Power"],
     alternates: { canonical: origin },
     openGraph: {

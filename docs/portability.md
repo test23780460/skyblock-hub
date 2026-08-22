@@ -1,51 +1,67 @@
-# Hosting and Data Portability
+# Hosting and data portability
 
-SkyPilot’s deterministic engines, upstream-provider logic, repository contracts, and scheduler-independent job functions are portable by design. The current web executable is still Cloudflare/Sites-oriented.
+SkyPilot's deterministic engines, provider normalization, repository
+contracts, and scheduler-independent jobs are portable by design. The prepared
+native web/private-economy executables are Cloudflare Workers-specific, while the older Sites bundle
+is retained only as rollback history.
 
 ## Portable today
 
-- TypeScript progression, recommendation, accessory, economy, valuation, net-worth, and calculator engines;
-- normalized Minecraft/Hypixel provider interfaces and safe response models;
-- provider-neutral persistence contracts;
-- application-generated IDs and normalized schema design;
-- scheduler-independent Bazaar/Auction job functions and sink interface;
-- Docker web image and standard npm validation commands.
+- deterministic progression, recommendation, accessory, economy, valuation,
+  net-worth, and calculator engines;
+- normalized Minecraft/Hypixel provider interfaces and bounded response models;
+- provider-neutral persistence contracts and application-generated IDs;
+- scheduler-independent economy feed jobs, lease/snapshot interfaces, and
+  orchestration;
+- React/vinext source, Docker web image, and standard npm validation commands.
 
-## Provider-specific today
+## Cloudflare-specific composition today
 
-- vinext Cloudflare Worker entry and image service;
-- `.openai/hosting.json` binding conventions;
-- D1 Drizzle connection and SQLite migration;
-- Sites dispatch identity headers and reserved auth routes;
-- in-memory cache/rate/AI throttling bound to each runtime;
-- Vite Cloudflare plugin/local binding setup.
+- `worker/index.ts`, vinext, the Cloudflare Vite plugin, and Workers Static
+  Assets, plus private `worker/economy.ts`;
+- D1/Drizzle connection and SQLite migrations;
+- Workers KV plus coarse route/authenticated-call Cloudflare rate-limit bindings
+  and the dedicated shared `PROVIDER_BUDGET_DB` for request-driven player
+  cache/admission; Mojang traffic does not consume the Hypixel budget;
+- the disabled Cloudflare Access JWT adapter;
+- the `ECONOMY_SERVICE` binding between environment-matched web/private Workers;
+- Wrangler environments, generated web/economy Worker types, and Workers Builds scripts.
 
-## Required external adapters
+There is no native Images, R2, queue, or Durable Object dependency. The
+`.openai/hosting.json`, Sites identity headers, browser capability, and separate
+gateway remain legacy rollback mechanisms, not native runtime dependencies.
 
-An external deployment needs:
+## Required adapters for another host
 
-1. a compatible web/server runtime entry and image strategy;
+An external production deployment still needs:
+
+1. a compatible web/server entry and static-asset strategy;
 2. verified authentication mapped to canonical SkyPilot users;
-3. a PostgreSQL or other repository adapter plus migrations/export-import tooling;
-4. distributed cache, single-flight, rate-budget, queue, and scheduler providers for multi-replica use;
-5. a durable economy sink and worker deployment;
-6. secret, analytics, logging/error, backup, and storage providers;
-7. deployment-specific CSRF/origin, cookie, proxy-header, and abuse controls.
+3. a PostgreSQL or other repository adapter plus migration/export/import tools;
+4. distributed cache and upstream-admission/rate-budget providers for multiple
+   replicas;
+5. a durable economy snapshot/lease implementation plus a scheduler;
+6. deployment-specific secret management, logs/metrics/errors, backups,
+   retention, and alerting;
+7. secure cookie, CSRF/origin, trusted-proxy, and administrator controls.
 
-`DATABASE_URL` and `REDIS_URL` are reserved placeholders, not evidence that these adapters exist.
+`DATABASE_URL` and `REDIS_URL` are placeholders only; setting them does not
+create those adapters. A host does not need object storage or an image service
+unless a future feature introduces that requirement.
 
 ## Portability acceptance test
 
-The product is not fully portable until a second host can:
+The product is not fully second-host portable until that host can:
 
 - build and serve public and authenticated routes;
-- resolve auth identities to the same canonical users;
+- resolve identities to the same canonical users without silently merging by
+  email;
 - apply a clean schema and import representative D1 data;
-- run web and worker processes independently;
-- share cache/rate/job state across replicas;
-- pass lint, typecheck, all tests, migration checks, and critical E2E flows;
-- preserve profile request-driven policy and economy separation;
-- remove Sites/D1 configuration without changing SkyBlock domain logic.
+- run web and economy processes independently;
+- coordinate cache/admission/job state across replicas;
+- pass lint, typecheck, all tests, migration checks, and critical browser flows;
+- preserve request-driven player lookup and separate public-economy ingestion;
+- remove Cloudflare/Sites/D1 composition without changing SkyBlock domain logic.
 
-See [External hosting](deployment/external-hosting.md), [migration](deployment/migration.md), and [database portability](database/portability.md).
-
+See [External hosting](deployment/external-hosting.md), [migration](deployment/migration.md),
+and [database portability](database/portability.md).

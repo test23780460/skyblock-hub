@@ -20,7 +20,10 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 
 ## Deploy and operate
 
-- [ChatGPT/Codex Sites deployment](deployment/chatgpt-sites.md)
+- [Native Cloudflare setup](CLOUDFLARE_SETUP.md)
+- [Cloudflare migration audit and cutover](CLOUDFLARE_MIGRATION.md)
+- [ChatGPT/Codex Sites deployment (legacy rollback)](deployment/chatgpt-sites.md)
+- [Private player gateway (legacy rollback transport)](deployment/player-gateway.md)
 - [External hosting](deployment/external-hosting.md)
 - [Hosting migration](deployment/migration.md)
 - [Operations runbook](operations.md)
@@ -30,8 +33,11 @@ SkyPilot is a pre-release, independent Hypixel SkyBlock companion. These documen
 
 - [Hypixel API policy](policies/hypixel-api.md)
 - [Known limitations](limitations.md)
+- [149-section completion audit](completion-audit.md)
 - [Implementation checklist](../TODO.md)
 - [Full product specification](../PROJECT_SPEC.md)
 
-The current build task has not activated production credentials, a production database, a scheduler, a domain, or a public deployment.
-
+The production application D1 has all five migrations applied and verified, but
+this does not activate production traffic. Production credentials, remaining
+database roles and backup/restore, a scheduler, a domain, and a public
+deployment are not activated.

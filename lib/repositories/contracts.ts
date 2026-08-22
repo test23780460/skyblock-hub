@@ -27,6 +27,7 @@ export interface ExternalIdentityInput {
 export interface IdentityRepository {
   getUser(userId: string): Promise<CanonicalUser | null>;
   findUserByExternalIdentity(provider: string, providerSubject: string): Promise<CanonicalUser | null>;
+  deleteUserByExternalIdentity(provider: string, providerSubject: string): Promise<boolean>;
   createUser(input: CreateUserInput): Promise<CanonicalUser>;
   upsertExternalIdentity(input: ExternalIdentityInput): Promise<void>;
   setPreference(
@@ -37,6 +38,7 @@ export interface IdentityRepository {
     value: JsonRecord,
   ): Promise<void>;
   getPreferences(userId: string, namespace: string): Promise<Record<string, JsonRecord>>;
+  deletePreference(userId: string, namespace: string, key: string): Promise<boolean>;
 }
 
 export interface MinecraftAccountRecord {
@@ -94,6 +96,23 @@ export interface SavedProfileRecord {
   lastViewedAt: Date | null;
 }
 
+export interface LinkedMinecraftAccountRecord extends MinecraftAccountRecord {
+  label: string | null;
+  isPrimary: boolean;
+  linkedAt: Date;
+}
+
+export interface SavedProfileDetailRecord extends SavedProfileRecord {
+  minecraftAccountId: string;
+  minecraftUuid: string;
+  lastKnownUsername: string;
+  profileName: string | null;
+  cuteName: string | null;
+  gameMode: string | null;
+  dataState: SkyblockProfileRecord["dataState"];
+  lastSuccessfulFetchAt: Date | null;
+}
+
 export interface ProfileRepository {
   findMinecraftAccountByUuid(minecraftUuid: string): Promise<MinecraftAccountRecord | null>;
   upsertMinecraftAccount(input: UpsertMinecraftAccountInput): Promise<MinecraftAccountRecord>;
@@ -110,6 +129,16 @@ export interface ProfileRepository {
     options?: { alias?: string | null; isPinned?: boolean },
   ): Promise<void>;
   listSavedProfiles(userId: string): Promise<SavedProfileRecord[]>;
+  getSavedProfile(userId: string, profileId: string): Promise<SavedProfileDetailRecord | null>;
+  listSavedProfileDetails(userId: string, limit?: number): Promise<SavedProfileDetailRecord[]>;
+  deleteSavedProfile(userId: string, profileId: string): Promise<boolean>;
+  listLinkedMinecraftAccounts(userId: string, limit?: number): Promise<LinkedMinecraftAccountRecord[]>;
+  updateLinkedMinecraftAccount(
+    userId: string,
+    minecraftAccountId: string,
+    input: { label?: string | null; isPrimary?: boolean },
+  ): Promise<LinkedMinecraftAccountRecord | null>;
+  unlinkMinecraftAccount(userId: string, minecraftAccountId: string): Promise<boolean>;
 }
 
 export type GoalStatus = "active" | "paused" | "completed" | "archived";
@@ -152,6 +181,15 @@ export interface CreateGoalStepInput {
   estimate?: JsonRecord | null;
 }
 
+export interface UpdateGoalInput {
+  title: string;
+  goalType: string;
+  status: GoalStatus;
+  progressPercent: number;
+  target: JsonRecord;
+  completedAt: Date | null;
+}
+
 export interface RecommendationStateInput {
   id: string;
   userId: string;
@@ -167,15 +205,10 @@ export interface RecommendationStateInput {
 
 export interface GoalRepository {
   createGoal(input: CreateGoalInput): Promise<GoalRecord>;
-  addStep(input: CreateGoalStepInput): Promise<void>;
-  listGoals(userId: string, status?: GoalStatus): Promise<GoalRecord[]>;
-  updateGoalProgress(
-    goalId: string,
-    progressPercent: number,
-    status: GoalStatus,
-    completedAt?: Date | null,
-  ): Promise<void>;
-  updateStepStatus(stepId: string, status: GoalStepStatus, completedAt?: Date | null): Promise<void>;
+  getGoal(userId: string, goalId: string): Promise<GoalRecord | null>;
+  listGoals(userId: string, status?: GoalStatus, limit?: number): Promise<GoalRecord[]>;
+  updateGoal(userId: string, goalId: string, input: UpdateGoalInput): Promise<GoalRecord | null>;
+  deleteGoal(userId: string, goalId: string): Promise<boolean>;
   upsertRecommendationState(input: RecommendationStateInput): Promise<void>;
 }
 
@@ -192,6 +225,32 @@ export interface SavedBuildInput {
   build: JsonRecord;
 }
 
+export interface SavedBuildRecord {
+  id: string;
+  userId: string;
+  profileId: string | null;
+  title: string;
+  description: string | null;
+  visibility: "private" | "unlisted" | "public";
+  shareSlug: string | null;
+  schemaVersion: number;
+  isExperimental: boolean;
+  build: JsonRecord;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SavedBuildUpdateInput {
+  profileId?: string | null;
+  title: string;
+  description?: string | null;
+  visibility: SavedBuildRecord["visibility"];
+  shareSlug?: string | null;
+  schemaVersion?: number;
+  isExperimental?: boolean;
+  build: JsonRecord;
+}
+
 export interface FavoriteInput {
   id: string;
   userId: string;
@@ -200,10 +259,30 @@ export interface FavoriteInput {
   label?: string | null;
 }
 
+export interface FavoriteRecord {
+  id: string;
+  userId: string;
+  resourceType: string;
+  resourceId: string;
+  label: string | null;
+  createdAt: Date;
+}
+
 export interface UserContentRepository {
-  saveBuild(input: SavedBuildInput): Promise<void>;
-  addFavorite(input: FavoriteInput): Promise<void>;
-  removeFavorite(userId: string, resourceType: string, resourceId: string): Promise<void>;
+  createBuild(input: SavedBuildInput): Promise<SavedBuildRecord>;
+  getBuild(userId: string, buildId: string): Promise<SavedBuildRecord | null>;
+  listBuilds(userId: string, limit?: number): Promise<SavedBuildRecord[]>;
+  updateBuild(
+    userId: string,
+    buildId: string,
+    input: SavedBuildUpdateInput,
+  ): Promise<SavedBuildRecord | null>;
+  deleteBuild(userId: string, buildId: string): Promise<boolean>;
+  findSharedBuild(shareSlug: string): Promise<SavedBuildRecord | null>;
+  listPublicBuilds(limit?: number): Promise<SavedBuildRecord[]>;
+  addFavorite(input: FavoriteInput): Promise<FavoriteRecord>;
+  listFavorites(userId: string, limit?: number): Promise<FavoriteRecord[]>;
+  removeFavorite(userId: string, resourceType: string, resourceId: string): Promise<boolean>;
 }
 
 export interface ItemInput {
@@ -475,6 +554,24 @@ export interface TelemetryRepository {
     latencyTotalMs?: number;
     latencyMaxMs?: number;
   }): Promise<void>;
+  getAiMetricSummary(input: {
+    provider: string;
+    resolution: "hour" | "day";
+    since: Date;
+  }): Promise<{
+    requestCount: number;
+    failureCount: number;
+    inputTokens: number;
+    outputTokens: number;
+    estimatedCostUsd: number;
+    latencyTotalMs: number;
+    latencyMaxMs: number;
+    categories: Array<{
+      category: string;
+      requestCount: number;
+      failureCount: number;
+    }>;
+  }>;
   recordError(input: {
     id: string;
     fingerprint: string;

@@ -1,14 +1,13 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { goalSteps, goals, recommendationStates } from "@/db/schema";
+import { goals, recommendationStates } from "@/db/schema";
 import type {
   CreateGoalInput,
-  CreateGoalStepInput,
   GoalRecord,
   GoalRepository,
   GoalStatus,
-  GoalStepStatus,
   RecommendationStateInput,
+  UpdateGoalInput,
 } from "../contracts";
 
 export class DrizzleGoalRepository implements GoalRepository {
@@ -35,46 +34,54 @@ export class DrizzleGoalRepository implements GoalRepository {
     return goal;
   }
 
-  async addStep(input: CreateGoalStepInput): Promise<void> {
-    await this.db.insert(goalSteps).values({
-      id: input.id,
-      goalId: input.goalId,
-      position: input.position,
-      title: input.title,
-      description: input.description ?? null,
-      estimate: input.estimate ?? null,
-    });
+  async getGoal(userId: string, goalId: string): Promise<GoalRecord | null> {
+    const [goal] = await this.db
+      .select()
+      .from(goals)
+      .where(and(eq(goals.id, goalId), eq(goals.userId, userId)))
+      .limit(1);
+    return goal ?? null;
   }
 
-  async listGoals(userId: string, status?: GoalStatus): Promise<GoalRecord[]> {
+  async listGoals(userId: string, status?: GoalStatus, limit = 100): Promise<GoalRecord[]> {
+    const boundedLimit = Number.isFinite(limit) && limit > 0
+      ? Math.max(1, Math.min(200, Math.floor(limit)))
+      : 100;
     return this.db
       .select()
       .from(goals)
       .where(status ? and(eq(goals.userId, userId), eq(goals.status, status)) : eq(goals.userId, userId))
-      .orderBy(desc(goals.updatedAt));
+      .orderBy(desc(goals.updatedAt))
+      .limit(boundedLimit);
   }
 
-  async updateGoalProgress(
+  async updateGoal(
+    userId: string,
     goalId: string,
-    progressPercent: number,
-    status: GoalStatus,
-    completedAt: Date | null = null,
-  ): Promise<void> {
-    await this.db
+    input: UpdateGoalInput,
+  ): Promise<GoalRecord | null> {
+    const [goal] = await this.db
       .update(goals)
-      .set({ progressPercent, status, completedAt, updatedAt: new Date() })
-      .where(eq(goals.id, goalId));
+      .set({
+        title: input.title,
+        goalType: input.goalType,
+        status: input.status,
+        progressPercent: input.progressPercent,
+        target: input.target,
+        completedAt: input.completedAt,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(goals.id, goalId), eq(goals.userId, userId)))
+      .returning();
+    return goal ?? null;
   }
 
-  async updateStepStatus(
-    stepId: string,
-    status: GoalStepStatus,
-    completedAt: Date | null = null,
-  ): Promise<void> {
-    await this.db
-      .update(goalSteps)
-      .set({ status, completedAt, updatedAt: new Date() })
-      .where(eq(goalSteps.id, stepId));
+  async deleteGoal(userId: string, goalId: string): Promise<boolean> {
+    const deleted = await this.db
+      .delete(goals)
+      .where(and(eq(goals.id, goalId), eq(goals.userId, userId)))
+      .returning({ id: goals.id });
+    return deleted.length > 0;
   }
 
   async upsertRecommendationState(input: RecommendationStateInput): Promise<void> {
@@ -112,4 +119,3 @@ export class DrizzleGoalRepository implements GoalRepository {
       });
   }
 }
-

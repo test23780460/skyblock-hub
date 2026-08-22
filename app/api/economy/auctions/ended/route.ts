@@ -1,50 +1,48 @@
-import { providerErrorResponse } from "../../../../../lib/providers/errors";
-import { hypixelProvider } from "../../../../../lib/providers/hypixel";
 import { featureUnavailableResponse } from "../../../../../lib/feature-access";
+import type { PublicEconomySnapshotStore } from "../../../../../lib/repositories/economy-snapshots";
+import {
+  economyNotReadyResponse,
+  economyResponse,
+  economyStorageErrorResponse,
+  publicEconomyStore,
+  safeLimit,
+  snapshotCacheStatus,
+} from "../../_shared";
 
 export async function GET(request: Request): Promise<Response> {
   const unavailable = featureUnavailableResponse("publicEconomy");
   if (unavailable) return unavailable;
   try {
-    const url = new URL(request.url);
-    const limit = parseLimit(url.searchParams.get("limit"));
-    const result = await hypixelProvider.getEndedAuctions();
-    const auctions = [...result.data.auctions]
-      .sort((left, right) => (right.endedAt ?? 0) - (left.endedAt ?? 0))
-      .slice(0, limit);
-
-    return new Response(
-      JSON.stringify({
-        data: {
-          source: "hypixel",
-          cacheStatus: result.cacheStatus,
-          fetchedAt: new Date(result.storedAt).toISOString(),
-          lastUpdated: new Date(result.data.lastUpdated).toISOString(),
-          auctions,
-          meta: {
-            returned: auctions.length,
-            available: result.data.auctions.length,
-            skippedMalformed: result.data.skippedAuctions,
-          },
-          notice:
-            "Buyer, seller, profile, and raw item data are deliberately omitted from this minimal sale feed.",
-        },
-      }),
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
-          "Content-Type": "application/json; charset=utf-8",
-        },
-      },
+    return await endedAuctionSnapshotResponse(
+      request,
+      await publicEconomyStore(),
     );
   } catch (error) {
-    return providerErrorResponse(error);
+    return economyStorageErrorResponse(error);
   }
 }
 
-function parseLimit(value: string | null): number {
-  if (!value) return 100;
-  const limit = Number(value);
-  return Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 500) : 100;
+export async function endedAuctionSnapshotResponse(
+  request: Request,
+  store: Pick<PublicEconomySnapshotStore, "readEndedAuctionSnapshot">,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const limit = safeLimit(url.searchParams.get("limit"), 100, 500);
+  const result = await store.readEndedAuctionSnapshot({ limit });
+  if (!result) return economyNotReadyResponse("ended-auction");
+
+  return economyResponse({
+    source: "hypixel-public-snapshot",
+    cacheStatus: snapshotCacheStatus(result.state),
+    fetchedAt: result.state.publishedAt.toISOString(),
+    lastUpdated: result.state.sourceUpdatedAt.toISOString(),
+    auctions: result.auctions,
+    meta: {
+      returned: result.auctions.length,
+      available: result.available,
+      skippedMalformed: result.state.skippedMalformed,
+    },
+    notice:
+      "Buyer, seller, profile, and raw item data are deliberately omitted from this minimal sale feed.",
+  });
 }

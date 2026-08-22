@@ -1,6 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { externalIdentities, userPreferences, users } from "@/db/schema";
+import {
+  analyticsEvents,
+  externalIdentities,
+  featureOverrides,
+  userPreferences,
+  users,
+} from "@/db/schema";
 import type {
   CanonicalUser,
   CreateUserInput,
@@ -34,6 +40,40 @@ export class DrizzleIdentityRepository implements IdentityRepository {
       .limit(1);
 
     return row?.user ?? null;
+  }
+
+  async deleteUserByExternalIdentity(
+    provider: string,
+    providerSubject: string,
+  ): Promise<boolean> {
+    const matchingUserIds = () => this.db
+      .select({ userId: externalIdentities.userId })
+      .from(externalIdentities)
+      .where(and(
+        eq(externalIdentities.provider, provider),
+        eq(externalIdentities.providerSubject, providerSubject),
+      ));
+
+    const deleteUserOverrides = this.db
+      .delete(featureOverrides)
+      .where(and(
+        eq(featureOverrides.scopeType, "user"),
+        inArray(featureOverrides.scopeKey, matchingUserIds()),
+      ));
+    const deleteLinkedAnalytics = this.db
+      .delete(analyticsEvents)
+      .where(inArray(analyticsEvents.userId, matchingUserIds()));
+    const deleteCanonicalUser = this.db
+      .delete(users)
+      .where(inArray(users.id, matchingUserIds()))
+      .returning({ id: users.id });
+
+    const [, , deletedUsers] = await this.db.batch([
+      deleteUserOverrides,
+      deleteLinkedAnalytics,
+      deleteCanonicalUser,
+    ]);
+    return deletedUsers.length > 0;
   }
 
   async createUser(input: CreateUserInput): Promise<CanonicalUser> {
@@ -97,5 +137,16 @@ export class DrizzleIdentityRepository implements IdentityRepository {
 
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   }
-}
 
+  async deletePreference(userId: string, namespace: string, key: string): Promise<boolean> {
+    const deleted = await this.db
+      .delete(userPreferences)
+      .where(and(
+        eq(userPreferences.userId, userId),
+        eq(userPreferences.namespace, namespace),
+        eq(userPreferences.preferenceKey, key),
+      ))
+      .returning({ id: userPreferences.id });
+    return deleted.length > 0;
+  }
+}

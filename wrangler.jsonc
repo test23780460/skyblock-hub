@@ -1,0 +1,265 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "skypilot-local",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-21",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "skypilot-staging",
+      "database_id": "f9156ee0-cd40-48f4-8346-2aa4dbf0460f",
+      "migrations_dir": "drizzle"
+    },
+    {
+      "binding": "PROVIDER_BUDGET_DB",
+      "database_name": "skypilot-provider-budget",
+      "database_id": "6e99c7d9-bee7-49ad-b4fe-5a55fccde628",
+      "migrations_dir": "drizzle-provider-budget"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "PLAYER_CACHE",
+      "id": "7ce58aee4ee94b96968c435cfc31a1f8"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "PLAYER_ACTOR_LIMITER",
+      "namespace_id": "92134121",
+      "simple": {
+        "limit": 12,
+        "period": 60
+      }
+    },
+    {
+      "name": "PLAYER_GLOBAL_LIMITER",
+      "namespace_id": "92134122",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "SKYPILOT_ENVIRONMENT": "local",
+    "SITE_NAME": "SkyPilot",
+    "SITE_URL": "http://localhost:3000",
+    "ENABLE_AI_ASSISTANT": "false",
+    "ENABLE_ACCOUNT_AUTH": "false",
+    "AUTH_PROVIDER": "cloudflare-access",
+    "ENABLE_PLAYER_LOOKUP": "false",
+    "ENABLE_BROWSER_PLAYER_GATEWAY": "false",
+    "REQUIRE_PLAYER_GATEWAY": "false",
+    "ENABLE_PUBLIC_ECONOMY": "false",
+    "ENABLE_ADS": "false",
+    "ENABLE_PREMIUM": "false",
+    "ENABLE_PUBLIC_PROFILES": "false",
+    "ENABLE_GUILD_TOOLS": "false",
+    "ENABLE_PRICE_ALERTS": "false",
+    "ENABLE_EXPERIMENTAL_FEATURES": "false"
+  },
+  "triggers": {
+    "crons": []
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
+  },
+  "env": {
+    "production": {
+      "name": "skypilot",
+      "workers_dev": true,
+      "preview_urls": true,
+      "assets": {
+        "binding": "ASSETS"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skypilot-production",
+          "database_id": "70bfca7a-cb70-43ad-a6a3-58ad29dbf45b",
+          "migrations_dir": "drizzle"
+        },
+        {
+          "binding": "PROVIDER_BUDGET_DB",
+          "database_name": "skypilot-provider-budget",
+          "database_id": "6e99c7d9-bee7-49ad-b4fe-5a55fccde628",
+          "migrations_dir": "drizzle-provider-budget"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "PLAYER_CACHE",
+          "id": "b3cd0b876fb448f0a3b38457f727317c"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "PLAYER_ACTOR_LIMITER",
+          "namespace_id": "92134021",
+          "simple": {
+            "limit": 12,
+            "period": 60
+          }
+        },
+        {
+          "name": "PLAYER_GLOBAL_LIMITER",
+          "namespace_id": "92134022",
+          "simple": {
+            "limit": 20,
+            "period": 60
+          }
+        }
+      ],
+      "services": [
+        {
+          "binding": "ECONOMY_SERVICE",
+          "service": "skypilot-economy"
+        }
+      ],
+      "vars": {
+        "SKYPILOT_ENVIRONMENT": "production",
+        "SITE_NAME": "SkyPilot",
+        "SITE_URL": "https://skypilot.ptravis022.workers.dev",
+        "ENABLE_AI_ASSISTANT": "false",
+        "ENABLE_ACCOUNT_AUTH": "false",
+        "AUTH_PROVIDER": "cloudflare-access",
+        "ENABLE_PLAYER_LOOKUP": "true",
+        "ENABLE_BROWSER_PLAYER_GATEWAY": "false",
+        "REQUIRE_PLAYER_GATEWAY": "false",
+        "ENABLE_PUBLIC_ECONOMY": "false",
+        "ENABLE_ADS": "false",
+        "ENABLE_PREMIUM": "false",
+        "ENABLE_PUBLIC_PROFILES": "false",
+        "ENABLE_GUILD_TOOLS": "false",
+        "ENABLE_PRICE_ALERTS": "false",
+        "ENABLE_EXPERIMENTAL_FEATURES": "false"
+      },
+      "secrets": {
+        "required": [
+          "HYPIXEL_API_KEY"
+        ]
+      },
+      "triggers": {
+        "crons": []
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1
+        },
+        "traces": {
+          "enabled": true,
+          "head_sampling_rate": 0.05
+        }
+      }
+    },
+    "staging": {
+      "name": "skypilot-staging",
+      "workers_dev": true,
+      "preview_urls": true,
+      "assets": {
+        "binding": "ASSETS"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skypilot-staging",
+          "database_id": "f9156ee0-cd40-48f4-8346-2aa4dbf0460f",
+          "migrations_dir": "drizzle"
+        },
+        {
+          "binding": "PROVIDER_BUDGET_DB",
+          "database_name": "skypilot-provider-budget",
+          "database_id": "6e99c7d9-bee7-49ad-b4fe-5a55fccde628",
+          "migrations_dir": "drizzle-provider-budget"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "PLAYER_CACHE",
+          "id": "7ce58aee4ee94b96968c435cfc31a1f8"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "PLAYER_ACTOR_LIMITER",
+          "namespace_id": "92134121",
+          "simple": {
+            "limit": 12,
+            "period": 60
+          }
+        },
+        {
+          "name": "PLAYER_GLOBAL_LIMITER",
+          "namespace_id": "92134122",
+          "simple": {
+            "limit": 20,
+            "period": 60
+          }
+        }
+      ],
+      "services": [
+        {
+          "binding": "ECONOMY_SERVICE",
+          "service": "skypilot-economy-staging"
+        }
+      ],
+      "vars": {
+        "SKYPILOT_ENVIRONMENT": "staging",
+        "SITE_NAME": "SkyPilot",
+        "SITE_URL": "https://skypilot-staging.ptravis022.workers.dev",
+        "ENABLE_AI_ASSISTANT": "false",
+        "ENABLE_ACCOUNT_AUTH": "false",
+        "AUTH_PROVIDER": "cloudflare-access",
+        "ENABLE_PLAYER_LOOKUP": "true",
+        "ENABLE_BROWSER_PLAYER_GATEWAY": "false",
+        "REQUIRE_PLAYER_GATEWAY": "false",
+        "ENABLE_PUBLIC_ECONOMY": "false",
+        "ENABLE_ADS": "false",
+        "ENABLE_PREMIUM": "false",
+        "ENABLE_PUBLIC_PROFILES": "false",
+        "ENABLE_GUILD_TOOLS": "false",
+        "ENABLE_PRICE_ALERTS": "false",
+        "ENABLE_EXPERIMENTAL_FEATURES": "false"
+      },
+      "secrets": {
+        "required": [
+          "HYPIXEL_API_KEY"
+        ]
+      },
+      "triggers": {
+        "crons": []
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1
+        },
+        "traces": {
+          "enabled": true,
+          "head_sampling_rate": 0.05
+        }
+      }
+    }
+  }
+}

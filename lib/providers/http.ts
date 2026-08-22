@@ -18,13 +18,13 @@ type JsonRequestOptions = {
   maxResponseCharacters?: number;
   hypixelRateScope?: HypixelRateScope;
   notFoundError?: ProviderError;
+  badRequestNotFoundCode?: string;
 };
 
 export async function requestJson(
   options: JsonRequestOptions,
 ): Promise<unknown> {
   assertServerRuntime();
-  const fetchImplementation = options.fetchImplementation ?? fetch;
   const timeoutMs = options.timeoutMs ?? 8_000;
   const maxResponseCharacters = options.maxResponseCharacters ?? 16_000_000;
 
@@ -36,17 +36,23 @@ export async function requestJson(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetchImplementation(options.url, {
+    const init: RequestInit = {
       method: "GET",
       headers: new Headers({
         Accept: "application/json",
         ...headersToRecord(options.headers),
       }),
       signal: controller.signal,
-      redirect: "error",
-    });
+      redirect: "manual",
+    };
+    response = options.fetchImplementation
+      ? await options.fetchImplementation(options.url, init)
+      : await globalThis.fetch(options.url, init);
   } catch (error) {
     clearTimeout(timeout);
+    // Deployment admission adapters intentionally reject with the public,
+    // classified provider contract before an outbound request is made.
+    if (error instanceof ProviderError) throw error;
     if (controller.signal.aborted || isAbortError(error)) {
       throw new ProviderError({
         code: "upstream_timeout",
@@ -76,6 +82,9 @@ export async function requestJson(
     }
 
     if (!response.ok) {
+      if (await isMappedBadRequestNotFound(response, options)) {
+        throw options.notFoundError;
+      }
       throw classifyHttpFailure(response, options);
     }
 
@@ -89,7 +98,7 @@ export async function requestJson(
 
     let text: string;
     try {
-      text = await response.text();
+      text = await readBoundedResponseText(response, maxResponseCharacters);
     } catch (error) {
       if (controller.signal.aborted || isAbortError(error)) {
         throw new ProviderError({
@@ -110,7 +119,7 @@ export async function requestJson(
         cause: error,
       });
     }
-    if (text.length === 0 || text.length > maxResponseCharacters) {
+    if (text.length === 0) {
       throw invalidJsonResponse(options.provider);
     }
 
@@ -131,6 +140,32 @@ export async function requestJson(
   }
 }
 
+async function readBoundedResponseText(
+  response: Response,
+  maxCharacters: number,
+): Promise<string> {
+  if (!response.body) throw new Error("Response body is missing");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let characters = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    characters += chunk.length;
+    if (characters > maxCharacters) {
+      await reader.cancel();
+      throw new Error("Response body exceeds its bound");
+    }
+    text += chunk;
+  }
+  const finalChunk = decoder.decode();
+  characters += finalChunk.length;
+  if (characters > maxCharacters) throw new Error("Response body exceeds its bound");
+  return text + finalChunk;
+}
+
 export function assertServerRuntime(): void {
   if (typeof window === "undefined") return;
   throw new Error("Provider adapters are server-only and cannot run in a browser.");
@@ -140,7 +175,10 @@ function classifyHttpFailure(
   response: Response,
   options: JsonRequestOptions,
 ): ProviderError {
-  if (response.status === 404 && options.notFoundError) {
+  if (
+    options.notFoundError &&
+    response.status === 404
+  ) {
     return options.notFoundError;
   }
   if (response.status === 429) {
@@ -157,7 +195,7 @@ function classifyHttpFailure(
       status: 429,
       action: "Use cached data or try again shortly.",
       retryable: true,
-      retryAfterSeconds: 60,
+      retryAfterSeconds: retryAfterSeconds(response),
     });
   }
   if (response.status === 403) {
@@ -184,6 +222,47 @@ function classifyHttpFailure(
     action: "Check the input or try again later.",
     retryable: response.status >= 408,
   });
+}
+
+async function isMappedBadRequestNotFound(
+  response: Response,
+  options: JsonRequestOptions,
+): Promise<boolean> {
+  if (
+    response.status !== 400 ||
+    !options.notFoundError ||
+    !options.badRequestNotFoundCode
+  ) {
+    return false;
+  }
+  try {
+    const text = await readBoundedResponseText(response, 16_384);
+    const payload = JSON.parse(text) as unknown;
+    return typeof payload === "object" &&
+      payload !== null &&
+      !Array.isArray(payload) &&
+      "success" in payload &&
+      payload.success === false &&
+      "code" in payload &&
+      payload.code === options.badRequestNotFoundCode;
+  } catch {
+    return false;
+  }
+}
+
+function retryAfterSeconds(response: Response): number {
+  const fallback = 60;
+  const value = response.headers.get("Retry-After")?.trim();
+  if (!value) return fallback;
+
+  if (/^\d{1,6}$/u.test(value)) {
+    return Math.min(3_600, Math.max(1, Number(value)));
+  }
+
+  const retryAt = Date.parse(value);
+  if (!Number.isFinite(retryAt)) return fallback;
+  const seconds = Math.ceil((retryAt - Date.now()) / 1_000);
+  return seconds > 0 ? Math.min(3_600, seconds) : fallback;
 }
 
 function invalidJsonResponse(provider: string): ProviderError {

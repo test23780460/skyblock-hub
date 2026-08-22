@@ -164,8 +164,6 @@ export type CachedLoadResult<T> = {
   storedAt: number;
 };
 
-const inFlightLoads = new Map<string, Promise<CachedLoadResult<unknown>>>();
-
 export async function cachedLoad<T>(
   cache: TtlCache,
   key: string,
@@ -181,30 +179,24 @@ export async function cachedLoad<T>(
     return { data: cached.value, cacheStatus: "cached", storedAt: cached.storedAt };
   }
 
-  const existing = inFlightLoads.get(key);
-  if (existing) return existing as Promise<CachedLoadResult<T>>;
-
-  const load = (async (): Promise<CachedLoadResult<T>> => {
-    try {
-      const data = await loader();
-      await cache.set(key, data, options);
-      return { data, cacheStatus: "fresh", storedAt: Date.now() };
-    } catch (error) {
-      if (cached?.state === "stale" && options.staleIfError !== false) {
-        return {
-          data: cached.value,
-          cacheStatus: "stale",
-          storedAt: cached.storedAt,
-        };
-      }
-      throw error;
-    } finally {
-      inFlightLoads.delete(key);
+  // Do not retain request-scoped I/O promises in module state. Cloudflare may
+  // reuse an isolate concurrently, and a promise created in one invocation is
+  // not a safe cross-request synchronization primitive. Shared KV plus the
+  // deployment admission limiter bounds duplicate cold misses.
+  try {
+    const data = await loader();
+    await cache.set(key, data, options);
+    return { data, cacheStatus: "fresh", storedAt: Date.now() };
+  } catch (error) {
+    if (cached?.state === "stale" && options.staleIfError !== false) {
+      return {
+        data: cached.value,
+        cacheStatus: "stale",
+        storedAt: cached.storedAt,
+      };
     }
-  })();
-
-  inFlightLoads.set(key, load as Promise<CachedLoadResult<unknown>>);
-  return load;
+    throw error;
+  }
 }
 
 /** Shared by all requests in one runtime; replace through TtlCache for multi-node deployments. */

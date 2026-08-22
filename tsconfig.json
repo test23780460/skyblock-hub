@@ -10,7 +10,6 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "types": ["@cloudflare/workers-types/latest"],
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,

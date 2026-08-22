@@ -1,57 +1,136 @@
-# Known Limitations
+# Known limitations
 
-This is the honest pre-release status. Architecture, schema, feature maps, or tested engines are not described as complete user-facing systems unless they are wired end to end.
+This is the honest pre-release status. Implemented code, historical deployment
+evidence, and externally activated production behavior are different things.
 
-## External activation not performed
+## Deployment and external activation
 
-- No public production launch, custom domain, or external-host deployment is claimed. The safe-default build is available as an [owner-only Sites preview](https://skypilot-skyblock.tratv.chatgpt.site).
-- Production Hypixel and OpenAI credentials are not installed or verified. Any previously exposed credential must be replaced, not reused.
-- Production D1, migrations, backup/restore, scheduler, domain, and observability are not activated.
-- Sites/ChatGPT auth and the administrator allowlist require deployment configuration.
+- No native public deployment, custom domain, DNS cutover, or public launch is
+  claimed. The migration worktree builds production/staging web Workers plus
+  matching private economy Workers. Exact application commit `75659fb2f3d6` has
+  a recorded staging web deployment and narrow API/service/route/homepage smoke.
+  Both favicon paths are live, all 28 current navigation destinations return 200
+  to direct HTTP smoke, and exact desktop/mobile homepage checks have no
+  horizontal overflow or console/page errors. The private production economy
+  Worker is deployed from commit `4cf0a9708efc` as version prefix `01057fa0`,
+  with economy off, no public target, and no Cron. Production web deployment,
+  Builds connections, domain work, and release smoke remain operator work.
+- Commit `3b4064d` at the owner-only Sites URL is historical rollback evidence,
+  not the current preferred runtime or exact-head native verification.
+- Native staging and production have separate configured application D1/KV/rate
+  bindings, one shared dedicated `PROVIDER_BUDGET_DB`, and environment-matched
+  `ECONOMY_SERVICE` targets. All five production application migrations are
+  applied with no pending migration, 37 app tables plus two bookkeeping tables,
+  and a clean remote foreign-key check. Staging/provider-budget migration
+  evidence and backup/restore validation remain incomplete.
+- Any Hypixel or OpenAI key previously shared outside a secret manager is
+  compromised and must be rotated before activation. Hypixel Production
+  approval and a final current-policy review remain public-launch gates.
 
 ## Player analysis
 
-- Live lookup supports normalized identity, profile choice, several core stats/skills, limited progression analysis, and deterministic recommendation services.
-- Full inventory/NBT decoding and variant-aware gear, accessory bag, pet, storage, Museum, Bestiary, Rift, Minion, Garden, and deep Dungeon analysis are not wired to live responses.
-- Estimated net worth and item valuation engines exist and are tested, but complete live asset extraction/price evidence is not connected.
-- Dashboard recommendation Complete/Ignore/Remind Later actions are client-memory only; persistence exists at the repository level but is not connected to those buttons.
-- The displayed profile signal is an unofficial presentation element and is not yet a fully wired per-profile engine result.
+- Native request-driven lookup supports normalized identity/profile selection,
+  several core stats/skills, bounded supported item-container summaries,
+  detected gear/accessory identities, and deterministic recommendations.
+- Both official Minecraft username hosts currently fail from native Cloudflare
+  Worker egress. Source implements a conditional PlayerDB fallback after bounded
+  transport/access failures only; it does not bypass authoritative not-found
+  responses or attempt an unsupported Hypixel name query. SkyPilot supplies the
+  normalized requested username plus its service user agent; Cloudflare may add
+  network headers, including visitor-IP metadata depending on routing. SkyPilot
+  strictly validates the returned username/UUID, caches only the latest mapping,
+  and requires the UUID and display name to match Hypixel. Focused tests, the
+  public privacy disclosure, and recorded exact-commit staging
+  egress/schema/error smoke pass. The staging Hypixel credential is invalid, so both username and direct
+  Java UUID requests currently fail safely with `503 forbidden`; successful live
+  player data remains unverified.
+- Base64/gzip/NBT handling is bounded and discards raw blobs, trees, lore, and
+  unsupported fields before shared caching.
+- Full modifier-aware gear analysis, pets, additional storage, Museum,
+  Bestiary, Rift, Minion, Garden, and deep Dungeon profile analysis are not
+  wired end to end.
+- Valuation/net-worth engines are tested, but complete asset coverage and
+  current/historical price joins are absent; unavailable results are shown
+  rather than fabricated.
+- Recommendation Complete/Ignore/Remind Later buttons remain client-memory
+  only. Saving a profile never starts polling, history, or scheduled refresh.
+- Workers KV is eventually consistent, response-header backoff is per isolate,
+  and Cloudflare rate bindings are coarse per-location abuse filters. The actor
+  binding is route-bound; Mojang calls do not spend Hypixel quota. Only an actual
+  authenticated Hypixel transport performs one shared-filter check and one
+  two-token atomic reservation in the shared `PROVIDER_BUDGET_DB`. That D1
+  reservation globally guards the shared Hypixel key, but
+  public exposure still needs load/capacity evidence, monitoring, and validation
+  of the configured budget against the approved quota.
 
 ## Modules and calculators
 
-- Many `/[section]` pages are connected feature maps with generic editable planning labs. They are not complete specialized implementations of every described Farming, Mining, Foraging, Fishing, Dungeons, Slayers, Minions, Museum, Collections, Bestiary, Rift, gear, item, or money-making tool.
-- Deterministic Farming, pet, Minion, Dungeon, and Slayer calculators exist as tested libraries/services, but there are no dedicated product API routes and not every page invokes them.
-- Saved builds, sharing, recurring task reset, recommendation history, favorites, saved profiles/preferences, Guilds, leaderboards, ads, premium, Discord, and notifications are incomplete or deliberately deferred.
+- Accessories, Garden, money-making, core skills, economy labs, Dungeons,
+  Slayers, and Minions have focused deterministic surfaces. Several other
+  domains remain narrow feature maps or planners.
+- Calculator inputs and example rates are explicit editable assumptions, not
+  profile-derived facts, current recipes, or guaranteed earnings.
+- Build sharing, saved state, goals, and account deletion are implemented in
+  repository/API/UI layers but disabled until native identity/session behavior
+  is proven. Recommendation history, goal/analysis sharing, Guilds,
+  leaderboards, ads, premium, Discord, and notifications are incomplete or
+  deferred.
 
 ## Economy
 
-- Bazaar and active-auction pages show current normalized public snapshots and bounded client-side filtering/sorting only when the safe-default `ENABLE_PUBLIC_ECONOMY` gate is deliberately enabled.
-- Active Auction search filters only the selected upstream page, not the full market.
-- Ended-auction data has an API route but no complete user-facing history/valuation experience.
-- Historical charts, durable raw snapshots, hourly/daily aggregation, sale sinks, NBT variants, item pages/search, craft/NPC comparison, and full valuation jobs are not active.
-- Worker functions exist, but no production scheduler or durable sink is composed. Admin refresh actions therefore do not prove database ingestion.
-- Market estimates are not guaranteed trades or profit.
+- Bazaar, active-Auction, ended-sale, and history routes read only complete D1
+  publications. Ingestion exists only in the matching private economy Worker;
+  both its flag and the web flag are initially false, and no Cron exists, so
+  these surfaces are unavailable until deliberately activated.
+- Activation still requires Workers Paid, confirmation that the recorded five
+  production app migrations remain current, D1 usage/cost
+  and capacity monitoring, replacement of the current non-incremental
+  active-Auction crawl with a reviewed incremental or compacted ingestion
+  design, exactly one reviewed production Cron on `skypilot-economy`, and a
+  verified first real publication. The existing row-heavy one-minute design is
+  not Free-plan safe and does not yet have production capacity evidence.
+- Active Auction search is bounded and not variant-aware. Ended sales lack a
+  complete user-facing valuation/history experience.
+- Bazaar history is based on summary-price observations, not trades or
+  guaranteed quotes. Browser search covers at most the loaded 250-row slice.
+- A compact Free-safe series would require a new schema/migration/API and lower
+  retention; it is future work, not an activation shortcut.
+- Market estimates never guarantee trades or profit.
 
-## Accounts and administration
+## Accounts, administration, and AI
 
-- Optional account identity and canonical-user mapping exist for Sites/ChatGPT auth.
-- Goal GET/POST persistence works only with verified identity, an active D1 binding, and applied migration. Goal update/delete/completion/reset are missing.
-- Other account capabilities described by the schema/page—saved profiles, favorites, preferences, builds, recommendation state, AI history—are not end-to-end UI features.
-- Admin status is local-runtime oriented. It does not provide full database, scheduler, deployment, user, analytics, AI-cost, job retry, feature-flag, or error-log management.
-
-## AI
-
-- The safe-default-off route supports optional Responses API calls, server-resolved bounded context, detail modes, timeout, and safe failure.
-- The current page can attach labeled demo context; it does not carry a selected live profile from the dashboard.
-- AI request limiting is per runtime and unsuitable as the only production abuse control.
-- AI telemetry/cost persistence and comprehensive prompt-injection/evaluation suites are not complete.
+- Account auth is disabled. The native Cloudflare Access verifier exists, but
+  whole-host Access would block anonymous tools and a protected login path alone
+  does not establish an optional session on public routes.
+- Historical Sites identities cannot be silently merged into native identities
+  by email. Canonical-user migration/relinking needs an explicit verified
+  process.
+- Account/goal/build/admin behavior still needs browser identity, owner
+  isolation, permission, lifecycle, and deletion QA against the selected native
+  session design.
+- Admin status is intentionally narrow and does not manage arbitrary SQL,
+  secrets, deployments, schedules, users, or broad cache prefixes.
+- AI is optional and off. It has bounded structured grounding and numeric
+  conflict validation, but its limiter is per runtime and broader domain
+  grounding/live-provider security evaluation remains incomplete.
 
 ## Infrastructure and QA
 
-- Cache, single-flight, Hypixel rate state, and AI throttling are in-memory per runtime, not distributed.
-- Docker Compose includes only the web service; no database/cache/worker stack.
-- PostgreSQL, Redis, external auth, object storage, queue, scheduler, analytics, and secrets adapters are not implemented.
-- Current automated tests cover engines, services, providers, and rendered HTML, but not full browser E2E, visual regression, automated accessibility, load/soak, live credentials, production migrations, or deployment smoke tests.
-- A final visual, performance, current-policy, security, and complete-specification audit is still required before launch.
+- Native Cloudflare uses separate web/private-economy Workers, Static Assets,
+  D1, KV, rate bindings, and `ECONOMY_SERVICE`; it has no Images or R2
+  dependency. The private Workers expose neither `workers.dev` nor preview URLs.
+  Docker Compose is only a web-image smoke path.
+- PostgreSQL, Redis, non-Cloudflare auth, queue, external scheduler,
+  observability, and backup adapters are not implemented.
+- The exact-head suite contains 203 tests: 40 engine, 16 service, 113
+  provider/security, and 34 rendered/configuration/legal. See
+  [Testing](testing.md) for the distinction between current local evidence,
+  recorded exact-commit narrow staging smoke, historical rollback evidence, and
+  still-unverified production/browser evidence.
+- Full interactive route E2E, responsive/browser, accessibility,
+  visual-regression, performance/load/soak,
+  remaining remote-migration, account/auth, dependency, current-policy, and release-level
+  security audits are still required.
 
-Track remaining work in [TODO](../TODO.md).
+Track remaining work in [TODO](../TODO.md) and exact validation evidence in
+[Testing](testing.md).

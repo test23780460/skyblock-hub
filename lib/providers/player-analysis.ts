@@ -1,7 +1,10 @@
 import { buildPlayerAnalysis } from "../analysis/profile";
 import type { PlayerAnalysis } from "../models";
 import { ProviderError } from "./errors";
-import { normalizeMinecraftUsername } from "./guards";
+import {
+  normalizeMinecraftPlayerInput,
+  type MinecraftPlayerInput,
+} from "./guards";
 import { hypixelProvider, type HypixelProvider } from "./hypixel";
 import { mojangProvider, type MojangProvider } from "./mojang";
 
@@ -11,13 +14,13 @@ type PlayerAnalysisDependencies = {
 };
 
 export async function getPlayerAnalysis(
-  username: string,
+  playerInput: string,
   requestedProfileId: string | null = null,
   dependencies: PlayerAnalysisDependencies = {},
 ): Promise<PlayerAnalysis> {
   const mojang = dependencies.mojang ?? mojangProvider;
   const hypixel = dependencies.hypixel ?? hypixelProvider;
-  const validatedUsername = normalizeMinecraftUsername(username);
+  const selector = normalizeMinecraftPlayerInput(playerInput);
   if (!hypixel.isConfigured()) {
     throw new ProviderError({
       code: "missing_credentials",
@@ -27,13 +30,16 @@ export async function getPlayerAnalysis(
         "An administrator must add a server-side Hypixel production API key.",
     });
   }
-  const identity = await mojang.lookupUsername(validatedUsername);
-  const [player, profiles] = await Promise.all([
-    hypixel.getPlayer(identity.data.uuid),
-    hypixel.getSkyBlockProfiles(identity.data.uuid),
-  ]);
+  const { identity, player, profiles } = await resolvePlayer(
+    selector,
+    mojang,
+    hypixel,
+  );
 
-  if (player.data.uuid !== identity.data.uuid) {
+  if (
+    player.data.uuid !== identity.uuid ||
+    player.data.displayName.toLowerCase() !== identity.username.toLowerCase()
+  ) {
     throw new ProviderError({
       code: "invalid_response",
       message: "The player identity returned by the game services did not match.",
@@ -50,13 +56,68 @@ export async function getPlayerAnalysis(
   const oldestHypixelSnapshot = Math.min(player.storedAt, profiles.storedAt);
 
   return buildPlayerAnalysis({
-    identity: identity.data,
+    identity,
     hypixelPlayer: player.data,
     profiles: profiles.data,
     requestedProfileId,
     fetchedAt: new Date(oldestHypixelSnapshot).toISOString(),
     cacheStatus,
   });
+}
+
+async function resolvePlayer(
+  selector: MinecraftPlayerInput,
+  mojang: MojangProvider,
+  hypixel: HypixelProvider,
+) {
+  if (selector.kind === "uuid") {
+    const [player, profiles] = await Promise.all([
+      hypixel.getPlayer(selector.uuid),
+      hypixel.getSkyBlockProfiles(selector.uuid),
+    ]);
+    return {
+      identity: {
+        uuid: selector.uuid,
+        username: player.data.displayName,
+      },
+      player,
+      profiles,
+    };
+  }
+
+  let identity;
+  try {
+    identity = await mojang.lookupUsername(selector.username);
+  } catch (error) {
+    if (!isUsernameResolutionUnavailable(error)) throw error;
+    throw new ProviderError({
+      code: error.code === "forbidden" ? "upstream_unavailable" : error.code,
+      message: "Player identity services could not be reached.",
+      status: error.code === "upstream_timeout" ? 504 : 503,
+      action:
+        "Try again after a short wait. If username resolution remains unavailable, enter the player's Java UUID.",
+      retryable: true,
+      cause: error,
+    });
+  }
+
+  const [player, profiles] = await Promise.all([
+    hypixel.getPlayer(identity.data.uuid),
+    hypixel.getSkyBlockProfiles(identity.data.uuid),
+  ]);
+  return { identity: identity.data, player, profiles };
+}
+
+function isTransportFailure(error: unknown): error is ProviderError {
+  return error instanceof ProviderError &&
+    (error.code === "network_error" ||
+      error.code === "upstream_timeout" ||
+      error.code === "upstream_unavailable");
+}
+
+function isUsernameResolutionUnavailable(error: unknown): error is ProviderError {
+  return isTransportFailure(error) ||
+    (error instanceof ProviderError && error.code === "forbidden");
 }
 
 function combineCacheStatus(

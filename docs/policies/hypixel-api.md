@@ -66,11 +66,15 @@ Because the official overview describes both a five-minute maximum and minute-or
 
 SkyPilot's Hypixel transport must:
 
-- route every authenticated request through one distributed rate-budget service shared by the web app and workers;
+- route every authenticated request through one server-only provider
+  composition with shared normalized cache/admission; public economy feeds stay
+  in their separate keyless worker path;
 - record the three rate-limit headers as metrics without logging the key or full user payload;
 - reserve headroom for interactive requests instead of consuming the full advertised limit with background work;
 - stop dispatching when `RateLimit-Remaining` reaches zero and wait at least `RateLimit-Reset` seconds;
-- coalesce concurrent identical requests (single-flight) and serve the shared cache to all waiting callers;
+- reuse an invocation-local result when the same bounded operation asks for it,
+  but never retain request-bound I/O promises in module-global state across
+  Worker requests; use KV plus admission to bound duplicate cold misses;
 - queue bounded work instead of spawning unbounded parallel requests;
 - treat HTTP `429` as a hard signal to pause, use reset-aware exponential backoff with jitter, and surface a friendly stale-data/rate-limit state;
 - remember that the reference says `429` can also be caused by a global throttle, not only the application's key limit;
@@ -125,6 +129,26 @@ SkyPilot must apply these retention rules:
 7. **Access:** raw API caches and ingestion tables are internal service data, not public downloads. Limit staff/admin access and audit it.
 
 These are minimum SkyPilot controls. Separate privacy-law and user-consent requirements may demand shorter retention.
+
+### Third-party username resolution
+
+Both official Minecraft username hosts currently fail from native Cloudflare
+Worker egress. Source includes a conditional PlayerDB fallback, but it is not a
+license to monitor players or expand collection. It may run only for a
+user-triggered lookup after both official resolvers fail for transport/access;
+an authoritative not-found response stops resolution. Application code should
+supply only the normalized requested username and SkyPilot's identifying service user agent. Application
+code must not copy browser cookies, authentication, profile selectors, or the
+Hypixel key. Cloudflare may add network headers, including visitor-IP metadata
+depending on destination routing; disclose and revalidate that behavior. Cache
+only the latest strictly validated username/UUID mapping,
+discard raw response/avatar/metadata, and require the UUID and display name to match Hypixel's
+authenticated player response. Review the [PlayerDB API](https://playerdb.co/)
+and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy) before
+activation. Focused tests, the public privacy disclosure, and the recorded
+exact-commit staging egress/schema/error path pass. Keep public activation off until a valid
+rotated Hypixel credential proves the final UUID/display-name agreement and the
+remaining load, monitoring, and current-policy gates pass.
 
 ## Redistribution and proxying
 
@@ -242,7 +266,9 @@ Authorization below follows the current [API reference](https://api.hypixel.net/
 - [ ] Add a shared distributed limiter that consumes all three `RateLimit-*` headers.
 - [ ] Add reset-aware `429` handling, jittered backoff, bounded retries, and a circuit breaker.
 - [ ] Add bounded `503` backoff for public economy endpoints.
-- [ ] Add shared cache keys, single-flight request coalescing, negative caching, and stale labels.
+- [ ] Add shared cache keys, negative caching, and stale labels; keep any
+  in-invocation reuse request-local and never use a module-global cross-request
+  I/O Promise map.
 - [ ] Reserve rate-limit headroom for user-triggered requests.
 - [ ] Add admin metrics for request count, cache hit rate, latency, `403`, `429`, `503`, remaining limit, and reset time without sensitive payloads.
 

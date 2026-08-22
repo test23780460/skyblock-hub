@@ -10,7 +10,8 @@ After changing `db/schema/**`:
 
 ```powershell
 npm.cmd run db:generate
-.\node_modules\.bin\drizzle-kit.cmd check --config=drizzle.config.ts
+npm.cmd run db:check
+npm.cmd run db:smoke
 ```
 
 Review generated SQL for:
@@ -23,7 +24,28 @@ Review generated SQL for:
 - defaults that work in D1 SQLite;
 - data backfills required before a new `NOT NULL` constraint.
 
-Apply migrations to an isolated local/test database before production. Verify a clean database can apply the full chain, and verify an exported production-shaped fixture can upgrade without data loss.
+`db:smoke` applies every versioned SQL file transactionally to isolated
+in-memory SQLite, compares the resulting table set with the latest Drizzle
+snapshot, runs `PRAGMA foreign_key_check`, and requires the durable economy and
+portable provider-budget table shape. The current five-migration app chain
+creates 37 tables with zero foreign-key findings when the gate passes. Native
+credential admission uses a separate shared `PROVIDER_BUDGET_DB`; its one
+additive migration lives in `drizzle-provider-budget/` and must be applied
+independently.
+
+Apply migrations to an isolated local/test database before production. Verify a clean database can apply the full chain, and verify an exported production-shaped fixture can upgrade without data loss. The current smoke is a clean-database check; it is not a production-shaped upgrade, backup, or restore drill.
+
+## Recorded production application-D1 evidence
+
+On 2026-08-22, all five versioned application migrations were applied
+successfully to D1 database `skypilot-production`. A follow-up remote migration
+listing reported no migrations to apply. Read-only verification found 39 SQLite
+tables: 37 application tables and two D1 migration-bookkeeping tables.
+`PRAGMA foreign_key_check` returned no rows.
+
+This evidence covers the production application schema only. It does not prove
+backup/restore, production traffic, the separate shared
+`PROVIDER_BUDGET_DB` migration, or future schema changes.
 
 ## Expand-contract changes
 
@@ -43,4 +65,3 @@ D1 and PostgreSQL have different rollback capabilities. Treat restore from a ver
 ## Seed data
 
 Stable feature definitions and job definitions may be seeded idempotently. Test/demo SkyBlock records must be clearly marked and must never be silently inserted into production. Secrets are never seed data.
-

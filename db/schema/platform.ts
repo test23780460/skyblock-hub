@@ -254,6 +254,28 @@ export const apiMetrics = sqliteTable(
   ],
 );
 
+export const providerRequestBudgets = sqliteTable(
+  "provider_request_budgets",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").notNull(),
+    windowStartedAt: timestampMs("window_started_at").notNull(),
+    reservedCount: integer("reserved_count").notNull().default(0),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("provider_request_budgets_scope_window_uidx").on(
+      table.scope,
+      table.windowStartedAt,
+    ),
+    index("provider_request_budgets_window_idx").on(table.windowStartedAt),
+    check(
+      "provider_request_budgets_reserved_check",
+      sql`${table.reservedCount} >= 0`,
+    ),
+  ],
+);
+
 export const aiMetrics = sqliteTable(
   "ai_metrics",
   {

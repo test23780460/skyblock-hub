@@ -1,0 +1,2 @@
+# Local secrets for `npm run cf:dev`. Copy to `.dev.vars`; never commit values.
+HYPIXEL_API_KEY=

@@ -1,0 +1,31 @@
+CREATE TABLE `public_bazaar_history_buckets` (
+	`product_id` text NOT NULL,
+	`resolution` text NOT NULL,
+	`bucket_start_at` integer NOT NULL,
+	`first_source_updated_at` integer NOT NULL,
+	`last_source_updated_at` integer NOT NULL,
+	`sample_count` integer NOT NULL,
+	`buy_open` real NOT NULL,
+	`buy_high` real NOT NULL,
+	`buy_low` real NOT NULL,
+	`buy_close` real NOT NULL,
+	`sell_open` real NOT NULL,
+	`sell_high` real NOT NULL,
+	`sell_low` real NOT NULL,
+	`sell_close` real NOT NULL,
+	`buy_volume_sum` real DEFAULT 0 NOT NULL,
+	`buy_volume_samples` integer DEFAULT 0 NOT NULL,
+	`sell_volume_sum` real DEFAULT 0 NOT NULL,
+	`sell_volume_samples` integer DEFAULT 0 NOT NULL,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	PRIMARY KEY(`product_id`, `resolution`, `bucket_start_at`),
+	CONSTRAINT "public_bazaar_history_resolution_check" CHECK("public_bazaar_history_buckets"."resolution" in ('hour', 'day')),
+	CONSTRAINT "public_bazaar_history_samples_check" CHECK("public_bazaar_history_buckets"."sample_count" > 0 and "public_bazaar_history_buckets"."buy_volume_samples" >= 0 and "public_bazaar_history_buckets"."buy_volume_samples" <= "public_bazaar_history_buckets"."sample_count" and "public_bazaar_history_buckets"."sell_volume_samples" >= 0 and "public_bazaar_history_buckets"."sell_volume_samples" <= "public_bazaar_history_buckets"."sample_count"),
+	CONSTRAINT "public_bazaar_history_source_order_check" CHECK("public_bazaar_history_buckets"."last_source_updated_at" >= "public_bazaar_history_buckets"."first_source_updated_at"),
+	CONSTRAINT "public_bazaar_history_buy_ohlc_check" CHECK("public_bazaar_history_buckets"."buy_open" >= 0 and "public_bazaar_history_buckets"."buy_close" >= 0 and "public_bazaar_history_buckets"."buy_low" >= 0 and "public_bazaar_history_buckets"."buy_high" >= "public_bazaar_history_buckets"."buy_open" and "public_bazaar_history_buckets"."buy_high" >= "public_bazaar_history_buckets"."buy_close" and "public_bazaar_history_buckets"."buy_low" <= "public_bazaar_history_buckets"."buy_open" and "public_bazaar_history_buckets"."buy_low" <= "public_bazaar_history_buckets"."buy_close"),
+	CONSTRAINT "public_bazaar_history_sell_ohlc_check" CHECK("public_bazaar_history_buckets"."sell_open" >= 0 and "public_bazaar_history_buckets"."sell_close" >= 0 and "public_bazaar_history_buckets"."sell_low" >= 0 and "public_bazaar_history_buckets"."sell_high" >= "public_bazaar_history_buckets"."sell_open" and "public_bazaar_history_buckets"."sell_high" >= "public_bazaar_history_buckets"."sell_close" and "public_bazaar_history_buckets"."sell_low" <= "public_bazaar_history_buckets"."sell_open" and "public_bazaar_history_buckets"."sell_low" <= "public_bazaar_history_buckets"."sell_close"),
+	CONSTRAINT "public_bazaar_history_volume_check" CHECK("public_bazaar_history_buckets"."buy_volume_sum" >= 0 and "public_bazaar_history_buckets"."sell_volume_sum" >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `public_bazaar_history_retention_idx` ON `public_bazaar_history_buckets` (`resolution`,`bucket_start_at`);

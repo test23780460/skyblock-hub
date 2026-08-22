@@ -1,53 +1,59 @@
-import { ProviderError, providerErrorResponse } from "../../../../lib/providers/errors";
-import { hypixelProvider } from "../../../../lib/providers/hypixel";
+import { ProviderError } from "../../../../lib/providers/errors";
 import { featureUnavailableResponse } from "../../../../lib/feature-access";
+import type { PublicEconomySnapshotStore } from "../../../../lib/repositories/economy-snapshots";
+import {
+  economyNotReadyResponse,
+  economyResponse,
+  economyStorageErrorResponse,
+  publicEconomyStore,
+  safeLimit,
+  safeSearch,
+  snapshotCacheStatus,
+} from "../_shared";
 
 export async function GET(request: Request): Promise<Response> {
   const unavailable = featureUnavailableResponse("publicEconomy");
   if (unavailable) return unavailable;
   try {
-    const url = new URL(request.url);
-    const page = parsePage(url.searchParams.get("page"));
-    const query = url.searchParams.get("q")?.trim().toLowerCase().slice(0, 64) ?? "";
-    const limit = parseLimit(url.searchParams.get("limit"));
-    const result = await hypixelProvider.getActiveAuctions(page);
-    const auctions = result.data.auctions
-      .filter((auction) =>
-        query ? auction.itemName.toLowerCase().includes(query) : true,
-      )
-      .slice(0, limit);
-
-    return new Response(
-      JSON.stringify({
-        data: {
-          source: "hypixel",
-          cacheStatus: result.cacheStatus,
-          fetchedAt: new Date(result.storedAt).toISOString(),
-          lastUpdated: new Date(result.data.lastUpdated).toISOString(),
-          page: result.data.page,
-          totalPages: result.data.totalPages,
-          totalAuctions: result.data.totalAuctions,
-          auctions,
-          meta: {
-            returned: auctions.length,
-            pageAvailable: result.data.auctions.length,
-            skippedMalformed: result.data.skippedAuctions,
-          },
-          notice:
-            "This is a normalized SkyPilot listing view; bidder, seller, profile, lore, and raw item payloads are intentionally omitted.",
-        },
-      }),
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
-          "Content-Type": "application/json; charset=utf-8",
-        },
-      },
+    return await activeAuctionSnapshotResponse(
+      request,
+      await publicEconomyStore(),
     );
   } catch (error) {
-    return providerErrorResponse(error);
+    return economyStorageErrorResponse(error);
   }
+}
+
+export async function activeAuctionSnapshotResponse(
+  request: Request,
+  store: Pick<PublicEconomySnapshotStore, "readActiveAuctionSnapshot">,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const page = parsePage(url.searchParams.get("page"));
+  const query = safeSearch(url.searchParams.get("q"));
+  const limit = safeLimit(url.searchParams.get("limit"), 100, 250);
+  const result = await store.readActiveAuctionSnapshot({ query, page, limit });
+  if (!result) return economyNotReadyResponse("active-auction");
+  const totalPages = Math.max(1, Math.ceil(result.matchingAuctions / limit));
+
+  return economyResponse({
+    source: "hypixel-public-snapshot",
+    cacheStatus: snapshotCacheStatus(result.state),
+    fetchedAt: result.state.publishedAt.toISOString(),
+    lastUpdated: result.state.sourceUpdatedAt.toISOString(),
+    page,
+    totalPages,
+    totalAuctions: result.state.recordCount,
+    auctions: result.auctions,
+    meta: {
+      returned: result.auctions.length,
+      pageAvailable: result.auctions.length,
+      matchingAuctions: result.matchingAuctions,
+      skippedMalformed: result.state.skippedMalformed,
+    },
+    notice:
+      "This is a normalized SkyPilot listing view; bidder, seller, profile, lore, and raw item payloads are intentionally omitted.",
+  });
 }
 
 function parsePage(value: string | null): number {
@@ -60,10 +66,4 @@ function parsePage(value: string | null): number {
     status: 400,
     action: "Choose a non-negative page number.",
   });
-}
-
-function parseLimit(value: string | null): number {
-  if (!value) return 100;
-  const limit = Number(value);
-  return Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 250) : 100;
 }

@@ -8,5 +8,14 @@ export {
   refreshActiveAuctions,
   refreshEndedAuctions,
 } from "./auctions";
-export type { EconomyJobResult, EconomySnapshotSink } from "./types";
-
+export {
+  computeEconomyBackoffMs,
+  ECONOMY_WORKER_LEASE_MS,
+  runPublicEconomyCycle,
+} from "./economy";
+export type {
+  EconomyCycleResult,
+  EconomyJobResult,
+  EconomySnapshotSink,
+  PublicEconomySnapshotStore,
+} from "./types";

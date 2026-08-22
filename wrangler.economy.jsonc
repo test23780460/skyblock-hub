@@ -1,0 +1,111 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "skypilot-economy-local",
+  "main": "./worker/economy.ts",
+  "compatibility_date": "2026-08-21",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "skypilot-staging",
+      "database_id": "f9156ee0-cd40-48f4-8346-2aa4dbf0460f",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "vars": {
+    "SKYPILOT_ENVIRONMENT": "local",
+    "ENABLE_PUBLIC_ECONOMY": "false"
+  },
+  "secrets": {
+    "required": []
+  },
+  "triggers": {
+    "crons": []
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
+  },
+  "env": {
+    "production": {
+      "name": "skypilot-economy",
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skypilot-production",
+          "database_id": "70bfca7a-cb70-43ad-a6a3-58ad29dbf45b",
+          "migrations_dir": "drizzle"
+        }
+      ],
+      "vars": {
+        "SKYPILOT_ENVIRONMENT": "production",
+        "ENABLE_PUBLIC_ECONOMY": "false"
+      },
+      "secrets": {
+        "required": []
+      },
+      "triggers": {
+        "crons": []
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1
+        },
+        "traces": {
+          "enabled": true,
+          "head_sampling_rate": 0.05
+        }
+      }
+    },
+    "staging": {
+      "name": "skypilot-economy-staging",
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skypilot-staging",
+          "database_id": "f9156ee0-cd40-48f4-8346-2aa4dbf0460f",
+          "migrations_dir": "drizzle"
+        }
+      ],
+      "vars": {
+        "SKYPILOT_ENVIRONMENT": "staging",
+        "ENABLE_PUBLIC_ECONOMY": "false"
+      },
+      "secrets": {
+        "required": []
+      },
+      "triggers": {
+        "crons": []
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1
+        },
+        "traces": {
+          "enabled": true,
+          "head_sampling_rate": 0.05
+        }
+      }
+    }
+  }
+}

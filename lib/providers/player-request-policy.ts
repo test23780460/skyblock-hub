@@ -1,22 +1,25 @@
-import { MemoryTtlCache } from "../cache/ttl-cache";
+import { MemoryTtlCache, type TtlCache } from "../cache/ttl-cache";
+import type { PlayerAnalysis } from "../models";
 import {
   asProviderError,
   ProviderError,
   providerErrorResponse,
   type ProviderErrorCode,
 } from "./errors";
+import {
+  normalizeMinecraftPlayerInput,
+  optionalProfileId,
+} from "./guards";
 import { getPlayerAnalysis } from "./player-analysis";
+import {
+  getPlayerAnalysisFromGateway,
+  isPlayerGatewayConfigured,
+  isPlayerGatewayRequired,
+} from "./player-gateway";
 
-const WINDOW_MS = 60_000;
-const REQUESTS_PER_WINDOW = 24;
-const MAX_WINDOWS = 5_000;
 const NEGATIVE_TTL_MS = 30_000;
 
-// These are bounded per-isolate safeguards, not distributed quotas. The player
-// feature remains default-off until deployment-level abuse controls are chosen.
-const requestWindows = new Map<string, { count: number; resetsAt: number }>();
 const negativeCache = new MemoryTtlCache(2_000);
-let requestChecks = 0;
 
 type NegativeResult = {
   code: ProviderErrorCode;
@@ -26,58 +29,91 @@ type NegativeResult = {
   retryAfterSeconds?: number;
 };
 
-export function playerRequestLimitFailure(request: Request): Response | null {
-  const now = Date.now();
-  requestChecks += 1;
-  if (requestChecks % 64 === 0 || requestWindows.size >= MAX_WINDOWS) {
-    for (const [key, window] of requestWindows) {
-      if (window.resetsAt <= now) requestWindows.delete(key);
-    }
+export async function playerRequestLimitFailure(request: Request): Promise<Response | null> {
+  try {
+    const { env } = await import("cloudflare:workers");
+    return playerRequestLimitFailureWithEnvironment(request, env);
+  } catch (error) {
+    return providerErrorResponse(playerGuardUnavailable(error));
   }
+}
 
-  const key = request.headers.get("cf-connecting-ip")?.trim().slice(0, 80) || "anonymous";
-  const existing = requestWindows.get(key);
-  if (!existing || existing.resetsAt <= now) {
-    if (!existing && requestWindows.size >= MAX_WINDOWS) {
-      const oldest = requestWindows.keys().next().value as string | undefined;
-      if (oldest) requestWindows.delete(oldest);
-    }
-    requestWindows.set(key, { count: 1, resetsAt: now + WINDOW_MS });
-    return null;
+export async function playerRequestLimitFailureWithEnvironment(
+  request: Request,
+  environment: { PLAYER_ACTOR_LIMITER: RateLimit },
+): Promise<Response | null> {
+  try {
+    const key = await opaqueRequestActor(playerRequestActorSubject(request));
+    const result = await environment.PLAYER_ACTOR_LIMITER.limit({ key });
+    return result.success ? null : providerErrorResponse(playerActorLimitError());
+  } catch (error) {
+    if (error instanceof ProviderError) return providerErrorResponse(error);
+    return providerErrorResponse(playerGuardUnavailable(error));
   }
-  if (existing.count < REQUESTS_PER_WINDOW) {
-    existing.count += 1;
-    return null;
-  }
+}
 
-  return providerErrorResponse(new ProviderError({
-    code: "rate_limited",
-    message: "This client has reached the short-term player lookup limit.",
-    status: 429,
-    action: "Wait a moment before looking up another player.",
-    retryable: true,
-    retryAfterSeconds: Math.max(1, Math.ceil((existing.resetsAt - now) / 1_000)),
-  }));
+export function playerRequestActorSubject(request: Request): string {
+  return request.headers.get("cf-connecting-ip")?.trim().slice(0, 80) || "anonymous";
+}
+
+async function opaqueRequestActor(subject: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(subject),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
 }
 
 export async function getPlayerAnalysisWithNegativeCache(
-  username: string,
+  playerInput: string,
   profileId: string | null = null,
+  options: {
+    actorSubject?: string;
+    negativeCache?: TtlCache;
+    load?: () => Promise<PlayerAnalysis>;
+  } = {},
 ): Promise<Awaited<ReturnType<typeof getPlayerAnalysis>>> {
+  // Reject untrusted selectors before touching KV or any provider transport.
+  const selector = normalizeMinecraftPlayerInput(playerInput);
+  const normalizedProfileId = optionalProfileId(profileId);
+  const normalizedPlayerInput = selector.kind === "uuid"
+    ? selector.uuid
+    : selector.username;
   const cacheKey = [
     "player-negative",
-    username.trim().toLowerCase().slice(0, 64),
-    profileId?.trim().toLowerCase().slice(0, 64) || "selected",
+    normalizedPlayerInput.toLowerCase(),
+    normalizedProfileId ?? "selected",
   ].join(":");
-  const cached = await negativeCache.get<NegativeResult>(cacheKey);
+  const effectiveNegativeCache = options.negativeCache ?? negativeCache;
+  const cached = await effectiveNegativeCache.get<NegativeResult>(cacheKey);
   if (cached) throw fromNegative(cached.value);
 
   try {
-    return await getPlayerAnalysis(username, profileId);
+    if (options.load) {
+      return await options.load();
+    }
+    if (isPlayerGatewayConfigured()) {
+      return await getPlayerAnalysisFromGateway(
+        normalizedPlayerInput,
+        normalizedProfileId,
+        options,
+      );
+    }
+    if (isPlayerGatewayRequired()) {
+      throw new ProviderError({
+        code: "missing_credentials",
+        message: "Live player analysis is not configured for this deployment.",
+        status: 503,
+        action: "An administrator must configure SkyPilot's private player service.",
+      });
+    }
+    return await getPlayerAnalysis(normalizedPlayerInput, normalizedProfileId);
   } catch (error) {
     const classified = asProviderError(error);
     if (isNegativeCacheable(classified.code)) {
-      await negativeCache.set<NegativeResult>(cacheKey, {
+      await effectiveNegativeCache.set<NegativeResult>(cacheKey, {
         code: classified.code,
         message: classified.message,
         status: classified.status,
@@ -89,6 +125,28 @@ export async function getPlayerAnalysisWithNegativeCache(
     }
     throw classified;
   }
+}
+
+function playerActorLimitError(): ProviderError {
+  return new ProviderError({
+    code: "rate_limited",
+    message: "This client has reached the short-term player lookup limit.",
+    status: 429,
+    action: "Wait a moment before looking up another player.",
+    retryable: true,
+    retryAfterSeconds: 60,
+  });
+}
+
+function playerGuardUnavailable(cause: unknown): ProviderError {
+  return new ProviderError({
+    code: "upstream_unavailable",
+    message: "SkyPilot's lookup guard is temporarily unavailable.",
+    status: 503,
+    action: "Try the lookup again shortly.",
+    retryable: true,
+    cause,
+  });
 }
 
 function isNegativeCacheable(code: ProviderErrorCode): boolean {

@@ -26,9 +26,9 @@ SkyBlock analyzers, progression rules, calculators, route response models, and U
 
 Load parent tables before children:
 
-1. users, items, feature flags, jobs, Minecraft accounts;
-2. external identities, roles/preferences, account links, profiles, Bazaar products;
-3. saved profiles, goals/builds/favorites, snapshots/aggregates, listings/sales/valuations;
+1. users, items, feature flags, jobs, Minecraft accounts, public-economy worker/feed state;
+2. external identities, roles/preferences, account links, profiles, Bazaar products, current public Bazaar/active-Auction rows, retained public ended sales;
+3. saved profiles, goals/builds/favorites, general snapshots/aggregates, listings/sales/valuations;
 4. steps/recommendations, overrides, runs, cache/analytics/audits/metrics/errors.
 
 Defer or validate foreign keys during a controlled import, then enable them and verify zero orphan rows. Preserve all application IDs and uniqueness keys.
@@ -52,8 +52,8 @@ A portable migration is complete when:
 - counts match by table;
 - foreign keys and uniqueness checks pass;
 - representative user/profile/goal/build records round-trip;
-- latest Bazaar snapshots and valuations match;
-- aggregate history retains bucket order and values;
+- latest public Bazaar and active-Auction versions, retained ended sales, and valuations match;
+- aggregate history retains bucket order and values when aggregation is activated;
 - feature resolution returns the same result;
 - jobs and metrics remain queryable;
 - auth identities still resolve to the same canonical users;

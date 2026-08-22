@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: "AI Assistant", description: "Profile
 
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
   const params = await searchParams;
-  return <AiExperience demo={params.demo === "1"} enabled={featureFlags.aiAssistant} />;
+  return <AiExperience demo={params.demo === "1"} enabled={featureFlags.aiAssistant} playerContextEnabled={featureFlags.playerLookup} economyContextEnabled={featureFlags.publicEconomy} />;
 }

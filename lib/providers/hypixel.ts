@@ -24,12 +24,17 @@ import {
   requestJson,
   type FetchImplementation,
 } from "./http";
+import {
+  createSkyBlockItemDecodeBudget,
+  normalizeSkyBlockItemData,
+} from "./skyblock-items";
 
 const API_BASE_URL = "https://api.hypixel.net/v2/";
 const PLAYER_TTL_MS = 60 * 60 * 1_000;
 const PLAYER_STALE_TTL_MS = 24 * 60 * 60 * 1_000;
 const ECONOMY_TTL_MS = 60 * 1_000;
 const ECONOMY_STALE_TTL_MS = 5 * 60 * 1_000;
+export const BAZAAR_MAX_RESPONSE_CHARACTERS = 8_000_000;
 
 export type HypixelPlayer = {
   uuid: string;
@@ -175,7 +180,12 @@ export class HypixelProvider {
         staleTtlMs: ECONOMY_STALE_TTL_MS,
         staleIfError: true,
       },
-      async () => normalizeBazaar(await this.publicRequest("skyblock/bazaar")),
+      async () =>
+        normalizeBazaar(
+          await this.publicRequest("skyblock/bazaar", {
+            maxResponseCharacters: BAZAAR_MAX_RESPONSE_CHARACTERS,
+          }),
+        ),
     );
   }
 
@@ -195,13 +205,15 @@ export class HypixelProvider {
         normalizeActiveAuctions(
           await this.publicRequest(
             "skyblock/auctions",
-            { page: String(page) },
-            new ProviderError({
-              code: "invalid_input",
-              message: "That active-auction page does not exist.",
-              status: 404,
-              action: "Request a page within the current total page count.",
-            }),
+            {
+              query: { page: String(page) },
+              notFoundError: new ProviderError({
+                code: "invalid_input",
+                message: "That active-auction page does not exist.",
+                status: 404,
+                action: "Request a page within the current total page count.",
+              }),
+            },
           ),
         ),
     );
@@ -241,17 +253,20 @@ export class HypixelProvider {
 
   private async publicRequest(
     path: string,
-    query: Record<string, string> = {},
-    notFoundError?: ProviderError,
+    options: {
+      query?: Record<string, string>;
+      notFoundError?: ProviderError;
+      maxResponseCharacters?: number;
+    } = {},
   ): Promise<unknown> {
     return requestJson({
       provider: "Hypixel",
-      url: buildApiUrl(path, query),
+      url: buildApiUrl(path, options.query ?? {}),
       fetchImplementation: this.fetchImplementation,
       timeoutMs: this.timeoutMs,
-      maxResponseCharacters: 24_000_000,
+      maxResponseCharacters: options.maxResponseCharacters ?? 24_000_000,
       hypixelRateScope: "public",
-      notFoundError,
+      notFoundError: options.notFoundError,
     });
   }
 
@@ -290,10 +305,10 @@ function normalizePlayer(payload: unknown): HypixelPlayer {
   return { uuid, displayName };
 }
 
-function normalizeProfiles(
+async function normalizeProfiles(
   payload: unknown,
   requestedUuid: string,
-): HypixelSkyBlockProfile[] {
+): Promise<HypixelSkyBlockProfile[]> {
   const root = requireSuccessfulPayload(payload);
   if (root.profiles === null) return [];
   if (!Array.isArray(root.profiles) || root.profiles.length > 32) {
@@ -301,6 +316,7 @@ function normalizeProfiles(
   }
 
   const profiles: HypixelSkyBlockProfile[] = [];
+  const itemDecodeBudget = createSkyBlockItemDecodeBudget();
   for (const value of root.profiles) {
     const profile = optionalObject(value);
     if (!profile) continue;
@@ -315,7 +331,10 @@ function normalizeProfiles(
         try {
           const normalizedMemberId = upstreamUuid(memberId);
           if (normalizedMemberId !== requestedUuid) continue;
-          members[normalizedMemberId] = normalizeMemberForAnalysis(memberValue);
+          members[normalizedMemberId] = await normalizeMemberForAnalysis(
+            memberValue,
+            itemDecodeBudget,
+          );
           break;
         } catch {
           // Ignore malformed member data without retaining another co-op member.
@@ -340,7 +359,10 @@ function normalizeProfiles(
   return profiles;
 }
 
-function normalizeMemberForAnalysis(member: JsonObject): JsonObject {
+async function normalizeMemberForAnalysis(
+  member: JsonObject,
+  itemDecodeBudget: ReturnType<typeof createSkyBlockItemDecodeBudget>,
+): Promise<JsonObject> {
   const normalized: JsonObject = {};
 
   const profile = optionalObject(member.profile);
@@ -435,12 +457,10 @@ function normalizeMemberForAnalysis(member: JsonObject): JsonObject {
     }
   }
 
-  if (rawInventoryVisible(member)) {
-    normalized.inventory = { inv_contents: { data: "present" } };
-  }
-  if (rawAccessoryInventoryVisible(member) && !normalized.accessory_bag_storage) {
-    normalized.accessory_bag_storage = { present: true };
-  }
+  normalized.item_data = await normalizeSkyBlockItemData(
+    member,
+    itemDecodeBudget,
+  );
 
   return normalized;
 }
@@ -449,29 +469,6 @@ function normalizeBanking(value: unknown): JsonObject | null {
   const banking = optionalObject(value);
   const balance = nonNegativeNumber(banking?.balance);
   return balance === null ? null : { balance };
-}
-
-function rawInventoryVisible(member: JsonObject): boolean {
-  return [
-    rawPath(member, ["inventory", "inv_contents", "data"]),
-    rawPath(member, ["inv_contents", "data"]),
-  ].some((value) => typeof value === "string" && value.length > 0);
-}
-
-function rawAccessoryInventoryVisible(member: JsonObject): boolean {
-  return [
-    rawPath(member, ["inventory", "bag_contents", "talisman_bag", "data"]),
-    rawPath(member, ["talisman_bag", "data"]),
-  ].some((value) => typeof value === "string" && value.length > 0);
-}
-
-function rawPath(object: JsonObject, path: readonly string[]): unknown {
-  let current: unknown = object;
-  for (const segment of path) {
-    if (!isJsonObject(current)) return undefined;
-    current = current[segment];
-  }
-  return current;
 }
 
 function normalizeBazaar(payload: unknown): BazaarSnapshot {

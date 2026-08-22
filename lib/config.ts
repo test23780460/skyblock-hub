@@ -17,8 +17,9 @@ export const featureFlags = {
   // Integrations that spend quota, expose user data, or trust platform-injected
   // identity stay off until the deployment explicitly enables them.
   aiAssistant: envFlag("ENABLE_AI_ASSISTANT", false),
-  chatGptAuth: envFlag("ENABLE_CHATGPT_AUTH", false),
+  accountAuth: envFlag("ENABLE_ACCOUNT_AUTH", false),
   playerLookup: envFlag("ENABLE_PLAYER_LOOKUP", false),
+  browserPlayerGateway: envFlag("ENABLE_BROWSER_PLAYER_GATEWAY", false),
   publicEconomy: envFlag("ENABLE_PUBLIC_ECONOMY", false),
   ads: envFlag("ENABLE_ADS", false),
   premium: envFlag("ENABLE_PREMIUM", false),

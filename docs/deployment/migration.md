@@ -1,6 +1,10 @@
-# Hosting Migration Plan
+# Second-host migration plan
 
-This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic. It is a design/runbook; no external migration has been executed.
+The concrete Sites-to-native-Cloudflare audit and cutover are documented in
+[Cloudflare migration](../CLOUDFLARE_MIGRATION.md). Native implementation exists,
+but no public cutover is claimed. This document is the remaining generic plan
+for a future non-Cloudflare/second-host move without rewriting SkyBlock domain
+logic; no such move has been executed.
 
 ## 1. Inventory and freeze
 
@@ -11,7 +15,7 @@ This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic
 
 ## 2. Frontend and backend runtime
 
-- Build a target runtime adapter for vinext/server requests, static assets, images, environment, and trusted proxy headers.
+- Build a target runtime adapter for vinext/server requests, static assets, environment, and trusted proxy headers.
 - Preserve product API envelopes and public/private route behavior.
 - Configure the real HTTPS origin so metadata, canonical URLs, sitemap, and robots output are correct.
 
@@ -24,13 +28,13 @@ This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic
 
 ## 4. Authentication
 
-- Replace Sites identity headers with a verified provider adapter.
+- Replace the current disabled Cloudflare Access composition with a verified target-provider adapter.
 - Map provider subjects to existing canonical `users.id`; do not move provider IDs into business tables.
-- Implement secure cookie/session storage, callback validation, CSRF/origin protection, account linking/deletion, and admin allowlist/roles.
+- Implement secure cookie/session storage, callback validation, CSRF/origin protection, and admin allowlist/roles while preserving SkyPilot's canonical identity and tested account-deletion cascade/set-null semantics.
 
 ## 5. Cache, queues, workers, and schedules
 
-- Move per-runtime cache/single-flight/rate state to shared providers when running multiple replicas.
+- Move KV/L0 cache and per-location rate-admission state to target shared providers when running multiple replicas.
 - Deploy web and economy workers separately.
 - Bind scheduler configuration only to job entry points; keep job business logic in worker functions.
 - Configure idempotent snapshots/sales, overlap prevention, backoff, metrics, retention, and dead/failure handling.
@@ -46,7 +50,7 @@ This plan moves SkyPilot away from Sites without rewriting SkyBlock domain logic
 ## 7. Validate and cut over
 
 1. Run lint, typecheck, full tests/build, database checks, and critical E2E against the target.
-2. Smoke-test anonymous profile/economy routes, authenticated goals, admin authorization, and optional AI failure/success.
+2. Run the equivalent of `npm run db:smoke`, then smoke-test anonymous profile/economy routes, full authenticated goal lifecycle, application-account deletion, admin authorization, first durable economy publish/read, and optional AI failure/success.
 3. Verify shared rate/cache behavior under multiple replicas.
 4. Re-run Hypixel policy, security, performance, accessibility, and visual audits.
 5. Put the old deployment in read-only/maintenance mode for the final delta if necessary.

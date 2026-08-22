@@ -1,0 +1,5 @@
+# Wrangler's generated Worker types currently include a handful of trailing
+# spaces. Keep the generated files byte-for-byte compatible with
+# `wrangler types --check` without making repository-wide whitespace validation noisy.
+worker-configuration.d.ts text eol=lf whitespace=-blank-at-eol
+worker-economy-configuration.d.ts text eol=lf whitespace=-blank-at-eol
