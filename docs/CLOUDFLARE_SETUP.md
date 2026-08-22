@@ -29,7 +29,8 @@ scripts. Both native configs pin compatibility date `2026-08-21`.
 - Review the [PlayerDB API](https://playerdb.co/) and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy),
   keep SkyPilot's public privacy disclosure current, and pass focused plus
   staging tests before relying on the conditional username fallback. Focused
-  tests pass; staging remains. It requires no secret.
+  tests and staging egress/schema/error smoke pass; successful live player data
+  still requires a valid rotated Hypixel credential. PlayerDB requires no secret.
 - A verified authentication design before any account, saved-state, AI-with-
   auth, or administrator feature is enabled. See [Identity](#identity).
 
@@ -287,8 +288,10 @@ behavior before activation. The
 response must match PlayerDB's expected success code and requested username,
 contain a valid Java UUID, and then match the authenticated Hypixel player UUID and display name.
 Only the normalized latest mapping enters the existing identity cache. Focused
-tests and the public privacy disclosure pass; staging egress smoke is required
-before this source path is considered deployed live.
+tests and the public privacy disclosure pass. Exact commit `e380eedd37bf` also
+passes staging egress/schema and safe-error smoke, but its configured Hypixel
+credential is invalid; public activation still requires a valid rotated key and
+a successful response with final UUID/display-name agreement.
 
 The root Wrangler configuration declares environment-isolated `DB`,
 `PLAYER_CACHE`, `PLAYER_ACTOR_LIMITER`, and `PLAYER_GLOBAL_LIMITER` bindings,
@@ -406,6 +409,21 @@ separately.
 
 ## Initial smoke test
 
+Recorded narrow staging evidence: application commit `e380eedd37bf` is deployed
+at `https://skypilot-staging.ptravis022.workers.dev` as web Worker version
+prefix `51f5f3e6`. Health returned 200 with player
+configured and economy disabled, and the private-economy service binding
+resolved. Blank input returned `400 invalid_input`; `NoSuchPilotzzzz` returned
+`404 player_not_found`; and `Justiwantdreams` traversed the PlayerDB path to
+Hypixel. That username and a known UUID then returned `503 forbidden` because
+the configured Hypixel credential was invalid; direct provider validation
+returned HTTP 403 `Invalid API key` without recording the credential value.
+
+This evidence does not complete the sequence below: successful live player
+data, final identity agreement, valid credential, production deploy/public
+launch, domain, browser/accessibility/performance, load/multi-region behavior,
+remote migrations/backups, and GitHub Workers Builds remain unverified.
+
 Run this sequence against staging first, then production:
 
 1. Confirm the matching private economy Worker was deployed first, has no public
@@ -509,7 +527,8 @@ and rollback drill are verified.
 | `PROVIDER_BUDGET_DB` is undefined or its table is missing | Verify both web environments target the same dedicated database and apply the one migration in `drizzle-provider-budget/`. |
 | Staging app data appears in production | Stop deployment; staging is bound to a production app resource. Split app D1/KV/rate IDs and non-shared secrets before continuing; do not split the intentionally shared provider-budget DB. |
 | Player lookup reports missing credentials | Verify the feature flag and server-only secret name; never add the key to browser-visible variables. |
-| Username lookup fails while UUID lookup works | Both official identity hosts may be rejecting Worker egress. Focused PlayerDB/privacy checks pass, but use the Java UUID recovery path until staging egress is verified. Inspect only aggregate safe resolver codes and verify PlayerDB schema, exact username, UUID normalization, `429`/`Retry-After`, and final Hypixel UUID/display-name agreement. |
+| Username lookup needs PlayerDB while UUID lookup works | Both official identity hosts may be rejecting Worker egress. Staging proves the conditional PlayerDB egress/schema path, but inspect only aggregate safe resolver codes and verify exact username, UUID normalization, `429`/`Retry-After`, and final Hypixel UUID/display-name agreement before public activation. |
+| Username and UUID both return `503 forbidden` | Identity resolution is not the common failure. Treat health configuration as presence-only, validate the server-side Hypixel credential directly, rotate it if invalid, and never print or move it into browser-visible configuration. |
 | Bazaar says the snapshot is not ready | Keep economy off while the active-Auction crawl is non-incremental. After the activation gate is satisfied, verify all five production app migrations, both feature flags, exactly one private-Worker Cron Trigger, elected cycle logs, and first complete D1 publication. |
 | Account routes always show anonymous | Sites headers are gone. Configure and validate the selected native identity adapter or keep auth disabled. |
 | Rollback fails after a binding change | Restore the referenced resource or deploy a compatible forward version; Worker rollback cannot recreate deleted resources. |

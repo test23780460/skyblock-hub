@@ -100,8 +100,10 @@ including visitor-IP metadata depending on destination routing. SkyPilot
 validates the success code, exact case-insensitive username, and UUID, caches
 only the latest normalized mapping, and requires both the UUID and
 username/display name to agree with Hypixel's authenticated player record. It never schedules identity
-refreshes or records lookup history. Focused tests pass; staging egress
-verification remains before the fallback is considered deployed live.
+refreshes or records lookup history. Focused tests pass, and exact commit
+`e380eedd37bf` verified the fallback's staging egress/schema and safe error
+path. The configured staging Hypixel key is invalid, so this is not evidence of
+a successful live player response or production activation.
 
 Bazaar, active Auctions, and ended sales have centralized ingestion code. The
 private Worker can publish the latest complete Bazaar/active versions and

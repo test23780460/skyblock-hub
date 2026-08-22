@@ -80,9 +80,14 @@ the configured reservation capacity, the approved Hypixel allocation, response
 headers, and multi-region cold-miss volume. Keep `ENABLE_PLAYER_LOOKUP=false` for
 public traffic until staging load evidence and alerting validate those settings.
 
-The PlayerDB path and public privacy disclosure pass focused tests, but the path
-remains activation-only until staging egress smoke passes. Monitor
-only aggregate resolver outcome/error/latency counts; never log usernames, UUIDs,
+The PlayerDB path and public privacy disclosure pass focused tests. Exact commit
+`e380eedd37bf` also verifies staging egress/schema and safe error classification:
+an unknown username returned `404 player_not_found`, while valid username and
+UUID shapes reached Hypixel and returned `503 forbidden` because the configured
+credential was invalid. This is not a successful live-data or load test. Keep
+public activation gated on a valid rotated credential, successful identity
+agreement, load evidence, and alerting. Monitor only aggregate resolver
+outcome/error/latency counts; never log usernames, UUIDs,
 raw PlayerDB responses, client addresses, or the identifying request URL. A
 PlayerDB failure must use stale validated identity cache where allowed or return
 the direct-UUID recovery action. It must not trigger polling, batch resolution,
@@ -151,6 +156,9 @@ during activation.
 4. Verify the authenticated Hypixel player UUID and display name both agree with
    the resolved identity before returning analysis. Never accept PlayerDB avatar,
    metadata, or raw payload as product data.
+5. Treat `player: configured` health as a binding/secret-presence check only. If
+   both username and direct UUID reach Hypixel but return `503 forbidden`,
+   validate and rotate the server-side credential without printing it.
 
 ### Stale or inconsistent economy data
 

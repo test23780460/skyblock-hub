@@ -32,6 +32,8 @@ test("server-renders the finished SkyPilot homepage", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /<title>SkyPilot — Know Your Next SkyBlock Move<\/title>/i);
+  assert.match(html, /<link[^>]+rel="(?:shortcut )?icon"[^>]+href="\/favicon\.svg"/i);
+  await access(new URL("../public/favicon.svg", import.meta.url));
   assert.match(html, /Stop guessing/);
   assert.match(html, /Know your next move/);
   assert.match(html, /(?:Enter username or UUID|Open calculator lab)/);

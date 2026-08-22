@@ -26,11 +26,15 @@ Cloudflare may add ordinary network headers, including visitor-IP metadata
 depending on destination routing. Its response
 must contain the expected success code, an exact case-insensitive username
 match, and a valid Java UUID. The UUID and display name are then validated
-against the authenticated Hypixel player response. Focused tests pass, but staging egress
-verification remains; direct Java UUID input remains the operational
-recovery path until that evidence exists. Both paths fetch available SkyBlock profiles,
-normalize only the requested member's supported fields, and return
-deterministic analysis. `profile` is optional.
+against the authenticated Hypixel player response. Focused tests and the
+recorded exact-commit staging egress/schema/error smoke pass. In that smoke, the
+username
+path reached PlayerDB and then Hypixel, while username and direct-UUID requests
+both returned the designed `503 forbidden` response because the configured
+Hypixel credential was invalid. This is not evidence of successful live player
+data. With a valid credential, both paths fetch available SkyBlock profiles,
+normalize only the requested member's supported fields, and return deterministic
+analysis. `profile` is optional.
 
 Requires `ENABLE_PLAYER_LOOKUP=true`, `PLAYER_CACHE`, `PROVIDER_BUDGET_DB`,
 `PLAYER_ACTOR_LIMITER`, `PLAYER_GLOBAL_LIMITER`, and the web-Worker-only

@@ -80,8 +80,8 @@ bodies. Origin checks are not a replacement for verified identity.
   it stores no PlayerDB avatar, metadata, raw response, or lookup history. Review
   the [PlayerDB API](https://playerdb.co/) and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy)
   before activation. Focused tests and the public `/privacy` disclosure pass;
-  staging verification is still required, so the fallback is not yet claimed
-  deployed live.
+  exact commit `e380eedd37bf` also passes a staging egress/schema and safe-error
+  smoke. Production activation and successful live player data are not claimed.
 - Canonical users are independent of auth-provider IDs.
 - Demo data is explicitly labeled and never silently substituted for live production data.
 - Analytics and error context must be minimal and redacted; raw prompts and unnecessary personal data do not belong in telemetry.
@@ -97,8 +97,9 @@ These are release blockers or scale limitations, not hidden assurances:
   production load/capacity monitoring, Hypixel response-header backoff is per
   isolate, and AI throttling remains in-memory per runtime;
 - the PlayerDB username fallback and public privacy disclosure pass focused
-  tests, but staging egress smoke and production monitoring/incident validation
-  remain incomplete;
+  tests and staging egress/schema/error smoke, but the invalid staging Hypixel
+  credential prevented a successful live response, and production
+  monitoring/incident validation remains incomplete;
 - no production database migration, backup/retention policy, economy schedule,
   alerting, or remote observability verification has been activated;
 - the mutation origin guard still needs deployment-specific proxy/origin

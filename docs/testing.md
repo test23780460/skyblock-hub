@@ -35,8 +35,8 @@ Wrangler configuration.
 The current evidence must be read narrowly:
 
 - focused provider/security and configuration checks establish the current test
-  inventory and separate Worker topology; do not infer a remote deployment from
-  those local checks;
+  inventory and separate Worker topology; local checks alone are not deployment
+  evidence, so the remote staging result below is recorded separately;
 - the application schema has five migrations and 37 tables; `npm run db:check`
   and `npm run db:smoke` pass, and the shared provider-budget database has its
   own one additive migration;
@@ -50,14 +50,26 @@ The current evidence must be read narrowly:
   `/api/health` at 200 without revealing binding/secret names;
   `Justiwantdreams` returned 200 with three profiles and a repeat request used
   cache;
-- no exact-head remote web/economy deployment or deployed service-binding smoke
-  is inferred until those commands and URLs/version IDs are recorded.
+- application commit `e380eedd37bf` is deployed to staging web Worker version
+  prefix `51f5f3e6` at
+  `https://skypilot-staging.ptravis022.workers.dev`. `/api/health` returned 200
+  with player configured and economy disabled, and the matching private-economy
+  service binding resolved. A blank selector returned `400 invalid_input`;
+  `NoSuchPilotzzzz` returned `404 player_not_found`; `Justiwantdreams` traversed
+  the PlayerDB path and reached Hypixel; and it plus a known UUID returned the
+  designed `503 forbidden` because the configured Hypixel credential was
+  invalid. Direct provider validation independently returned HTTP 403 `Invalid
+  API key` without recording the credential value;
 - focused tests prove official transport/access fallback,
   official-not-found short-circuiting, bounded PlayerDB
   schema/username/UUID validation, final Hypixel UUID/display-name matching, no
   Hypixel-budget spend for identity-only traffic, cache behavior, and
-  privacy-safe request fields. Staging must still prove the real Cloudflare
-  egress path and operational `429`/`Retry-After` behavior before activation.
+  privacy-safe request fields. The staging smoke proves real Cloudflare
+  PlayerDB egress/schema, input/not-found/error handling, and web-to-economy
+  service resolution. It does not prove a valid credential, successful live
+  player data or final identity agreement, production deployment/public launch,
+  domain cutover, browser/accessibility/performance, load/multi-region behavior,
+  operational `429`/`Retry-After`, or GitHub Workers Builds.
 
 The historical commit `3b4064d` and GitHub Actions run
 [`31775265691`](https://github.com/test23780460/skyblock-hub/actions/runs/31775265691)
@@ -73,8 +85,9 @@ permissions. It also lacks documented passing evidence for:
 - cross-browser and device-matrix testing;
 - automated accessibility and visual-regression testing;
 - production/staging D1 migration plus backup/restore drills;
-- exact-final-head remote Wrangler dry-runs and deployed web/private-economy
-  Worker smoke in both environments;
+- production web/private-economy deployment and versioned service-binding smoke,
+  plus a recorded staging private-economy Worker version and remote migration/
+  backup evidence;
 - GitHub Workers Builds runs for the connected web and private-economy Workers;
 - optional-account identity/session behavior;
 - multi-region cache/coarse-filter behavior, D1 provider-budget monitoring, and

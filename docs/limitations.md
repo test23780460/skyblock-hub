@@ -7,8 +7,10 @@ evidence, and externally activated production behavior are different things.
 
 - No native public deployment, custom domain, DNS cutover, or public launch is
   claimed. The migration worktree builds production/staging web Workers plus
-  matching private economy Workers; remote resources, Builds connections,
-  exact-final-head dry-runs, deployment, and smoke tests remain operator work.
+  matching private economy Workers. Exact application commit `e380eedd37bf` has
+  a recorded staging web deployment and narrow API/service smoke; production
+  resources/deployment, Builds connections, domain work, and release smoke
+  remain operator work.
 - Commit `3b4064d` at the owner-only Sites URL is historical rollback evidence,
   not the current preferred runtime or exact-head native verification.
 - Native staging and production have separate configured application D1/KV/rate
@@ -32,9 +34,11 @@ evidence, and externally activated production behavior are different things.
   normalized requested username plus its service user agent; Cloudflare may add
   network headers, including visitor-IP metadata depending on routing. SkyPilot
   strictly validates the returned username/UUID, caches only the latest mapping,
-  and requires the UUID and display name to match Hypixel. Focused tests and the public privacy
-  disclosure pass, but staging egress smoke remains incomplete, so direct Java
-  UUID input is the supported recovery path until deployment verification.
+  and requires the UUID and display name to match Hypixel. Focused tests, the
+  public privacy disclosure, and recorded exact-commit staging
+  egress/schema/error smoke pass. The staging Hypixel credential is invalid, so both username and direct
+  Java UUID requests currently fail safely with `503 forbidden`; successful live
+  player data remains unverified.
 - Base64/gzip/NBT handling is bounded and discards raw blobs, trees, lore, and
   unsupported fields before shared caching.
 - Full modifier-aware gear analysis, pets, additional storage, Museum,
@@ -115,7 +119,8 @@ evidence, and externally activated production behavior are different things.
 - The exact-head suite contains 203 tests: 40 engine, 16 service, 113
   provider/security, and 34 rendered/configuration/legal. See
   [Testing](testing.md) for the distinction between current local evidence,
-  historical smoke, and still-unverified remote deployment/browser evidence.
+  recorded exact-commit narrow staging smoke, historical rollback evidence, and
+  still-unverified production/browser evidence.
 - Full responsive/browser, accessibility, visual-regression, load/soak,
   remote-migration, account/auth, dependency, current-policy, and release-level
   security audits are still required.

@@ -1,6 +1,6 @@
 # Cloudflare migration
 
-**Audit date:** 2026-08-21
+**Audit date:** 2026-08-22
 **Repository:** `test23780460/skyblock-hub`
 **Migration branch:** `codex/cloudflare-migration`
 
@@ -10,15 +10,16 @@ private economy Workers without rebuilding or redesigning it. The old
 owner-only Sites deployment remains the rollback target until the native Worker
 pair passes every cutover gate.
 
-This is an implementation audit, not proof of a live deployment. Repository
-changes can prepare native packaging and runtime composition, but they cannot
-confirm account plan, remote resources, secrets, migrations, GitHub App
-installation, Access policy, DNS, production logs, or Hypixel approval.
+This is an implementation and evidence audit, not proof of a production or
+public deployment. It records one narrow staging web deployment/API smoke, but
+does not confirm account plan, production resources, a valid provider secret,
+remote migrations, GitHub App installation, Access policy, DNS, production
+logs, or Hypixel approval.
 
 | Migration boundary | Audit status |
 | --- | --- |
-| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; native production/staging builds and prior local web-Worker smoke exist, while exact-final-head remote dry-run/deploy remains unverified |
-| Private economy Workers | `skypilot-economy` and `skypilot-economy-staging` are separately configured with matching D1, `workers_dev=false`, preview URLs off, economy disabled, and no Cron; deploy and service-binding smoke remain unverified |
+| Native web Workers, Static Assets, D1/KV/rate/service bindings, environment selection | Implemented; application commit `e380eedd37bf` is deployed as staging web version prefix `51f5f3e6`, while production deployment remains unverified |
+| Private economy Workers | `skypilot-economy` and `skypilot-economy-staging` are separately configured with matching D1, `workers_dev=false`, preview URLs off, economy disabled, and no Cron; staging service-binding smoke passes, while its exact private-Worker version and production deployment remain unrecorded |
 | Sites rollback | Retained in source, but native build scripts exclude `dist/.openai` |
 | Production/staging resource isolation | App D1/KV/rate IDs are distinct; one dedicated provider-budget D1 is deliberately shared because both environments use one Hypixel key. Remote ownership and actual account bindings still require operator verification. |
 | Public economy runtime | Implemented only in the private Worker but disabled with no Cron because the active-Auction crawl is non-incremental; remote migrations, Workers Paid, capacity evidence, an incremental/compacted replacement, a reviewed single-Cron activation, first publication, and usage monitoring are external gates |
@@ -38,7 +39,7 @@ installation, Access policy, DNS, production logs, or Hypixel approval.
 | Economy runtime | Scheduler-independent jobs previously shared a composition edge | Compose them only in private `worker/economy.ts`, configured by `wrangler.economy.jsonc` with public and preview URLs off |
 | Static assets | Vite client output and `public/og.png` | Serve through Workers Static Assets; no Workers Sites or R2 |
 | Image handling | The current UI uses ordinary generated/static assets and has no `next/image` usage | Serve through Static Assets; do not require Cloudflare Images or R2 without a real use case |
-| Player providers | Validated Minecraft/Mojang/PlayerDB/Hypixel adapters and deterministic analysis; both official identity hosts currently fail from Worker egress, and focused fallback tests pass | Run provider calls server-side, use PlayerDB only after official transport/access failures, validate its username/UUID strictly, require final Hypixel UUID/display-name agreement, and keep direct UUID recovery; do not call the fallback live before staging egress verification |
+| Player providers | Validated Minecraft/Mojang/PlayerDB/Hypixel adapters and deterministic analysis; both official identity hosts currently fail from Worker egress, and focused plus staging fallback/error-path smoke pass | Run provider calls server-side, use PlayerDB only after official transport/access failures, validate its username/UUID strictly, require final Hypixel UUID/display-name agreement, and keep direct UUID recovery; public activation still requires a valid credential and successful live staging response |
 | Public economy | Scheduler-independent Bazaar/Auction jobs, durable D1 lease/fencing/backoff, D1-only public reads | Bind jobs only to the private economy Worker; web admin reaches its fixed action through `ECONOMY_SERVICE`, and a future Cron belongs only there |
 | Cache | Portable `TtlCache`, per-isolate memory cache, KV adapter, durable D1 economy snapshots | D1 remains authoritative for economy; native player routes use environment-isolated KV with bounded L0 memory |
 | Persistence | Drizzle SQLite app schema, five migrations, 37 D1 tables, plus a one-migration dedicated provider-budget D1; repository interfaces/adapters | Keep environment-isolated app D1 databases, but bind both web environments to one dedicated provider-budget database for the one shared Hypixel credential |
@@ -202,10 +203,13 @@ request retains another invocation's binding or fetch promise.
 
 The conditional [PlayerDB API](https://playerdb.co/) fallback is implemented in
 source to address the observed official-host Worker egress failures. Focused
-tests and the public privacy disclosure pass, but staging smoke remains. It remains
-part of the identity path, not the authenticated Hypixel credential path, and
-therefore spends no Hypixel reservation. No resolver authorizes monitoring,
-history, scheduled refresh, or mass username enumeration.
+tests and the public privacy disclosure pass. Exact commit `e380eedd37bf` also
+verified staging PlayerDB egress/schema and classified not-found/error handling;
+its configured Hypixel credential was invalid, so no successful live player
+response or final identity agreement is claimed. PlayerDB remains part of the
+identity path, not the authenticated Hypixel credential path, and therefore
+spends no Hypixel reservation. No resolver authorizes monitoring, history,
+scheduled refresh, or mass username enumeration.
 
 KV is eventually consistent and suitable for shared latest-value cache, not an
 authoritative global counter. Cloudflare rate-limit bindings are coarse
@@ -404,6 +408,25 @@ source repository. Web connections use `npm run cf:build`;
 private economy connections use `wrangler.economy.jsonc` and the matching
 repository economy script/configuration.
 
+### Recorded staging evidence
+
+Application commit `e380eedd37bf` is deployed at
+`https://skypilot-staging.ptravis022.workers.dev` as web Worker version
+prefix `51f5f3e6`. Health returned 200 with player
+configured and economy disabled, confirming the intended safe posture and the
+matching private-economy service binding. Blank input returned
+`400 invalid_input`; `NoSuchPilotzzzz` returned `404 player_not_found`; and
+`Justiwantdreams` traversed PlayerDB to Hypixel. Both that username and a known
+UUID then returned the designed `503 forbidden` because the configured Hypixel
+credential was invalid; direct provider validation returned HTTP 403
+`Invalid API key` without recording its value.
+
+This proves the staging PlayerDB egress/schema, input/not-found/safe-error, and
+web-to-economy service paths only. It does not prove a valid credential,
+successful live player data or final UUID/display-name agreement, production
+deployment/public launch, domain cutover, browser/accessibility/performance,
+load/multi-region behavior, remote migrations/backups, or GitHub Workers Builds.
+
 ## Cutover and rollback
 
 1. Record the exact owner-only Sites version, gateway Worker version, flags,
@@ -456,9 +479,10 @@ describe SkyPilot as public-ready until all applicable items are closed:
   credential ever disclosed outside a secret manager has been rotated;
 - authenticated player admission, shared cache behavior, atomic D1 budget, and
   quota headroom have tested multi-region load/capacity and monitoring evidence;
-- the conditional PlayerDB resolver has focused tests, staging egress evidence,
-  strict username/UUID/Hypixel-match validation, aggregate-only operations
-  telemetry, and an updated public privacy disclosure;
+- the conditional PlayerDB resolver has focused tests, staging egress/schema
+  evidence, strict username/UUID/Hypixel-match validation, a successful
+  valid-credential staging response, aggregate-only operations telemetry, and
+  an updated public privacy disclosure;
 - the account is on Workers Paid, current D1 request/query limits are covered by
   tested bounded ingestion, and rows-read/rows-written usage plus cost alerts
   are monitored for the economy workload;

@@ -15,7 +15,7 @@ Current audited totals: **39 Complete, 88 Partial, 20 Deferred, and 2 Blocked** 
 
 The 2026-08-22 exact-head suite contains the following local validation
 inventory; [Testing](testing.md) distinguishes focused/local evidence from
-still-unverified remote deployment evidence:
+recorded narrow staging evidence and still-unverified production evidence:
 
 - `npm run lint`;
 - `npm run typecheck`;
@@ -33,8 +33,18 @@ Rendered HTML tests prove route/build output, not hydrated browser behavior. A
 prior local web-Worker health/player/cache smoke passed before the separate
 economy-service topology delta. Commit `3b4064d`, GitHub
 Actions run `31775265691`, and its owner-only lookup/save smoke are historical
-Sites rollback evidence only. No native remote deployment, public launch, or
-broad browser/release QA is inferred.
+Sites rollback evidence only.
+
+Application commit `e380eedd37bf` is deployed to staging web Worker version
+prefix `51f5f3e6` at
+`https://skypilot-staging.ptravis022.workers.dev`. Health returned 200 with
+player configured and economy disabled; the private-economy service binding,
+PlayerDB egress/schema, blank-input validation, not-found classification, and
+safe Hypixel error path were exercised. The configured Hypixel credential was
+invalid, so username and UUID requests returned `503 forbidden` and no
+successful live player response is claimed. This is not production deployment,
+public launch, domain, browser/accessibility/performance, or Workers Builds CI
+evidence.
 
 ## Requirement-by-requirement map
 
@@ -43,7 +53,7 @@ broad browser/release QA is inferred.
 | 1 | Primary product vision | **Partial** | A coherent shell now joins profile analysis, saved state, goals, current/history economy views, money-making, optimizers, calculators, and grounded AI; several deep profile/domain replacements remain incomplete. |
 | 2 | Autonomous build requirement | **Complete** | `PROJECT_SPEC.md`, `TODO.md`, this audit, and repeatable validation commands preserve scope and evidence. |
 | 3 | External blocker rule | **Complete** | Safe-default feature gates and classified unavailable states isolate missing Hypixel, OpenAI, auth, D1, and deployment activation. |
-| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 203 automated tests, migration smoke, secret scanning, and a prior local web-Worker lookup/cache pass exist; exact-head remote web/economy deployment plus full browser, accessibility, visual, performance, and broader live-integration loops do not. |
+| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 203 automated tests, migration smoke, secret scanning, a prior local lookup/cache pass, and narrow exact-commit staging API/service smoke exist; production deployment plus full browser, accessibility, visual, performance, and broader live-integration loops do not. |
 | 5 | Final completion loop | **Deferred** | The release gate cannot pass while the end-to-end gaps below remain. |
 | 6 | Product name and centralized branding | **Complete** | `lib/config.ts`, root metadata, sitemap, About content, and `public/og.png` use SkyPilot centrally. |
 | 7 | Design quality | **Partial** | `app/globals.css` and the shared shell are cohesive, but no complete cross-page visual acceptance pass exists. |
@@ -60,7 +70,7 @@ broad browser/release QA is inferred.
 | 18 | Goal system | **Partial** | Owner-scoped create/read/update/complete/pause/resume/reset/delete and manual recurring cycles work; semantic XP/hour/cost decomposition and persisted editable steps do not. |
 | 19 | Recommendation history | **Partial** | Schema/repository support exists and dashboard actions work for a visit; the buttons are not connected to durable recommendation state. |
 | 20 | Player history policy | **Complete** | Player lookup is request-driven/cached and separate from scheduled public economy ingestion; no profile polling or mass tracking exists. |
-| 21 | Profile analyzer | **Partial** | Minecraft/Mojang/PlayerDB/Hypixel normalization covers request-driven username/UUID identity, strict fallback validation, core stats, skills, Catacombs, Slayer, MP, bounded item containers, gear/accessory identities, and safe unavailable states. PlayerDB focused tests pass but staging egress smoke remains; pets and several progression domains are still missing. |
+| 21 | Profile analyzer | **Partial** | Minecraft/Mojang/PlayerDB/Hypixel normalization covers request-driven username/UUID identity, strict fallback validation, core stats, skills, Catacombs, Slayer, MP, bounded item containers, gear/accessory identities, and safe unavailable states. PlayerDB focused tests and staging egress/schema/error smoke pass, but the invalid staging key prevented successful live player data; pets and several progression domains are still missing. |
 | 22 | Gear analyzer | **Partial** | The request-driven profile path safely detects equipped armor/equipment plus carried weapons/tools, rarity, stars, and recombobulation; enchant/reforge/gemstone/attribute appraisal and owned-gear upgrade advice remain absent. |
 | 23 | Gear comparison | **Deferred** | The current gear surface is a generic manual lab, not a modeled weapon/armor/equipment/pet comparison. |
 | 24 | Future build creator | **Complete** | `/builds` provides a visibly experimental manual armor/weapon/equipment/pet/accessory composer; signed-in users can create, edit, profile-link, favorite, delete, and share private/unlisted/public builds with rotatable slugs. |
@@ -128,7 +138,7 @@ broad browser/release QA is inferred.
 | 86 | Historical economy data | **Partial** | Worker-built idempotent Bazaar OHLC/average-volume buckets retain hourly evidence for 90 days and daily evidence for three years, while ended sales remain bounded/deduplicated; auction/item valuation summaries and broader compaction remain absent. |
 | 87 | Database | **Complete** | `db/schema/**`, five checked app migrations, 37 normalized tables including the portable provider-budget table shape, constraints/indexes/FKs, repositories, and clean migration smoke coverage cover the specified durable domains. Native credential admission uses a dedicated shared D1 with its own one additive migration. |
 | 88 | Data-model flexibility | **Partial** | Stable relations are normalized and evolving fragments use bounded JSON, but complete resource/version update ingestion is absent. |
-| 89 | Initial hosting target | **Partial** | Native production/staging web Workers and matching private economy Workers exist with isolated app D1/KV/rate bindings, a shared `PROVIDER_BUDGET_DB`, `ECONOMY_SERVICE`, and prior local lookup/cache smoke; remote Builds/deployment/domain, migrations, service-binding smoke, backup/restore, and broader production QA remain. The Sites deployment is rollback history. |
+| 89 | Initial hosting target | **Partial** | Native production/staging web Workers and matching private economy Workers exist with isolated app D1/KV/rate bindings, a shared `PROVIDER_BUDGET_DB`, and `ECONOMY_SERVICE`. Exact commit `e380eedd37bf` has a recorded staging web version plus disabled-economy service-binding/API smoke; production deployment, Workers Builds, domain, remote migration/backup evidence, a recorded private-Worker version, and broader production QA remain. The Sites deployment is rollback history. |
 | 90 | Zero hosting lock-in | **Partial** | Engines/contracts/jobs are portable; vinext/Workers, D1, KV/rate bindings, the disabled Access adapter, and runtime composition remain provider-specific. |
 | 91 | Infrastructure abstractions | **Partial** | Repository, economy store/sink, provider, and scheduler-independent job boundaries exist; cache/rate/queue/auth/storage/analytics/secrets adapters are incomplete. |
 | 92 | Database portability | **Partial** | Canonical repository contracts, app-generated IDs, SQLite-safe normalized schema, and D1-to-PostgreSQL docs exist; no PostgreSQL adapter/import test exists. |
@@ -158,7 +168,7 @@ broad browser/release QA is inferred.
 | 116 | SEO | **Complete** | Metadata, Open Graph image, sitemap, robots rules, and private-route exclusion are implemented/tested. |
 | 117 | Documentation | **Complete** | README, architecture, security, API, database, setup, operations, testing, portability, deployment, limitations, spec, checklist, and this audit exist. |
 | 118 | Deployment documentation | **Complete** | Native Cloudflare setup/migration, labeled Sites/gateway rollback, external hosting, database portability, auth, workers, secrets, domain, and rollback steps are documented honestly. |
-| 119 | Testing | **Partial** | 203 tests cover engines, services, provider/security boundaries including the conditional PlayerDB resolver, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes; deployed PlayerDB egress smoke, automated browser E2E, full authz, and many deep feature flows remain untested. Prior local web-Worker smoke is recorded separately. |
+| 119 | Testing | **Partial** | 203 tests cover engines, services, provider/security boundaries including the conditional PlayerDB resolver, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes. Deployed staging PlayerDB egress/schema and safe errors are smoked, but a valid-key successful response, automated browser E2E, full authz, and many deep feature flows remain untested. |
 | 120 | End-to-end tests | **Deferred** | Rendered HTML is server smoke coverage, not Playwright/browser E2E for the required flows. |
 | 121 | Mock data rule | **Complete** | Demo/illustrative data is visibly labeled and safe-default live failures never silently fall back to demo. |
 | 122 | No dead UI | **Partial** | Saved-state/build, market history, economy labs, money-making, skills, readiness, slot, and AI controls are wired; several deep module pages still present feature maps or narrow planning surfaces rather than complete capabilities. |
@@ -167,7 +177,7 @@ broad browser/release QA is inferred.
 | 125 | Central game configuration | **Partial** | Central catalogs/config/nav plus one versioned standard skill-XP curve and per-skill caps are shared by profile normalization and calculators; some rarity/item/domain constants remain local. |
 | 126 | Future SkyBlock updates | **Partial** | Stable IDs/catalogs, provider normalizers, versioned item summaries, and centralized skill XP improve update tolerance; several modules still use static local lists/reference assumptions. |
 | 127 | Home page | **Complete** | Search-first homepage, concise positioning, no-account message, labeled previews, module links, and non-affiliation render and test successfully. |
-| 128 | First profile experience | **Partial** | Empty/loading/error/profile reveal states are polished, and one owner-authenticated `Justiwantdreams` lookup/profile-save flow passed live; broad browser timing, failure, device, and complete-analysis coverage remain unverified. |
+| 128 | First profile experience | **Partial** | Empty/loading/error/profile reveal states are polished, and one owner-authenticated `Justiwantdreams` lookup/profile-save flow passed on the historical Sites rollback. Current staging verifies safe API errors but not a valid-key profile response; broad browser timing, failure, device, and complete-analysis coverage remain unverified. |
 | 129 | Profile summary card | **Partial** | A compact dashboard stat summary exists; it is not a share/export card and omits major live fields. |
 | 130 | Progression score | **Complete** | A bounded, tested unofficial score is visibly labeled SkyPilot-specific and not an official metric. |
 | 131 | Best value badges | **Complete** | Recommendation models/engine/UI support value/priority badges with deterministic ranking. |
@@ -177,8 +187,8 @@ broad browser/release QA is inferred.
 | 135 | AI failure handling | **Complete** | AI is optional/flagged; missing credentials and failures leave deterministic/non-AI tools available with clear messages. |
 | 136 | Monorepo/shared packages | **Complete** | Equivalent `app`/`components`/`lib`/`db`/`worker` separation avoids a forced multi-package scaffold while preserving boundaries. |
 | 137 | CI | **Complete** | `.github/workflows/ci.yml` runs install, lint, typecheck, Drizzle checks, migration smoke, tests/build, and Docker build. |
-| 138 | Git hygiene | **Complete** | Ignore rules, secret scanning, generated-env scrubbing, and native config/type CI gates exist. Historical `3b4064d` Actions evidence is not exact-head native CI/deployment evidence. |
-| 139 | Initial public deployment | **Blocked** | Native web/private-economy source/build composition exists, but remote deployment/domain, Hypixel Production approval, provider-budget load/capacity evidence, migrations/backups, optional auth, and remaining release QA are unresolved. |
+| 138 | Git hygiene | **Complete** | Ignore rules, secret scanning, generated-env scrubbing, and native config/type CI gates exist. Historical `3b4064d` Actions evidence is not current native Workers Builds CI evidence. |
+| 139 | Initial public deployment | **Blocked** | An exact application commit is deployed to staging with narrow API/service smoke, but production deployment/domain, a valid approved Hypixel credential, provider-budget load/capacity evidence, migrations/backups, optional auth, and remaining release QA are unresolved. |
 | 140 | Sites limitations | **Partial** | Native Cloudflare removes runtime Sites dependence and retains Sites only as rollback; exact remote cutover/rollback evidence and second-host composition remain incomplete. |
 | 141 | Migration test | **Partial** | The five-migration chain creates all 37 expected SQLite tables and includes the foreign-key smoke gate, but no second-host/PostgreSQL production import/auth/worker migration smoke exists. |
 | 142 | Visual QA | **Partial** | Prior-source desktop/mobile spot checks are documented, but the current saved-state/history/AI/item/planner delta and every major page/state at desktop/tablet/mobile have no captured browser audit. |
@@ -208,8 +218,9 @@ These require owner/provider/deployment action and must remain unchecked. They a
 - Revoke the OpenAI and Hypixel credentials previously exposed outside a secret store; create replacement credentials and install them server-side only.
 - Obtain/confirm the appropriate Hypixel production application approval and perform the final current-policy review before live activation.
 - Install an approved OpenAI model/key only if the optional AI feature is deliberately enabled.
-- Keep PlayerDB fallback traffic off until staging proves the real Cloudflare
-  egress path, rate-limit behavior, safe request fields, and privacy disclosure.
+- Keep public player lookup off until a valid rotated credential produces a
+  successful staging response with final Hypixel UUID/display-name agreement,
+  and rate-limit/load behavior, safe telemetry, and monitoring are verified.
 - Apply all five versioned app migrations to production `DB` and the one additive
   migration to the shared `PROVIDER_BUDGET_DB`; configure
   backups/restore/retention and verify both Workers use the intended database roles.

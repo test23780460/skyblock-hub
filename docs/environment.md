@@ -83,9 +83,12 @@ client-side variable. Its fixed server request supplies SkyPilot's identifying
 service user agent and a normalized username. Cloudflare may add network headers,
 including visitor-IP metadata depending on destination routing. Do not add a
 browser-exposed PlayerDB URL or proxy setting. Source support and the public
-privacy disclosure pass focused tests; staging egress smoke remains before
-activation. The returned UUID and username/display name must both agree with the
-authenticated Hypixel player record.
+privacy disclosure pass focused tests. Exact commit `e380eedd37bf` also passes a
+staging egress/schema/error smoke, but the configured staging Hypixel credential
+is invalid; health reports configuration presence, not credential validity.
+Production activation still requires a valid rotated credential and a
+successful live response in which the returned UUID and username/display name
+both agree with the authenticated Hypixel player record.
 
 The native web build sets `CLOUDFLARE_ENV` through the repository scripts.
 `main` resolves to production and every other `WORKERS_CI_BRANCH` to staging.

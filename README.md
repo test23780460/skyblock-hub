@@ -13,8 +13,11 @@ Static Assets, isolated application D1 and player KV/rate bindings, a shared
 dedicated provider-budget D1 binding, and a server-only Hypixel secret; each web Worker reaches only
 its matching economy Worker through the `ECONOMY_SERVICE` service binding. The
 older owner-only Sites deployment remains a historical rollback target; it is
-not the preferred runtime or evidence of a public launch. Native remote
-deployment, domain cutover, and public access are not claimed.
+not the preferred runtime or evidence of a public launch. Exact commit
+`e380eedd37bf` is deployed to the staging web Worker as version prefix
+`51f5f3e6` at
+`https://skypilot-staging.ptravis022.workers.dev`; production deployment,
+domain cutover, and public access are not claimed.
 
 Implemented today:
 
@@ -23,9 +26,10 @@ Implemented today:
   Worker when its feature gate, rotated Worker secret, environment-isolated KV
   cache, shared `PROVIDER_BUDGET_DB`, and actor/shared Cloudflare abuse filters are
   active; source now contains a conditional PlayerDB username resolver for the
-  Cloudflare egress failure case; focused tests pass, but staging egress
-  verification remains; the older signed gateway and browser-capability path remain
-  rollback compatibility only;
+  Cloudflare egress failure case; focused tests and staging egress/schema/error
+  smoke pass, but the configured staging Hypixel credential is invalid and no
+  successful live player response is claimed; the older signed gateway and
+  browser-capability path remain rollback compatibility only;
 - normalized, bounded Bazaar, active-auction, and ended-auction API views backed by durable D1 snapshots when public economy is enabled;
 - idempotent hourly/daily Bazaar aggregates with bounded retention plus an accessible 24H/7D/30D/1Y price-and-volume history view;
 - working accessory, Garden, Farming, pet, Minion, Dungeon, Slayer, core-skill, minion-slot, dungeon-readiness, craft, NPC/Bazaar, and money-making planners backed by deterministic tested engines;
@@ -48,9 +52,10 @@ Still incomplete or inactive:
 - several deep module pages are feature maps or narrow planning labs, not complete live-data tools;
 - both official Minecraft username hosts currently reject or fail native
   Cloudflare Worker egress. The conditional PlayerDB fallback is implemented in
-  source and covered by focused tests plus the public privacy disclosure, but
-  must not be treated as deployed live until staging smoke passes; direct Java UUID input remains the
-  recovery path;
+  source, covered by focused tests plus the public privacy disclosure, and its
+  staging egress/schema/error path is verified. The staging credential is
+  invalid, so neither username nor direct Java UUID lookup has yet returned
+  successful live player data from this deployment;
 - complete gear-upgrade analysis, pets/storage, priced net worth, item browser/search, Auction/item valuation history, and several domain-specific systems are not wired end to end;
 - Bazaar search is limited to the loaded result slice, and craft/NPC/money-making inputs are explicitly editable reference scenarios rather than current live recipes, limits, setups, or guaranteed rates;
 - durable recommendation Complete/Ignore/Remind Later state, goal/analysis sharing, and broader AI knowledge grounding remain incomplete;
@@ -196,9 +201,10 @@ See [API reference](docs/api.md). SkyPilot does not expose an unrestricted Hypix
 - [External hosting](docs/deployment/external-hosting.md): what runs today and what adapters are still required.
 - [Migration plan](docs/deployment/migration.md): moving data, auth, workers, secrets, and domain without rewriting SkyBlock logic.
 
-Native remote deployment, production secrets/migrations, GitHub Builds
-connections, verified private-economy-before-web deployment order, optional
-economy activation, and the final domain remain external activation items.
+The exact staging web deployment above and its disabled-economy service binding
+are verified. Production deployment, a valid rotated credential, production
+secrets/migrations, GitHub Workers Builds connections, optional economy
+activation, and the final domain remain external activation items.
 
 ## Operations and security
 

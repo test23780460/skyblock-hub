@@ -145,8 +145,10 @@ only the latest strictly validated username/UUID mapping,
 discard raw response/avatar/metadata, and require the UUID and display name to match Hypixel's
 authenticated player response. Review the [PlayerDB API](https://playerdb.co/)
 and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy) before
-activation. Focused tests and the public privacy disclosure pass; keep the
-fallback off until staging egress verification passes.
+activation. Focused tests, the public privacy disclosure, and the recorded
+exact-commit staging egress/schema/error path pass. Keep public activation off until a valid
+rotated Hypixel credential proves the final UUID/display-name agreement and the
+remaining load, monitoring, and current-policy gates pass.
 
 ## Redistribution and proxying
 

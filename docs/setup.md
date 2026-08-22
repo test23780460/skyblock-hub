@@ -60,7 +60,9 @@ resolves.
   dependencies are configured. Username resolution uses Minecraft Services
   with a bounded official Mojang fallback. Source also includes a conditional
   PlayerDB fallback after both official resolvers fail for transport/access.
-  Focused tests and the public privacy disclosure pass; staging egress verification remains.
+  Focused tests, the public privacy disclosure, and a recorded exact-commit
+  staging egress/schema/error smoke pass. That smoke used an invalid configured Hypixel
+  credential, so it did not produce successful live player data.
   Identity-only traffic does not spend Hypixel quota. A UUID skips all identity
   services and is the actionable recovery path during an identity-service
   outage. A username-derived UUID and display name must both agree with the
@@ -73,7 +75,9 @@ selectors, or Hypixel key. Cloudflare may add network headers, including
 visitor-IP metadata depending on destination routing. Before treating the
 fallback as active, review the
 [PlayerDB API](https://playerdb.co/), the [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy),
-passing focused provider tests, and a staging lookup where both official hosts fail.
+passing focused provider tests, and the recorded staging lookup where both
+official hosts fail. Before public activation, repeat with a valid rotated
+Hypixel credential and verify final UUID/display-name agreement.
 - `/bazaar` and `/auctions` read D1 snapshots; page requests never call Hypixel.
   With public economy off or before a real first publication, they show a
   designed unavailable state rather than fixture data.
