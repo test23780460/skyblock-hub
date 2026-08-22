@@ -130,6 +130,24 @@ SkyPilot must apply these retention rules:
 
 These are minimum SkyPilot controls. Separate privacy-law and user-consent requirements may demand shorter retention.
 
+### Third-party username resolution
+
+Both official Minecraft username hosts currently fail from native Cloudflare
+Worker egress. Source includes a conditional PlayerDB fallback, but it is not a
+license to monitor players or expand collection. It may run only for a
+user-triggered lookup after both official resolvers fail for transport/access;
+an authoritative not-found response stops resolution. Application code should
+supply only the normalized requested username and SkyPilot's identifying service user agent. Application
+code must not copy browser cookies, authentication, profile selectors, or the
+Hypixel key. Cloudflare may add network headers, including visitor-IP metadata
+depending on destination routing; disclose and revalidate that behavior. Cache
+only the latest strictly validated username/UUID mapping,
+discard raw response/avatar/metadata, and require the UUID and display name to match Hypixel's
+authenticated player response. Review the [PlayerDB API](https://playerdb.co/)
+and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy) before
+activation. Focused tests and the public privacy disclosure pass; keep the
+fallback off until staging egress verification passes.
+
 ## Redistribution and proxying
 
 The [API Policy](https://developer.hypixel.net/policies/) says an application may not be created for the purpose of proxying the Public API to third-party developers.

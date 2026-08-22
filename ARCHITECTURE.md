@@ -89,6 +89,20 @@ Analytics stores optional canonical user IDs or one-way anonymous hashes, never 
 
 `minecraft_accounts` and `skyblock_profiles` identify data fetched because a visitor requested it. Their freshness fields support request-driven caching; they are not permission to poll players or build automated session history.
 
+Username resolution tries `api.minecraftservices.com` and then `api.mojang.com`.
+Source includes a conditional [PlayerDB](https://playerdb.co/) fallback only when
+both official resolvers fail for bounded transport, timeout, unavailable, or
+forbidden reasons; an authoritative not-found response stops the chain. The
+application supplies only the normalized requested username plus SkyPilot's
+service user agent; it does not copy incoming browser cookies, authentication,
+profile selectors, or the Hypixel key. Cloudflare may add transport headers,
+including visitor-IP metadata depending on destination routing. SkyPilot
+validates the success code, exact case-insensitive username, and UUID, caches
+only the latest normalized mapping, and requires both the UUID and
+username/display name to agree with Hypixel's authenticated player record. It never schedules identity
+refreshes or records lookup history. Focused tests pass; staging egress
+verification remains before the fallback is considered deployed live.
+
 Bazaar, active Auctions, and ended sales have centralized ingestion code. The
 private Worker can publish the latest complete Bazaar/active versions and
 bounded deduplicated ended sales, then idempotently fold newer Bazaar summaries

@@ -22,8 +22,10 @@ Implemented today:
 - live Minecraft identity and Hypixel profile lookup through the native web
   Worker when its feature gate, rotated Worker secret, environment-isolated KV
   cache, shared `PROVIDER_BUDGET_DB`, and actor/shared Cloudflare abuse filters are
-  active; the older signed gateway and browser-capability path remain rollback
-  compatibility only;
+  active; source now contains a conditional PlayerDB username resolver for the
+  Cloudflare egress failure case; focused tests pass, but staging egress
+  verification remains; the older signed gateway and browser-capability path remain
+  rollback compatibility only;
 - normalized, bounded Bazaar, active-auction, and ended-auction API views backed by durable D1 snapshots when public economy is enabled;
 - idempotent hourly/daily Bazaar aggregates with bounded retention plus an accessible 24H/7D/30D/1Y price-and-volume history view;
 - working accessory, Garden, Farming, pet, Minion, Dungeon, Slayer, core-skill, minion-slot, dungeon-readiness, craft, NPC/Bazaar, and money-making planners backed by deterministic tested engines;
@@ -44,6 +46,11 @@ Implemented today:
 Still incomplete or inactive:
 
 - several deep module pages are feature maps or narrow planning labs, not complete live-data tools;
+- both official Minecraft username hosts currently reject or fail native
+  Cloudflare Worker egress. The conditional PlayerDB fallback is implemented in
+  source and covered by focused tests plus the public privacy disclosure, but
+  must not be treated as deployed live until staging smoke passes; direct Java UUID input remains the
+  recovery path;
 - complete gear-upgrade analysis, pets/storage, priced net worth, item browser/search, Auction/item valuation history, and several domain-specific systems are not wired end to end;
 - Bazaar search is limited to the loaded result slice, and craft/NPC/money-making inputs are explicitly editable reference scenarios rather than current live recipes, limits, setups, or guaranteed rates;
 - durable recommendation Complete/Ignore/Remind Later state, goal/analysis sharing, and broader AI knowledge grounding remain incomplete;
@@ -147,12 +154,24 @@ Browser
                               -> scheduler-independent public-resource jobs
 ```
 
-Player lookups are user-triggered. The native web Worker keeps the key
+Player lookups are user-triggered. Username resolution tries the two official
+Minecraft identity hosts first. Only transport/access failures may reach the
+conditional PlayerDB fallback; an authoritative not-found response does not.
+SkyPilot's application code supplies only the normalized requested username and
+an identifying service user agent, and does not copy browser cookies,
+authentication, profile selectors, or the Hypixel key into that request.
+Cloudflare can add network headers to Worker subrequests, and those headers may
+contain a visitor IP depending on the destination's routing; the public privacy
+notice discloses that possibility. SkyPilot caches only the latest validated
+username/UUID mapping. The native web Worker keeps the key
 server-side, uses normalized KV fresh/stale caching, and applies a coarse
 route-level actor filter. Mojang identity traffic does not spend Hypixel quota.
 Only when a cache miss reaches the authenticated Hypixel transport does the
 Worker perform one coarse `PLAYER_GLOBAL_LIMITER` check and atomically reserve
-two tokens in the shared `PROVIDER_BUDGET_DB`. The browser calls only same-origin product
+two tokens in the shared `PROVIDER_BUDGET_DB`. The resolved UUID and
+username/display name must both agree with the authenticated Hypixel player
+response before analysis continues. No identity
+fallback creates monitoring, history, or scheduled player refresh. The browser calls only same-origin product
 routes. Public economy ingestion runs only in the private, separately deployed
 economy Worker and is scheduler-independent and D1-backed. It remains disabled
 until its Paid-plan, capacity, and incremental-design gates pass; the current

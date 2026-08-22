@@ -78,6 +78,15 @@ use keyless public feeds and must not receive that secret. Web Workers keep
 account auth, AI, and the browser gateway off; both Workers in each environment
 keep public economy and every Cron Trigger off in the initial posture.
 
+The conditional PlayerDB username fallback requires no secret, binding, or
+client-side variable. Its fixed server request supplies SkyPilot's identifying
+service user agent and a normalized username. Cloudflare may add network headers,
+including visitor-IP metadata depending on destination routing. Do not add a
+browser-exposed PlayerDB URL or proxy setting. Source support and the public
+privacy disclosure pass focused tests; staging egress smoke remains before
+activation. The returned UUID and username/display name must both agree with the
+authenticated Hypixel player record.
+
 The native web build sets `CLOUDFLARE_ENV` through the repository scripts.
 `main` resolves to production and every other `WORKERS_CI_BRANCH` to staging.
 The economy scripts select the matching environment in

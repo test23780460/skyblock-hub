@@ -18,6 +18,7 @@ type JsonRequestOptions = {
   maxResponseCharacters?: number;
   hypixelRateScope?: HypixelRateScope;
   notFoundError?: ProviderError;
+  badRequestNotFoundCode?: string;
 };
 
 export async function requestJson(
@@ -81,6 +82,9 @@ export async function requestJson(
     }
 
     if (!response.ok) {
+      if (await isMappedBadRequestNotFound(response, options)) {
+        throw options.notFoundError;
+      }
       throw classifyHttpFailure(response, options);
     }
 
@@ -171,7 +175,10 @@ function classifyHttpFailure(
   response: Response,
   options: JsonRequestOptions,
 ): ProviderError {
-  if (response.status === 404 && options.notFoundError) {
+  if (
+    options.notFoundError &&
+    response.status === 404
+  ) {
     return options.notFoundError;
   }
   if (response.status === 429) {
@@ -188,7 +195,7 @@ function classifyHttpFailure(
       status: 429,
       action: "Use cached data or try again shortly.",
       retryable: true,
-      retryAfterSeconds: 60,
+      retryAfterSeconds: retryAfterSeconds(response),
     });
   }
   if (response.status === 403) {
@@ -215,6 +222,47 @@ function classifyHttpFailure(
     action: "Check the input or try again later.",
     retryable: response.status >= 408,
   });
+}
+
+async function isMappedBadRequestNotFound(
+  response: Response,
+  options: JsonRequestOptions,
+): Promise<boolean> {
+  if (
+    response.status !== 400 ||
+    !options.notFoundError ||
+    !options.badRequestNotFoundCode
+  ) {
+    return false;
+  }
+  try {
+    const text = await readBoundedResponseText(response, 16_384);
+    const payload = JSON.parse(text) as unknown;
+    return typeof payload === "object" &&
+      payload !== null &&
+      !Array.isArray(payload) &&
+      "success" in payload &&
+      payload.success === false &&
+      "code" in payload &&
+      payload.code === options.badRequestNotFoundCode;
+  } catch {
+    return false;
+  }
+}
+
+function retryAfterSeconds(response: Response): number {
+  const fallback = 60;
+  const value = response.headers.get("Retry-After")?.trim();
+  if (!value) return fallback;
+
+  if (/^\d{1,6}$/u.test(value)) {
+    return Math.min(3_600, Math.max(1, Number(value)));
+  }
+
+  const retryAt = Date.parse(value);
+  if (!Number.isFinite(retryAt)) return fallback;
+  const seconds = Math.ceil((retryAt - Date.now()) / 1_000);
+  return seconds > 0 ? Math.min(3_600, seconds) : fallback;
 }
 
 function invalidJsonResponse(provider: string): ProviderError {

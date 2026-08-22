@@ -38,7 +38,7 @@ installation, Access policy, DNS, production logs, or Hypixel approval.
 | Economy runtime | Scheduler-independent jobs previously shared a composition edge | Compose them only in private `worker/economy.ts`, configured by `wrangler.economy.jsonc` with public and preview URLs off |
 | Static assets | Vite client output and `public/og.png` | Serve through Workers Static Assets; no Workers Sites or R2 |
 | Image handling | The current UI uses ordinary generated/static assets and has no `next/image` usage | Serve through Static Assets; do not require Cloudflare Images or R2 without a real use case |
-| Player providers | Validated Mojang/Hypixel adapters and deterministic analysis; production previously used a separate signed gateway | Run authenticated calls server-side in the native web Worker, keep the key secret, and remove the cross-origin browser detour from the active path |
+| Player providers | Validated Minecraft/Mojang/PlayerDB/Hypixel adapters and deterministic analysis; both official identity hosts currently fail from Worker egress, and focused fallback tests pass | Run provider calls server-side, use PlayerDB only after official transport/access failures, validate its username/UUID strictly, require final Hypixel UUID/display-name agreement, and keep direct UUID recovery; do not call the fallback live before staging egress verification |
 | Public economy | Scheduler-independent Bazaar/Auction jobs, durable D1 lease/fencing/backoff, D1-only public reads | Bind jobs only to the private economy Worker; web admin reaches its fixed action through `ECONOMY_SERVICE`, and a future Cron belongs only there |
 | Cache | Portable `TtlCache`, per-isolate memory cache, KV adapter, durable D1 economy snapshots | D1 remains authoritative for economy; native player routes use environment-isolated KV with bounded L0 memory |
 | Persistence | Drizzle SQLite app schema, five migrations, 37 D1 tables, plus a one-migration dedicated provider-budget D1; repository interfaces/adapters | Keep environment-isolated app D1 databases, but bind both web environments to one dedicated provider-budget database for the one shared Hypixel credential |
@@ -83,7 +83,7 @@ GitHub repository
             -> private economy Worker (`skypilot-economy*`)
                  -> D1 DB (feeds, history, leases)
                  -> optional future production Cron Trigger
-       -> Hypixel/Minecraft/OpenAI upstreams behind provider adapters
+       -> Hypixel/Minecraft/conditional PlayerDB/OpenAI upstreams behind provider adapters
 ```
 
 The UI, navigation, CSS, branding, page layouts, deterministic engines, provider
@@ -174,6 +174,13 @@ The active design must preserve:
 - Minecraft Services username resolution with a bounded Mojang fallback, plus
   an actionable dashed/undashed Java UUID path when both identity services are
   unavailable;
+- a conditional PlayerDB lookup only after both official resolvers fail for
+  transport/access, never after authoritative not-found; strict success,
+  case-insensitive exact-username, UUID, and final Hypixel UUID/display-name validation;
+- application code copies no browser cookies/auth/profile selectors/Hypixel key
+  into the PlayerDB request; disclose and revalidate Cloudflare-added network
+  headers, which may contain visitor-IP metadata depending on routing; cache
+  only the latest normalized mapping and discard raw metadata;
 - one-hour shared fresh player cache and bounded stale-on-error behavior;
 - latest snapshot only, with no player history, monitoring, or saved-profile
   refresh schedule;
@@ -192,6 +199,13 @@ two-token reservation in the shared `PROVIDER_BUDGET_DB`. Both
 `/api/player?username=` and `/api/player/:username` use this
 composition. The former module-global Promise single-flight was removed so no
 request retains another invocation's binding or fetch promise.
+
+The conditional [PlayerDB API](https://playerdb.co/) fallback is implemented in
+source to address the observed official-host Worker egress failures. Focused
+tests and the public privacy disclosure pass, but staging smoke remains. It remains
+part of the identity path, not the authenticated Hypixel credential path, and
+therefore spends no Hypixel reservation. No resolver authorizes monitoring,
+history, scheduled refresh, or mass username enumeration.
 
 KV is eventually consistent and suitable for shared latest-value cache, not an
 authoritative global counter. Cloudflare rate-limit bindings are coarse
@@ -442,6 +456,9 @@ describe SkyPilot as public-ready until all applicable items are closed:
   credential ever disclosed outside a secret manager has been rotated;
 - authenticated player admission, shared cache behavior, atomic D1 budget, and
   quota headroom have tested multi-region load/capacity and monitoring evidence;
+- the conditional PlayerDB resolver has focused tests, staging egress evidence,
+  strict username/UUID/Hypixel-match validation, aggregate-only operations
+  telemetry, and an updated public privacy disclosure;
 - the account is on Workers Paid, current D1 request/query limits are covered by
   tested bounded ingestion, and rows-read/rows-written usage plus cost alerts
   are monitored for the economy workload;

@@ -16,12 +16,19 @@ fields for a feature-enabled misconfiguration.
 ### `GET /api/player/<name-or-uuid>?profile=<profile-id>`
 
 Accepts either a Java Minecraft username or a dashed/undashed Java UUID.
-Username requests resolve the UUID through Minecraft Services with the Mojang
-session profile service as a bounded fallback. If both identity services are
-unavailable, the response gives an actionable direct-Java-UUID recovery path;
-it never bypasses the outage with an unsupported Hypixel name query. UUID
-requests skip name resolution and are validated against the authenticated
-Hypixel player response. Both paths fetch available SkyBlock profiles,
+Username requests try Minecraft Services and then the official Mojang lookup.
+Source now includes a conditional [PlayerDB](https://playerdb.co/) fallback only
+when both official resolvers fail for transport, timeout, unavailable, or
+forbidden reasons; it never bypasses an authoritative official not-found result
+or uses an unsupported Hypixel name query. SkyPilot application code supplies
+only the normalized requested username plus its identifying service user agent;
+Cloudflare may add ordinary network headers, including visitor-IP metadata
+depending on destination routing. Its response
+must contain the expected success code, an exact case-insensitive username
+match, and a valid Java UUID. The UUID and display name are then validated
+against the authenticated Hypixel player response. Focused tests pass, but staging egress
+verification remains; direct Java UUID input remains the operational
+recovery path until that evidence exists. Both paths fetch available SkyBlock profiles,
 normalize only the requested member's supported fields, and return
 deterministic analysis. `profile` is optional.
 
@@ -260,7 +267,10 @@ URL, or SQL is accepted; targeted cache invalidation is not implemented.
 ## Caching and retries
 
 - Player/profile: one-hour fresh cache, up to 24 hours stale-on-error.
-- Minecraft username identity: 24-hour fresh cache, up to seven days stale-on-error.
+- Minecraft username identity: 24-hour fresh cache, up to seven days
+  stale-on-error. The cache stores only the latest normalized username/UUID
+  mapping, regardless of which approved resolver supplied it; it stores no raw
+  PlayerDB response, avatar, metadata, or lookup history.
 - Published Bazaar/active-Auction snapshots: five-minute freshness marker; product responses use a 30-second public cache.
 - Published ended-sale feed: three-minute freshness marker; retained sale rows are bounded by worker policy.
 

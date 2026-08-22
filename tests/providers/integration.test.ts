@@ -184,6 +184,172 @@ test("Minecraft identity lookup falls back to the official Mojang endpoint after
   assert.match(calls[1] || "", /^https:\/\/api\.mojang\.com\/users\/profiles\/minecraft\//);
 });
 
+test("Minecraft identity lookup uses a validated PlayerDB fallback when Cloudflare egress is blocked", async () => {
+  const calls: string[] = [];
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input, init) => {
+      const url = String(input);
+      calls.push(url);
+      if (!url.startsWith("https://playerdb.co/")) {
+        return new Response("The request is blocked.", { status: 403 });
+      }
+      assert.match(new Headers(init?.headers).get("user-agent") || "", /^SkyPilot\//);
+      return jsonResponse({
+        code: "player.found",
+        message: "Successfully found player by given ID.",
+        data: {
+          player: {
+            username: "Justiwantdreams",
+            raw_id: "82f8e698500d46c792ee93cd1ca7ad7a",
+          },
+        },
+        success: true,
+      });
+    },
+  });
+
+  const result = await mojang.lookupUsername("Justiwantdreams");
+
+  assert.equal(result.data.uuid, "82f8e698500d46c792ee93cd1ca7ad7a");
+  assert.equal(result.data.username, "Justiwantdreams");
+  assert.equal(calls.length, 3);
+  assert.match(calls[2] || "", /^https:\/\/playerdb\.co\/api\/player\/minecraft\//);
+});
+
+test("PlayerDB fallback cannot substitute a different Minecraft username", async () => {
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) => {
+      if (!String(input).startsWith("https://playerdb.co/")) {
+        return new Response(null, { status: 403 });
+      }
+      return jsonResponse({
+        code: "player.found",
+        data: {
+          player: {
+            username: "DifferentPilot",
+            raw_id: "82f8e698500d46c792ee93cd1ca7ad7a",
+          },
+        },
+        success: true,
+      });
+    },
+  });
+
+  await assert.rejects(
+    () => mojang.lookupUsername("Justiwantdreams"),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "invalid_response",
+  );
+});
+
+test("PlayerDB fallback maps its validated-name miss to player not found", async () => {
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) =>
+      String(input).startsWith("https://playerdb.co/")
+        ? jsonResponse(
+          {
+            success: false,
+            code: "minecraft.invalid_username",
+            message: "No Minecraft user could be found.",
+          },
+          400,
+        )
+        : new Response(null, { status: 403 }),
+  });
+
+  await assert.rejects(
+    () => mojang.lookupUsername("MissingPilot"),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "player_not_found",
+  );
+});
+
+test("PlayerDB fallback does not misclassify an unrelated HTTP 400 as player not found", async () => {
+  const mojang = new MojangProvider({
+    cache: new MemoryTtlCache(),
+    fetchImplementation: async (input) =>
+      String(input).startsWith("https://playerdb.co/")
+        ? jsonResponse({ success: false, code: "policy.blocked" }, 400)
+        : new Response(null, { status: 403 }),
+  });
+
+  await assert.rejects(
+    () => mojang.lookupUsername("MissingPilot"),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "invalid_response",
+  );
+});
+
+test("malformed PlayerDB identity fields remain retryable upstream failures", async () => {
+  for (const player of [
+    {
+      username: "not valid!",
+      raw_id: "82f8e698500d46c792ee93cd1ca7ad7a",
+    },
+    {
+      username: "Justiwantdreams",
+      raw_id: "not-a-java-uuid",
+    },
+  ]) {
+    const mojang = new MojangProvider({
+      cache: new MemoryTtlCache(),
+      fetchImplementation: async (input) =>
+        String(input).startsWith("https://playerdb.co/")
+          ? jsonResponse({
+            success: true,
+            code: "player.found",
+            data: { player },
+          })
+          : new Response(null, { status: 403 }),
+    });
+
+    await assert.rejects(
+      () => mojang.lookupUsername("Justiwantdreams"),
+      (error: unknown) =>
+        error instanceof ProviderError &&
+        error.code === "invalid_response" &&
+        error.status === 502 &&
+        error.retryable,
+    );
+  }
+});
+
+test("PlayerDB fallback honors bounded numeric and date Retry-After responses", async () => {
+  const cases = [
+    { header: "137", minimum: 137, maximum: 137 },
+    {
+      header: new Date(Date.now() + 180_000).toUTCString(),
+      minimum: 178,
+      maximum: 180,
+    },
+  ];
+  for (const { header, minimum, maximum } of cases) {
+    const mojang = new MojangProvider({
+      cache: new MemoryTtlCache(),
+      fetchImplementation: async (input) =>
+        String(input).startsWith("https://playerdb.co/")
+          ? new Response(null, {
+            status: 429,
+            headers: { "Retry-After": header },
+          })
+          : new Response(null, { status: 403 }),
+    });
+
+    await assert.rejects(
+      () => mojang.lookupUsername("Justiwantdreams"),
+      (error: unknown) =>
+        error instanceof ProviderError &&
+        error.code === "rate_limited" &&
+        typeof error.retryAfterSeconds === "number" &&
+        error.retryAfterSeconds >= minimum &&
+        error.retryAfterSeconds <= maximum,
+    );
+  }
+});
+
 test("Minecraft identity lookup does not bypass authoritative not-found responses", async () => {
   const calls: string[] = [];
   const mojang = new MojangProvider({
@@ -344,7 +510,40 @@ test("direct UUID player analysis rejects a mismatched Hypixel identity", async 
   );
 });
 
-test("username transport failures retain direct UUID recovery without unsupported Hypixel calls", async () => {
+test("username analysis rejects an identity whose Hypixel display name does not match", async () => {
+  const cache = new MemoryTtlCache();
+  const mojang = new MojangProvider({
+    cache,
+    fetchImplementation: async () => jsonResponse({
+      id: "00000000000000000000000000000001",
+      name: "PilotFixture",
+    }),
+  });
+  const hypixel = new HypixelProvider({
+    apiKey: "fixture-credential",
+    cache,
+    fetchImplementation: async (input) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/player")
+        ? jsonResponse({
+          success: true,
+          player: {
+            uuid: "00000000000000000000000000000001",
+            displayname: "DifferentPilot",
+          },
+        })
+        : jsonResponse({ success: true, profiles: null });
+    },
+  });
+
+  await assert.rejects(
+    () => getPlayerAnalysis("PilotFixture", null, { mojang, hypixel }),
+    (error: unknown) =>
+      error instanceof ProviderError && error.code === "invalid_response",
+  );
+});
+
+test("username resolver transport failures retain direct UUID recovery without Hypixel calls", async () => {
   let mojangCalls = 0;
   let hypixelCalls = 0;
   const mojang = new MojangProvider({
@@ -371,7 +570,7 @@ test("username transport failures retain direct UUID recovery without unsupporte
       /Java UUID/i.test(error.action || ""),
   );
 
-  assert.equal(mojangCalls, 2);
+  assert.equal(mojangCalls, 3);
   assert.equal(hypixelCalls, 0);
 });
 
@@ -684,9 +883,9 @@ test("worker security headers preserve responses and add HTTPS-only HSTS", async
   }
 });
 
-function jsonResponse(value: unknown): Response {
+function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
-    status: 200,
+    status,
     headers: { "Content-Type": "application/json" },
   });
 }

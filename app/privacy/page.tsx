@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "What SkyPilot collects, why it is used, where it is sent, and how to delete it.",
 };
 
-const effectiveDate = "August 15, 2026";
+const effectiveDate = "August 22, 2026";
 
 export default function PrivacyPage() {
   return (
@@ -29,10 +29,15 @@ export default function PrivacyPage() {
           <h2>Player lookups are request-driven</h2>
           <p>
             When you submit a Minecraft username or Java UUID, SkyPilot sends the selector and an
-            optional SkyBlock profile ID to its server. A username may be resolved through
-            Minecraft Services or Mojang, and the resolved UUID is used to request current player
-            and profile data from Hypixel. Lookups happen only after your action; saved profiles,
-            accounts, goals, and page visits do not schedule player refreshes.
+            optional SkyBlock profile ID to its server. A username is first resolved through
+            Minecraft Services or Mojang. If both official services fail for transport or access
+            reasons, SkyPilot may ask PlayerDB for a username-to-UUID mapping. Its application
+            fields are the normalized username and an identifying SkyPilot service user agent;
+            Cloudflare may add network metadata as described below. An official not-found
+            response does not use that fallback. The resolved UUID and display name must match Hypixel&apos;s
+            authenticated player response before SkyPilot returns analysis. Lookups happen only
+            after your action; saved profiles, accounts, goals, and page visits do not schedule
+            player refreshes, monitoring, or lookup history.
           </p>
         </article>
 
@@ -42,10 +47,11 @@ export default function PrivacyPage() {
           <p>
             SkyPilot caches a normalized latest Hypixel snapshot for one hour and may use that
             snapshot as clearly marked stale data for at most 24 hours when the provider is
-            unavailable. Username-to-UUID resolution may remain cached for up to seven days. These
-            caches can be shared between visitors to reduce upstream requests. The application
-            does not keep scheduled stat timelines, play sessions, raw upstream profile dumps, or
-            another co-op member&apos;s profile data.
+            unavailable. The latest normalized username-to-UUID mapping may remain cached for up
+            to seven days. SkyPilot does not cache PlayerDB&apos;s raw response, avatar, or other
+            metadata. These caches can be shared between visitors to reduce upstream requests. The
+            application does not keep scheduled stat timelines, play sessions, raw upstream
+            profile dumps, identity lookup history, or another co-op member&apos;s profile data.
           </p>
         </article>
 
@@ -97,9 +103,27 @@ export default function PrivacyPage() {
           <p>
             Depending on the enabled feature, data is processed by Cloudflare for hosting, verified
             Access sign-in, caching, database storage, admission limits, and security controls;
-            Minecraft Services or Mojang for username resolution; Hypixel for game data; and OpenAI
-            for optional AI answers. Hosting and security infrastructure can process the request IP
-            address and standard request headers. Player admission uses a one-way actor key, and
+            Minecraft Services or Mojang for username resolution; PlayerDB, operated by Nodecraft,
+            for the conditional username-to-UUID fallback described above; Hypixel for game data;
+            and OpenAI for optional AI answers. SkyPilot&apos;s application code does not copy
+            browser cookies, authentication, a profile selector, or the Hypixel key into the
+            PlayerDB request. It supplies the requested username and SkyPilot&apos;s service user
+            agent. Cloudflare can add network headers to Worker requests; depending on how the
+            destination is routed, those headers may include the visitor IP address. PlayerDB may
+            therefore process the requested username, request IP, and ordinary network metadata.
+            Review the{" "}
+            <a href="https://playerdb.co/" rel="noreferrer" target="_blank">
+              PlayerDB API information
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://nodecraft.com/legal/privacy-policy"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Nodecraft privacy policy
+            </a>. Hosting and security infrastructure can process the request IP address and standard
+            request headers. Player admission uses a one-way actor key, and
             structured application logs contain bounded event, status, duration, and error-category
             fields rather than raw profile or NBT payloads. The application sends data to these
             services only for the requested feature. It may also disclose data when required by law

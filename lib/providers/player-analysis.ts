@@ -36,7 +36,10 @@ export async function getPlayerAnalysis(
     hypixel,
   );
 
-  if (player.data.uuid !== identity.uuid) {
+  if (
+    player.data.uuid !== identity.uuid ||
+    player.data.displayName.toLowerCase() !== identity.username.toLowerCase()
+  ) {
     throw new ProviderError({
       code: "invalid_response",
       message: "The player identity returned by the game services did not match.",

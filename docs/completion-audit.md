@@ -13,7 +13,7 @@ Current audited totals: **39 Complete, 88 Partial, 20 Deferred, and 2 Blocked** 
 
 ## Validation snapshot
 
-The 2026-08-21 exact-head suite contains the following local validation
+The 2026-08-22 exact-head suite contains the following local validation
 inventory; [Testing](testing.md) distinguishes focused/local evidence from
 still-unverified remote deployment evidence:
 
@@ -25,7 +25,7 @@ still-unverified remote deployment evidence:
 - `npm run cf:types:check`;
 - `npm run security:secrets`;
 - `npm test`, including the default production build and 40 engine, 16 service,
-  106 provider/security, and 34 rendered/configuration/legal tests (196 total);
+  113 provider/security, and 34 rendered/configuration/legal tests (203 total);
 - native staging/production web builds plus separate private economy
   configuration/type/dry-run gates.
 
@@ -43,7 +43,7 @@ broad browser/release QA is inferred.
 | 1 | Primary product vision | **Partial** | A coherent shell now joins profile analysis, saved state, goals, current/history economy views, money-making, optimizers, calculators, and grounded AI; several deep profile/domain replacements remain incomplete. |
 | 2 | Autonomous build requirement | **Complete** | `PROJECT_SPEC.md`, `TODO.md`, this audit, and repeatable validation commands preserve scope and evidence. |
 | 3 | External blocker rule | **Complete** | Safe-default feature gates and classified unavailable states isolate missing Hypixel, OpenAI, auth, D1, and deployment activation. |
-| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 196 automated tests, migration smoke, secret scanning, and a prior local web-Worker lookup/cache pass exist; exact-head remote web/economy deployment plus full browser, accessibility, visual, performance, and broader live-integration loops do not. |
+| 4 | Continuous quality loop | **Partial** | Lint, typecheck, default/native build gates, 203 automated tests, migration smoke, secret scanning, and a prior local web-Worker lookup/cache pass exist; exact-head remote web/economy deployment plus full browser, accessibility, visual, performance, and broader live-integration loops do not. |
 | 5 | Final completion loop | **Deferred** | The release gate cannot pass while the end-to-end gaps below remain. |
 | 6 | Product name and centralized branding | **Complete** | `lib/config.ts`, root metadata, sitemap, About content, and `public/og.png` use SkyPilot centrally. |
 | 7 | Design quality | **Partial** | `app/globals.css` and the shared shell are cohesive, but no complete cross-page visual acceptance pass exists. |
@@ -60,7 +60,7 @@ broad browser/release QA is inferred.
 | 18 | Goal system | **Partial** | Owner-scoped create/read/update/complete/pause/resume/reset/delete and manual recurring cycles work; semantic XP/hour/cost decomposition and persisted editable steps do not. |
 | 19 | Recommendation history | **Partial** | Schema/repository support exists and dashboard actions work for a visit; the buttons are not connected to durable recommendation state. |
 | 20 | Player history policy | **Complete** | Player lookup is request-driven/cached and separate from scheduled public economy ingestion; no profile polling or mass tracking exists. |
-| 21 | Profile analyzer | **Partial** | Mojang/Hypixel normalization covers core stats, skills, Catacombs, Slayer, MP, bounded item containers, gear/accessory identities, and safe unavailable states; pets and several progression domains remain missing. |
+| 21 | Profile analyzer | **Partial** | Minecraft/Mojang/PlayerDB/Hypixel normalization covers request-driven username/UUID identity, strict fallback validation, core stats, skills, Catacombs, Slayer, MP, bounded item containers, gear/accessory identities, and safe unavailable states. PlayerDB focused tests pass but staging egress smoke remains; pets and several progression domains are still missing. |
 | 22 | Gear analyzer | **Partial** | The request-driven profile path safely detects equipped armor/equipment plus carried weapons/tools, rarity, stars, and recombobulation; enchant/reforge/gemstone/attribute appraisal and owned-gear upgrade advice remain absent. |
 | 23 | Gear comparison | **Deferred** | The current gear surface is a generic manual lab, not a modeled weapon/armor/equipment/pet comparison. |
 | 24 | Future build creator | **Complete** | `/builds` provides a visibly experimental manual armor/weapon/equipment/pet/accessory composer; signed-in users can create, edit, profile-link, favorite, delete, and share private/unlisted/public builds with rotatable slugs. |
@@ -122,8 +122,8 @@ broad browser/release QA is inferred.
 | 80 | API key security | **Complete** | The Hypixel key is blank in `.env.example`, server-only, header-only, absent from public economy calls, and covered by provider/secret scans. Exposed credentials still require external rotation before activation. |
 | 81 | No API proxy | **Complete** | Internal routes return bounded product models and never proxy arbitrary Hypixel paths/raw payloads. |
 | 82 | Rate limiting | **Partial** | Native route-bound actor and authenticated-Hypixel-call Cloudflare abuse filters, atomic fixed-window reservations in a dedicated provider-budget D1 shared across environments, provider backoff, and a durable elected economy circuit with fencing exist; rate bindings and response-header backoff remain location/isolate scoped, and production budget/load monitoring plus full metrics are missing. Mojang calls do not spend Hypixel quota. |
-| 83 | Caching | **Partial** | Player requests use normalized Workers KV plus bounded per-isolate L0 without cross-request I/O Promise single-flight, while economy reads D1 snapshots; TTL classes are not configuration-driven, KV remains eventually consistent, and only credential-budget admission is globally coordinated in D1. |
-| 84 | API adapters | **Complete** | Native UI requests use same-origin product APIs; raw upstream calls remain in bounded provider/worker adapters and normalized services. The fixed signed gateway/capability and save receipts are legacy Sites rollback only. |
+| 83 | Caching | **Partial** | Player requests use normalized Workers KV plus bounded per-isolate L0 without cross-request I/O Promise single-flight; the identity cache retains only the latest normalized username/UUID mapping and no raw PlayerDB metadata. Economy reads D1 snapshots. TTL classes are not configuration-driven, KV remains eventually consistent, and only credential-budget admission is globally coordinated in D1. |
+| 84 | API adapters | **Complete** | Native UI requests use same-origin product APIs; bounded Minecraft/Mojang/PlayerDB/Hypixel adapters normalize and validate upstream data, and the PlayerDB fallback still requires final Hypixel UUID/display-name agreement. The fixed signed gateway/capability and save receipts are legacy Sites rollback only. |
 | 85 | Data ingestion | **Partial** | A separately deployable private, lease-fenced economy Worker can ingest Bazaar, complete active Auctions, and ended sales into D1; it exposes no public/preview URL, but both flags and every Cron are off because the active-Auction crawl is non-incremental and Paid-plan/capacity/incremental-design gates remain open. Items/Collections/skills/resources are not ingested. |
 | 86 | Historical economy data | **Partial** | Worker-built idempotent Bazaar OHLC/average-volume buckets retain hourly evidence for 90 days and daily evidence for three years, while ended sales remain bounded/deduplicated; auction/item valuation summaries and broader compaction remain absent. |
 | 87 | Database | **Complete** | `db/schema/**`, five checked app migrations, 37 normalized tables including the portable provider-budget table shape, constraints/indexes/FKs, repositories, and clean migration smoke coverage cover the specified durable domains. Native credential admission uses a dedicated shared D1 with its own one additive migration. |
@@ -158,7 +158,7 @@ broad browser/release QA is inferred.
 | 116 | SEO | **Complete** | Metadata, Open Graph image, sitemap, robots rules, and private-route exclusion are implemented/tested. |
 | 117 | Documentation | **Complete** | README, architecture, security, API, database, setup, operations, testing, portability, deployment, limitations, spec, checklist, and this audit exist. |
 | 118 | Deployment documentation | **Complete** | Native Cloudflare setup/migration, labeled Sites/gateway rollback, external hosting, database portability, auth, workers, secrets, domain, and rollback steps are documented honestly. |
-| 119 | Testing | **Partial** | 196 tests cover engines, services, provider/security boundaries, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes; automated browser E2E, full authz, and many deep feature flows remain untested. Prior local web-Worker smoke is recorded separately. |
+| 119 | Testing | **Partial** | 203 tests cover engines, services, provider/security boundaries including the conditional PlayerDB resolver, separate native web/economy config and service routing, the shared dedicated D1 provider budget, saved state/history, NBT safety, AI grounding/metrics, workers, legal pages, navigation, and rendered routes; deployed PlayerDB egress smoke, automated browser E2E, full authz, and many deep feature flows remain untested. Prior local web-Worker smoke is recorded separately. |
 | 120 | End-to-end tests | **Deferred** | Rendered HTML is server smoke coverage, not Playwright/browser E2E for the required flows. |
 | 121 | Mock data rule | **Complete** | Demo/illustrative data is visibly labeled and safe-default live failures never silently fall back to demo. |
 | 122 | No dead UI | **Partial** | Saved-state/build, market history, economy labs, money-making, skills, readiness, slot, and AI controls are wired; several deep module pages still present feature maps or narrow planning surfaces rather than complete capabilities. |
@@ -208,6 +208,8 @@ These require owner/provider/deployment action and must remain unchecked. They a
 - Revoke the OpenAI and Hypixel credentials previously exposed outside a secret store; create replacement credentials and install them server-side only.
 - Obtain/confirm the appropriate Hypixel production application approval and perform the final current-policy review before live activation.
 - Install an approved OpenAI model/key only if the optional AI feature is deliberately enabled.
+- Keep PlayerDB fallback traffic off until staging proves the real Cloudflare
+  egress path, rate-limit behavior, safe request fields, and privacy disclosure.
 - Apply all five versioned app migrations to production `DB` and the one additive
   migration to the shared `PROVIDER_BUDGET_DB`; configure
   backups/restore/retention and verify both Workers use the intended database roles.

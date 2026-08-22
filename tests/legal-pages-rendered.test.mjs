@@ -19,11 +19,15 @@ test("privacy notice renders the implemented data boundaries and controls", asyn
   const response = await fetchRoute("/privacy");
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /EFFECTIVE.{0,24}AUGUST 15, 2026/i);
+  assert.match(html, /EFFECTIVE.{0,24}AUGUST 22, 2026/i);
   assert.match(html, /provider subject.*normalized email address.*display name.*last login time/is);
   assert.match(html, /provider and subject reconnect your sign-in.*email and display name identify/is);
   assert.match(html, /one hour.*at most 24 hours/is);
   assert.match(html, /up to seven days/i);
+  assert.match(html, /PlayerDB.*normalized username.*service user agent/is);
+  assert.match(html, /does not cache PlayerDB.{0,24}raw response.*avatar.*metadata/is);
+  assert.match(html, /does not copy.*browser cookies.*authentication.*Hypixel key.*PlayerDB request/is);
+  assert.match(html, /Cloudflare can add network headers.*may include the visitor IP address/is);
   assert.match(html, /application code has no path that sells account or lookup data/i);
   assert.match(html, /one-way safety.*account ID or requesting IP address/is);
   assert.match(html, /structured application logs.*event.*status.*duration.*error-category/is);

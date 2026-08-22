@@ -25,10 +25,16 @@ evidence, and externally activated production behavior are different things.
 - Native request-driven lookup supports normalized identity/profile selection,
   several core stats/skills, bounded supported item-container summaries,
   detected gear/accessory identities, and deterministic recommendations.
-- Minecraft username resolution uses Minecraft Services with a bounded Mojang
-  fallback. If both identity services are unavailable, the user receives an
-  actionable direct-Java-UUID recovery path; SkyPilot does not attempt an
-  unsupported Hypixel name query.
+- Both official Minecraft username hosts currently fail from native Cloudflare
+  Worker egress. Source implements a conditional PlayerDB fallback after bounded
+  transport/access failures only; it does not bypass authoritative not-found
+  responses or attempt an unsupported Hypixel name query. SkyPilot supplies the
+  normalized requested username plus its service user agent; Cloudflare may add
+  network headers, including visitor-IP metadata depending on routing. SkyPilot
+  strictly validates the returned username/UUID, caches only the latest mapping,
+  and requires the UUID and display name to match Hypixel. Focused tests and the public privacy
+  disclosure pass, but staging egress smoke remains incomplete, so direct Java
+  UUID input is the supported recovery path until deployment verification.
 - Base64/gzip/NBT handling is bounded and discards raw blobs, trees, lore, and
   unsupported fields before shared caching.
 - Full modifier-aware gear analysis, pets, additional storage, Museum,
@@ -106,7 +112,7 @@ evidence, and externally activated production behavior are different things.
   Docker Compose is only a web-image smoke path.
 - PostgreSQL, Redis, non-Cloudflare auth, queue, external scheduler,
   observability, and backup adapters are not implemented.
-- The exact-head suite contains 196 tests: 40 engine, 16 service, 106
+- The exact-head suite contains 203 tests: 40 engine, 16 service, 113
   provider/security, and 34 rendered/configuration/legal. See
   [Testing](testing.md) for the distinction between current local evidence,
   historical smoke, and still-unverified remote deployment/browser evidence.

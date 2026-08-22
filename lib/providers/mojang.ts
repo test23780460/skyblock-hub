@@ -17,6 +17,10 @@ const PRIMARY_LOOKUP_BASE_URL =
   "https://api.minecraftservices.com/minecraft/profile/lookup/name/";
 const LEGACY_LOOKUP_BASE_URL =
   "https://api.mojang.com/users/profiles/minecraft/";
+const PLAYERDB_LOOKUP_BASE_URL =
+  "https://playerdb.co/api/player/minecraft/";
+const PLAYERDB_USER_AGENT =
+  "SkyPilot/0.1 (+https://skypilot.ptravis022.workers.dev)";
 const USERNAME_TTL_MS = 24 * 60 * 60 * 1_000;
 const USERNAME_STALE_TTL_MS = 7 * USERNAME_TTL_MS;
 
@@ -67,9 +71,17 @@ export class MojangProvider {
     try {
       return await this.requestLookup(PRIMARY_LOOKUP_BASE_URL, username);
     } catch (error) {
-      if (!isTransportFailure(error)) throw error;
-      return this.requestLookup(LEGACY_LOOKUP_BASE_URL, username);
+      if (!isOfficialResolverUnavailable(error)) throw error;
     }
+
+    try {
+      return await this.requestLookup(LEGACY_LOOKUP_BASE_URL, username);
+    } catch (error) {
+      if (!isOfficialResolverUnavailable(error)) throw error;
+    }
+
+    const payload = await this.requestPlayerDbLookup(username);
+    return normalizePlayerDbIdentity(payload, username);
   }
 
   private requestLookup(baseUrl: string, username: string): Promise<unknown> {
@@ -83,6 +95,22 @@ export class MojangProvider {
       notFoundError: playerNotFoundError(),
     });
   }
+
+  private requestPlayerDbLookup(username: string): Promise<unknown> {
+    const url = new URL(
+      `${PLAYERDB_LOOKUP_BASE_URL}${encodeURIComponent(username)}`,
+    );
+    return requestJson({
+      provider: "PlayerDB",
+      url,
+      fetchImplementation: this.fetchImplementation,
+      headers: { "User-Agent": PLAYERDB_USER_AGENT },
+      timeoutMs: this.timeoutMs,
+      maxResponseCharacters: 131_072,
+      notFoundError: playerNotFoundError(),
+      badRequestNotFoundCode: "minecraft.invalid_username",
+    });
+  }
 }
 
 function playerNotFoundError(): ProviderError {
@@ -94,11 +122,54 @@ function playerNotFoundError(): ProviderError {
   });
 }
 
-function isTransportFailure(error: unknown): boolean {
+function isOfficialResolverUnavailable(error: unknown): boolean {
   return error instanceof ProviderError &&
     (error.code === "network_error" ||
       error.code === "upstream_timeout" ||
-      error.code === "upstream_unavailable");
+      error.code === "upstream_unavailable" ||
+      error.code === "forbidden");
+}
+
+function normalizePlayerDbIdentity(
+  payload: unknown,
+  expectedUsername: string,
+): { id: string; name: string } {
+  const root = requireObject(payload, "PlayerDB");
+  const data = requireObject(root.data, "PlayerDB");
+  const player = requireObject(data.player, "PlayerDB");
+  const rawId = boundedString(player.raw_id, 64);
+  const username = boundedString(player.username, 16);
+  if (root.success !== true || root.code !== "player.found" || !rawId || !username) {
+    throw invalidPlayerDbResponse();
+  }
+
+  try {
+    const normalizedUsername = normalizeMinecraftUsername(username);
+    if (normalizedUsername.toLowerCase() !== expectedUsername.toLowerCase()) {
+      throw invalidPlayerDbResponse();
+    }
+
+    return {
+      id: normalizeUuid(rawId),
+      name: normalizedUsername,
+    };
+  } catch (error) {
+    if (error instanceof ProviderError && error.code === "invalid_response") {
+      throw error;
+    }
+    throw invalidPlayerDbResponse(error);
+  }
+}
+
+function invalidPlayerDbResponse(cause?: unknown): ProviderError {
+  return new ProviderError({
+    code: "invalid_response",
+    message: "PlayerDB returned an invalid Minecraft identity.",
+    status: 502,
+    action: "Try again later or enter the player's Java UUID.",
+    retryable: true,
+    cause,
+  });
 }
 
 function normalizeIdentity(payload: unknown): MinecraftIdentity {

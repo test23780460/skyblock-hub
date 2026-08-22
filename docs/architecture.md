@@ -32,8 +32,12 @@ User request -> product API -> route-bound PLAYER_ACTOR_LIMITER coarse abuse che
   -> validated Minecraft username or Java UUID
   -> native web Worker player composition
   -> KV fresh/stale lookup
-  -> username: Minecraft Services identity lookup with bounded Mojang fallback;
-     if both are unavailable, return an actionable direct-Java-UUID path
+  -> username: Minecraft Services, then official Mojang identity lookup
+  -> only if both fail for transport/access: conditional PlayerDB lookup
+     with normalized username + identifying SkyPilot user agent
+  -> strictly validate success, exact username, and Java UUID; authoritative
+     official not-found stops the chain
+  -> if all resolvers are unavailable, return an actionable direct-Java-UUID path
      (no unsupported Hypixel name query and no Hypixel quota spent)
   -> UUID: skip identity lookup and validate against Hypixel player data
   -> on an authenticated Hypixel transport only: one coarse
@@ -53,6 +57,19 @@ consistent guard for the one shared Hypixel key. Each admitted authenticated
 analysis reserves two tokens, and failure to reserve fails closed. The browser never
 receives the key. No timer, saved profile, account, goal, or worker triggers
 player polling.
+
+The conditional [PlayerDB API](https://playerdb.co/) path is implemented in
+source because both official identity hosts currently fail from Cloudflare
+Worker egress. Focused tests pass, but staging egress verification remains.
+SkyPilot's application-supplied fields are only the normalized requested
+username and an identifying service user agent; it does not copy browser
+cookies, authentication, profile selectors, or the Hypixel key. Cloudflare may
+add network headers, including visitor-IP metadata depending on destination
+routing. SkyPilot caches only the latest validated mapping under the
+ordinary identity TTL and discards raw PlayerDB/avatar/metadata fields. The UUID
+and username/display name must both agree with the authenticated Hypixel player
+result before analysis continues.
+No resolver creates monitoring, history, or scheduled refresh.
 
 ### Public economy
 

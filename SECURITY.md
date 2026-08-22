@@ -17,7 +17,11 @@ Include the affected route/component, reproducible steps, impact, and a minimal 
 
 ## Trust boundaries
 
-SkyPilot treats usernames, query parameters, request JSON, auth headers, Hypixel/Minecraft/OpenAI responses, and item/NBT data as untrusted. Current provider adapters bound input length, response size, request duration, array sizes, identifiers, and public output fields. Product APIs return classified safe errors rather than upstream bodies.
+SkyPilot treats usernames, query parameters, request JSON, auth headers,
+Hypixel/Minecraft/PlayerDB/OpenAI responses, and item/NBT data as untrusted.
+Current provider adapters bound input length, response size, request duration,
+array sizes, identifiers, and public output fields. Product APIs return
+classified safe errors rather than upstream bodies.
 
 Native player lookup uses same-origin product APIs, a web-Worker-only secret,
 environment-isolated KV, coarse per-location Cloudflare abuse filters, and an
@@ -31,6 +35,22 @@ uses keyless feeds and runs only in a private Worker reached through
 `ECONOMY_SERVICE`; Bazaar/Auction web routes read D1 snapshots and never call
 Hypixel. The private economy Workers expose no `workers.dev` or preview URL. The
 older signed gateway remains rollback code only.
+
+Both official username resolvers currently fail from native Cloudflare Worker
+egress. Source therefore includes a conditional [PlayerDB API](https://playerdb.co/)
+fallback after transport/access failures only; it never bypasses an authoritative
+official not-found response. SkyPilot's fixed HTTPS request explicitly contains
+the normalized requested username and identifying service `User-Agent`, as
+PlayerDB requests. Application code does not copy browser cookies,
+authentication, profile selectors, or the Hypixel key. [Cloudflare documents](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip)
+that it may add network headers to Worker subrequests; depending on destination
+routing those headers can contain the visitor IP. Do not rely on PlayerDB remaining
+Cloudflare-proxied as an IP-redaction control. Revalidate routing/header behavior
+before activation and keep the public privacy disclosure conservative. The
+response must have PlayerDB's expected
+success code, a case-insensitive exact username match, and a valid Java UUID;
+the UUID and display name must then match Hypixel's authenticated player response. Invalid or
+mismatched data fails closed.
 
 ## Authentication and authorization
 
@@ -52,6 +72,16 @@ bodies. Origin checks are not a replacement for verified identity.
 ## Data and privacy
 
 - Player lookup is request-driven; saved data must not start profile polling or session history.
+- When the conditional PlayerDB fallback is used, PlayerDB receives the requested
+  Minecraft username, SkyPilot's identifying user agent, and ordinary
+  server-request metadata. Cloudflare-added network headers may include a
+  visitor IP depending on destination routing. SkyPilot retains only the
+  normalized latest username/UUID mapping under the existing identity-cache TTL;
+  it stores no PlayerDB avatar, metadata, raw response, or lookup history. Review
+  the [PlayerDB API](https://playerdb.co/) and [Nodecraft privacy policy](https://nodecraft.com/legal/privacy-policy)
+  before activation. Focused tests and the public `/privacy` disclosure pass;
+  staging verification is still required, so the fallback is not yet claimed
+  deployed live.
 - Canonical users are independent of auth-provider IDs.
 - Demo data is explicitly labeled and never silently substituted for live production data.
 - Analytics and error context must be minimal and redacted; raw prompts and unnecessary personal data do not belong in telemetry.
@@ -66,6 +96,9 @@ These are release blockers or scale limitations, not hidden assurances:
   per-location abuse filters, the shared dedicated D1 credential budget still needs
   production load/capacity monitoring, Hypixel response-header backoff is per
   isolate, and AI throttling remains in-memory per runtime;
+- the PlayerDB username fallback and public privacy disclosure pass focused
+  tests, but staging egress smoke and production monitoring/incident validation
+  remain incomplete;
 - no production database migration, backup/retention policy, economy schedule,
   alerting, or remote observability verification has been activated;
 - the mutation origin guard still needs deployment-specific proxy/origin

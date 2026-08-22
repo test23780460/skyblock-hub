@@ -24,10 +24,11 @@
 
 ## Current migration-branch evidence
 
-The exact-head 2026-08-21 suite contains **196 tests**: 40 engine, 16 service,
-106 provider/security, and 34 rendered/configuration/legal. The focused
-provider/security suite passes 105/105, including the shared dedicated D1
-provider budget, Mojang/Hypixel admission split, private economy service
+The exact-head 2026-08-22 suite contains **203 tests**: 40 engine, 16 service,
+113 provider/security, and 34 rendered/configuration/legal. The focused
+provider/security suite passes 113/113, including the shared dedicated D1
+provider budget, Minecraft/Mojang/PlayerDB/Hypixel admission split, strict
+PlayerDB response and final Hypixel UUID/display-name validation, private economy service
 boundary, `ECONOMY_SERVICE` routing, public-host disablement, and separate
 Wrangler configuration.
 
@@ -51,6 +52,12 @@ The current evidence must be read narrowly:
   cache;
 - no exact-head remote web/economy deployment or deployed service-binding smoke
   is inferred until those commands and URLs/version IDs are recorded.
+- focused tests prove official transport/access fallback,
+  official-not-found short-circuiting, bounded PlayerDB
+  schema/username/UUID validation, final Hypixel UUID/display-name matching, no
+  Hypixel-budget spend for identity-only traffic, cache behavior, and
+  privacy-safe request fields. Staging must still prove the real Cloudflare
+  egress path and operational `429`/`Retry-After` behavior before activation.
 
 The historical commit `3b4064d` and GitHub Actions run
 [`31775265691`](https://github.com/test23780460/skyblock-hub/actions/runs/31775265691)

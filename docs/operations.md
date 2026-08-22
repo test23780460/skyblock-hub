@@ -60,7 +60,13 @@ invalidate broad cache prefixes.
 Native player/Minecraft values use environment-isolated Workers KV plus a
 bounded per-isolate L0 cache. There is no cross-request I/O Promise single-flight
 map. `PLAYER_ACTOR_LIMITER` is a route-bound coarse per-location abuse filter.
-Mojang identity calls do not spend Hypixel quota. Only when a cache miss reaches
+Minecraft/PlayerDB identity calls do not spend Hypixel quota. Username
+resolution tries both official services first. Only their bounded
+transport/access failures may reach PlayerDB; an authoritative not-found result
+does not. SkyPilot application code supplies only the normalized username plus
+its identifying service user agent; Cloudflare may add network headers,
+including visitor-IP metadata depending on routing. SkyPilot caches only the strictly validated
+latest username/UUID mapping. Only when a cache miss reaches
 an authenticated Hypixel transport does SkyPilot perform one coarse
 `PLAYER_GLOBAL_LIMITER` check and one atomic two-token reservation in the shared
 `PROVIDER_BUDGET_DB`. Budget-storage failure fails closed. Hypixel
@@ -73,6 +79,14 @@ across staging and production. Monitor D1 admission failures,
 the configured reservation capacity, the approved Hypixel allocation, response
 headers, and multi-region cold-miss volume. Keep `ENABLE_PLAYER_LOOKUP=false` for
 public traffic until staging load evidence and alerting validate those settings.
+
+The PlayerDB path and public privacy disclosure pass focused tests, but the path
+remains activation-only until staging egress smoke passes. Monitor
+only aggregate resolver outcome/error/latency counts; never log usernames, UUIDs,
+raw PlayerDB responses, client addresses, or the identifying request URL. A
+PlayerDB failure must use stale validated identity cache where allowed or return
+the direct-UUID recovery action. It must not trigger polling, batch resolution,
+alternate proxy rotation, or tight retries. Honor `429` and `Retry-After`.
 
 The separate signed player gateway/browser capability is not part of the native
 runtime. Operate it only if deliberately rolling back to the historical
@@ -126,6 +140,17 @@ during activation.
 3. Confirm no other deployment/key path bypasses the intended budget.
 4. Inspect endpoint/cold-miss volume and reduce exposure/cadence.
 5. Never add keys or proxies to evade a limit.
+
+### Username resolver unavailable or invalid
+
+1. Keep lookup user-triggered; do not schedule, batch, or monitor players.
+2. Confirm official resolver failures are transport/access failures rather than
+   authoritative not-found responses.
+3. Disable or bypass the PlayerDB fallback if schema, username, UUID, privacy,
+   or rate-limit behavior is unexpected; direct Java UUID input remains safe.
+4. Verify the authenticated Hypixel player UUID and display name both agree with
+   the resolved identity before returning analysis. Never accept PlayerDB avatar,
+   metadata, or raw payload as product data.
 
 ### Stale or inconsistent economy data
 
